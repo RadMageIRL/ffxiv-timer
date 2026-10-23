@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A RadMage Labs link in the tagline under the FFXIV Timer name, back to radmagelabs.com.
 - Weather forecasts for 25 more zones, finishing A Realm Reborn and Heavensward: Ul'dah (both
   steps), Gridania (old and new), the five Thanalan and four Black Shroud field zones, Coerthas
   Central Highlands, Mor Dhona, Wolves' Den Pier, Ishgard (Foundation and The Pillars),
