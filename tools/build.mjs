@@ -84,12 +84,33 @@ export function build(name, { outRoot = ROOT } = {}) {
 
   const bases = basePaths(t);
   const canonical = TARGETS.canonical === 'self' ? t.urls[0] : TARGETS.canonical;
+  // Link previews and search results reuse the page's own description, so the two never drift.
+  const description = (html.match(/<meta name="description" content="([^"&<]*)">/) || [])[1];
+  if (!description) throw new Error('index.html needs a plain <meta name="description">');
+  const title = 'FFXIV Timer: Weather Forecasts, Timed Gathering Nodes & Eorzea Clock';
+  const image = 'https://radmagelabs.com/assets/og/ffxiv-timer.png';
+  const app = {
+    '@context': 'https://schema.org', '@type': 'WebApplication', name: 'FFXIV Timer', url: canonical, description,
+    applicationCategory: 'UtilitiesApplication', operatingSystem: 'Any (runs in a web browser)', isAccessibleForFree: true,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    screenshot: image,
+    about: { '@type': 'VideoGame', name: 'Final Fantasy XIV' },
+    author: { '@type': 'Person', name: 'RadMageIRL', url: 'https://github.com/RadMageIRL' },
+    sameAs: 'https://github.com/RadMageIRL/ffxiv-timer',
+  };
   const meta = [
     `<link rel="canonical" href="${escapeAttr(canonical)}">`,
     '<meta property="og:type" content="website">',
-    '<meta property="og:title" content="FFXIV Timer">',
-    '<meta property="og:description" content="Eorzea time, weather forecasts and weather transitions for FINAL FANTASY XIV.">',
+    '<meta property="og:site_name" content="RadMage Labs">',
+    `<meta property="og:title" content="${escapeAttr(title)}">`,
+    `<meta property="og:description" content="${description}">`,
     `<meta property="og:url" content="${escapeAttr(canonical)}">`,
+    `<meta property="og:image" content="${image}">`,
+    '<meta property="og:image:width" content="1200">',
+    '<meta property="og:image:height" content="630">',
+    '<meta property="og:image:alt" content="FFXIV Timer: Eorzea time with the day bar and countdowns, weather now in starred zones, and upcoming weather changes">',
+    '<meta name="twitter:card" content="summary_large_image">',
+    `<script type="application/ld+json">${JSON.stringify(app).replace(/</g, '\\u003c')}</script>`,
     `<meta name="ffxiv-timer-build" content="${escapeAttr(`${name} ${bases.join(' ')}`)}">`,
   ].join('\n  ');
   if (!html.includes('<!-- deploy:meta -->')) throw new Error('index.html lost its <!-- deploy:meta --> marker');

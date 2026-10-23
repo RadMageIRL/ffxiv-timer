@@ -579,6 +579,12 @@ test('index.html loads files that exist, engines before the page script', () => 
   assert.ok(order.indexOf('js/eorzea.js') < order.indexOf('js/weather.js') && order.indexOf('js/weather.js') < order.indexOf('js/app.js'));
   assert.equal(order[order.length - 1], 'js/app.js');
 });
+test('the page description counts the zones and nodes the site has', () => {
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  const description = html.match(/<meta name="description" content="([^"]*)">/)[1];
+  assert.match(description, new RegExp(`\\b${DATA.zones.length} zones\\b`));
+  assert.match(description, new RegExp(`\\ball ${GDATA.nodes.length} unspoiled and legendary\\b`));
+});
 test('builds for GitHub Pages and RadMage Labs put the app at their base paths', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'ffxiv-timer-build-'));
   try {
@@ -591,6 +597,9 @@ test('builds for GitHub Pages and RadMage Labs put the app at their base paths',
       const html = readFileSync(join(b.appDir, 'index.html'), 'utf8');
       assert.match(html, new RegExp(`<link rel="canonical" href="${TARGETS.canonical.replace(/[./]/g, '\\$&')}">`));
       assert.doesNotMatch(html, /deploy:meta/);
+      const app = JSON.parse(html.match(/<script type="application\/ld\+json">([^<]*)<\/script>/)[1]);
+      assert.equal(app.url, TARGETS.canonical);
+      assert.equal(app.description, html.match(/<meta property="og:description" content="([^"]*)">/)[1]);
       for (const r of localRefs(html)) assert.ok(existsSync(join(b.appDir, r)), `${b.name}: ${r}`);
       assert.match(html, /src="js\/app\.js\?v=[0-9a-f]{10}"/);
       const notFound = readFileSync(join(b.appDir, '404.html'), 'utf8');

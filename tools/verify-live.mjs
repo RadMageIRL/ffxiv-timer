@@ -14,15 +14,19 @@
 // This checks the deployed copy against the reference engines in this repo. It says nothing
 // about whether the game agrees; that is in-game validation, which is separate.
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { launchChrome } from '../tests/lib/cdp.mjs';
-import { TARGETS } from './build.mjs';
+import { ROOT, TARGETS } from './build.mjs';
 
 const require = createRequire(import.meta.url);
 const E = require('../js/eorzea.js'), W = require('../js/weather.js'), G = require('../js/gathering.js');
 const WD = require('../js/weather-data.js'), NODES = require('../js/gathering-data.js').nodes;
 const URLS = TARGETS.targets.pages.urls;
 const LABS_HOME = 'https://radmagelabs.com/';
+// The deployed page carries this checkout's title.
+const TITLE = readFileSync(join(ROOT, 'index.html'), 'utf8').match(/<title>([^<]*)<\/title>/)[1].replace(/&amp;/g, '&');
 const READY = "/^\\d\\d:\\d\\d$/.test(document.getElementById('et-time').textContent) && document.querySelectorAll('#zone-list .zone-row').length > 0 && document.querySelectorAll('#node-list .node-row').length > 0";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -61,7 +65,7 @@ try {
       assert.equal(await page.eval("document.querySelector('link[rel=canonical]').href"), TARGETS.canonical);
       const scripts = await page.eval("[...document.scripts].filter(s => s.src).map(s => s.src)");
       assert.ok(scripts.length >= 9 && scripts.every((s) => /\?v=[0-9a-f]{10}$/.test(s) && new URL(s).pathname.startsWith(base)), JSON.stringify(scripts));
-      assert.equal(await page.eval('document.title'), 'FFXIV Timer');
+      assert.equal(await page.eval('document.title'), TITLE);
       // The deployed copy is this checkout's: same zones and nodes (All nodes lists every one).
       await page.eval("document.querySelector('[data-node-view=\"all\"]')?.click()");
       assert.equal(await page.eval("document.querySelectorAll('#node-list .node-row').length"), NODES.length, 'deployed node count');
@@ -146,7 +150,7 @@ try {
     const target = await page.eval("[...document.querySelectorAll('a[href]')].find(a => /\\/ffxiv\\/?$/.test(new URL(a.href).pathname)).target");
     if (target === '_blank') await page.goto(links[0]);
     else await page.eval("[...document.querySelectorAll('a[href]')].find(a => /\\/ffxiv\\/?$/.test(new URL(a.href).pathname)).click()");
-    await page.waitFor(`location.href === ${JSON.stringify(URLS.find((u) => u.startsWith('https://radmagelabs.com')))} && document.title === 'FFXIV Timer'`, 20000);
+    await page.waitFor(`location.href === ${JSON.stringify(URLS.find((u) => u.startsWith('https://radmagelabs.com')))} && document.title === ${JSON.stringify(TITLE)}`, 20000);
     await page.waitFor(READY, 20000);
     console.log(`     homepage links: ${links.join(', ')}`);
   });

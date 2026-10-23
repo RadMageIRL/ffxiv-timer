@@ -13,6 +13,8 @@
 - On phones the gathering chips are smaller and wrap, so the filters take less room.
 - README: the duplicated gathering sentence is gone.
 - A RadMage Labs link in the tagline under the FFXIV Timer name, back to radmagelabs.com.
+- Search results and link previews: the page title and description now name the weather
+  forecasts and timed gathering, and shared links show a preview image.
 - Weather forecasts for 25 more zones, finishing A Realm Reborn and Heavensward: Ul'dah (both
   steps), Gridania (old and new), the five Thanalan and four Black Shroud field zones, Coerthas
   Central Highlands, Mor Dhona, Wolves' Den Pier, Ishgard (Foundation and The Pillars),
