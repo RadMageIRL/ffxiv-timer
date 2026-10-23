@@ -6,6 +6,14 @@
   steps), Gridania (old and new), the five Thanalan and four Black Shroud field zones, Coerthas
   Central Highlands, Mor Dhona, Wolves' Den Pier, Ishgard (Foundation and The Pillars),
   Idyllshire and the six Heavensward field zones. 45 zones in all.
+- Weather forecasts for 25 more zones, Stormblood through Endwalker: Kugane, Rhalgr's Reach,
+  the Doman Enclave and the six Stormblood field zones; the Crystarium, Eulmore and the six
+  Norvrandt field zones; Old Sharlayan, Radz-at-Han and the six Endwalker field zones. 70 zones
+  in all: every city and field zone from A Realm Reborn through Dawntrail, plus Eureka.
+- Weather now keeps starred zones on top and groups the rest by expansion in sections that open
+  and close (and stay that way). The area filter, the zone pickers and the About list are grouped
+  by expansion too.
+- About explains that story versions of a zone can have their own weather.
 - README screenshot, taken by `node tools/screenshot.mjs` at a fixed moment.
 
 ## Milestone 1

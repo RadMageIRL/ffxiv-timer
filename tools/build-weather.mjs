@@ -65,9 +65,11 @@ export function buildWeatherData(tables, supported) {
   const notSupported = [...unsupported.values()].sort((a, b) => a.name.localeCompare(b.name));
 
   const weathers = Object.fromEntries([...used].sort((a, b) => a - b).map((w) => [w, weatherName.get(w)]));
+  // Expansion names in release order (ExVersion row order), for grouping zones on the page.
+  const expansions = [...tables.ExVersion].sort((a, b) => Number(a['#']) - Number(b['#'])).map((r) => r.Name).filter(Boolean);
   return {
     source: { dataset: DATASET.repo, commit: DATASET.commit, patch: DATASET.patch, language: DATASET.language },
-    weathers, zones, unsupported: notSupported,
+    expansions, weathers, zones, unsupported: notSupported,
   };
 }
 
@@ -81,6 +83,7 @@ export function renderModule(data) {
     '  \'use strict\';',
     '  const data = {',
     `    source: ${JSON.stringify(data.source)},`,
+    `    expansions: ${JSON.stringify(data.expansions)},`,
     `    weathers: ${JSON.stringify(data.weathers)},`,
     '    zones: [',
     ...data.zones.map((z) => `      ${JSON.stringify(z)},`),

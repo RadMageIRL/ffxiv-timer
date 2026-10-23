@@ -5,7 +5,7 @@
 // The GitHub Pages build in headless Chrome, a fresh profile (so the default starred zones),
 // 1440 wide, en-US in the Europe/London time zone, with the clock started at a fixed moment so the
 // image can be taken again exactly: ET 12:05 on the 17th Sun of the 4th Umbral Moon, Rain in
-// Middle La Noscea, Snow in Urqopacha, Blizzards in Eureka Pagos. Cropped below the fifth zone.
+// Middle La Noscea, Snow in Urqopacha, Blizzards in Eureka Pagos. Cropped below Weather now.
 // Retake it whenever the dashboard's look changes.
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,7 +29,7 @@ try {
   await new Promise((r) => setTimeout(r, 500));
   mkdirSync(join(ROOT, 'screenshots'), { recursive: true });
   const out = join(ROOT, 'screenshots', 'ffxiv-timer.png');
-  const bottom = await page.eval("Math.ceil(document.querySelectorAll('#zone-list .zone-row')[4].getBoundingClientRect().bottom) + 14");
+  const bottom = await page.eval("Math.ceil(document.getElementById('now').getBoundingClientRect().bottom) + 20");
   await page.screenshot(out, { height: bottom });
   console.log(`wrote ${out}`);
 } finally {

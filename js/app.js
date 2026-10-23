@@ -10,7 +10,8 @@
   const ZONES = DATA.zones;
   const BY_KEY = new Map(ZONES.map((z) => [z.key, z]));
   const UNSUPPORTED = new Map(DATA.unsupported.map((z) => [z.key, z]));
-  const REGIONS = [...new Set(ZONES.map((z) => z.region))];
+  const EXPANSIONS = DATA.expansions.filter((x) => ZONES.some((z) => z.expansion === x));
+  const regionsOf = (x) => [...new Set(ZONES.filter((z) => z.expansion === x).map((z) => z.region))];
   const slug = Format.slug, fmtCountdown = Format.countdown;
   const WEATHER_BY_SLUG = new Map(Object.entries(DATA.weathers).map(([id, name]) => [slug(name), Number(id)]));
   const wxName = (id) => DATA.weathers[id];
@@ -24,7 +25,8 @@
   const state = {
     favorites: new Set((Store.read('favorites', DEFAULT_FAVORITES) || []).filter(knownZone)),
     hour12: Store.read('hour12', null),
-    search: '', region: '', favOnly: false,
+    search: '', area: '', favOnly: false,
+    openGroups: new Set((Store.read('openGroups', []) || []).filter((x) => EXPANSIONS.includes(x))),
     forecastZone: Store.read('forecastZone', 'middle-la-noscea'),
     forecastCount: 12,
     finder: Object.assign({ zone: 'eureka-pagos', prev: [], to: [15], bells: [] }, Store.read('finder', {})),
@@ -122,22 +124,40 @@
     if (`${z.name} ${z.region} ${z.expansion}`.toLowerCase().includes(q)) return true;
     return wxName(W.weatherAt(z, now)).toLowerCase().includes(q);
   }
+  // The area filter is "x:<expansion>" or "r:<region>".
+  const inArea = (z) => !state.area || (state.area.startsWith('x:') ? z.expansion === state.area.slice(2) : z.region === state.area.slice(2));
+  // Unfiltered, starred zones come first and every other zone sits in a collapsible group per
+  // expansion (open groups are remembered). Searching or filtering shows a flat list instead.
   function renderZones(now) {
     const list = $('zone-list'), q = state.search.trim().toLowerCase();
-    const shown = ZONES.filter((z) => (!state.region || z.region === state.region) && (!state.favOnly || state.favorites.has(z.key)) && zoneMatches(z, q, now));
-    shown.sort((a, b) => state.favorites.has(b.key) - state.favorites.has(a.key));
-    const rows = shown.map((z) => zoneRow(z, now));
-    const missing = q && !state.region && !state.favOnly
+    const filtering = Boolean(q || state.area || state.favOnly);
+    const shown = ZONES.filter((z) => inArea(z) && (!state.favOnly || state.favorites.has(z.key)) && zoneMatches(z, q, now));
+    const starred = shown.filter((z) => state.favorites.has(z.key)), rest = shown.filter((z) => !state.favorites.has(z.key));
+    const items = [];
+    if (filtering) {
+      items.push(...starred.concat(rest).map((z) => zoneRow(z, now)));
+    } else {
+      if (starred.length) items.push(el('li', { class: 'zone-heading' }, 'Starred'), ...starred.map((z) => zoneRow(z, now)));
+      for (const x of EXPANSIONS) {
+        const zones = rest.filter((z) => z.expansion === x);
+        if (!zones.length) continue;
+        items.push(el('li', { class: 'zone-group' },
+          el('details', { open: state.openGroups.has(x), 'data-group': x },
+            el('summary', null, el('span', null, x), el('span', { class: 'muted' }, `${zones.length} zone${zones.length === 1 ? '' : 's'}`)),
+            el('ul', { class: 'zone-list' }, zones.map((z) => zoneRow(z, now))))));
+      }
+    }
+    const missing = q && !state.area && !state.favOnly
       ? DATA.unsupported.filter((u) => u.name.toLowerCase().includes(q)) : [];
     for (const u of missing) {
-      rows.push(el('li', { class: 'zone-row unsupported' },
+      items.push(el('li', { class: 'zone-row unsupported' },
         el('span', { class: 'zone-title' }, u.name),
         el('span', { class: 'muted' }, 'No forecast yet: this zone has not been verified for FFXIV Timer.')));
     }
-    list.replaceChildren(...rows);
+    list.replaceChildren(...items);
     const empty = $('zone-empty');
-    empty.hidden = rows.length > 0;
-    if (!rows.length) empty.textContent = state.favOnly ? 'No starred zones match. Star a zone to pin it here.' : 'No zone matches that search.';
+    empty.hidden = items.length > 0;
+    if (!items.length) empty.textContent = state.favOnly ? 'No starred zones match. Star a zone to pin it here.' : 'No zone matches that search.';
   }
   function zoneRow(z, now) {
     const fav = state.favorites.has(z.key);
@@ -183,7 +203,7 @@
 
   // ---- forecast ----
   function zoneOptions(select, selected) {
-    const groups = REGIONS.map((r) => el('optgroup', { label: r }, ZONES.filter((z) => z.region === r).map((z) => el('option', { value: z.key }, z.name))));
+    const groups = EXPANSIONS.map((x) => el('optgroup', { label: x }, ZONES.filter((z) => z.expansion === x).map((z) => el('option', { value: z.key }, z.name))));
     select.replaceChildren(el('option', { value: '', disabled: true }, 'Choose a zone'), ...groups);
     select.value = BY_KEY.has(selected) ? selected : '';
   }
@@ -268,14 +288,15 @@
   // ---- about ----
   function renderAbout() {
     const src = DATA.source;
-    const zonesByRegion = REGIONS.map((r) => `${r}: ${ZONES.filter((z) => z.region === r).map((z) => z.name).join(', ')}`);
+    const zonesByExpansion = EXPANSIONS.map((x) => `${x}: ${ZONES.filter((z) => z.expansion === x).map((z) => z.name).join(', ')}`);
     $('about-body').replaceChildren(
       el('p', null, 'Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. Free, no account, nothing to install, and nothing leaves your browser.'),
       el('h3', null, 'How the forecast works'),
       el('p', null, 'Weather in FFXIV is not random per player. Every eight bells (00:00, 08:00 and 16:00 ET, which is every 23 minutes 20 seconds) the game turns the current time into a number from 0 to 99 and looks it up in the zone\'s weather table. FFXIV Timer runs the same calculation on the same tables, so a forecast is the weather the game will choose, not an estimate.'),
       el('p', null, 'One bell (Eorzean hour) is 2 minutes 55 seconds and one sun (day) is 70 minutes. The game shows only the time; the date shown here counts suns and moons from the same starting point the weather uses.'),
+      el('p', null, "Story scenes and quest versions of a zone can have weather of their own (the game has Everlasting Light tables for the Shadowbringers story versions of Lakeland, Kholusia, Amh Araeng and Eulmore, for example). Forecasts here are each open zone's normal weather."),
       el('h3', null, `Zones with forecasts (${ZONES.length})`),
-      el('ul', { class: 'about-list' }, zonesByRegion.map((t) => el('li', null, t))),
+      el('ul', { class: 'about-list' }, zonesByExpansion.map((t) => el('li', null, t))),
       el('p', null, `${DATA.unsupported.length} other cities, field zones and areas have weather in the game but no forecast here yet. More are added only after their tables are verified.`),
       el('h3', null, 'Sources and checks'),
       el('p', null, `Weather tables come from the game data for patch ${src.patch}, as exported by the ${src.dataset} project (commit ${src.commit.slice(0, 10)}), and each one was checked against a second extraction from XIVAPI. The weather calculation was checked against two independent implementations over tens of thousands of times.`),
@@ -309,7 +330,9 @@
   function init() {
     readHash();
     const region = $('region-filter');
-    region.append(...REGIONS.map((r) => el('option', { value: r }, r)));
+    region.append(...EXPANSIONS.map((x) => el('optgroup', { label: x },
+      el('option', { value: `x:${x}` }, `All of ${x}`),
+      regionsOf(x).map((r) => el('option', { value: `r:${r}` }, r)))));
     zoneOptions($('forecast-zone'), state.forecastZone);
     zoneOptions($('finder-zone'), state.finder.zone);
     setText($('data-patch'), DATA.source.patch);
@@ -318,7 +341,14 @@
     writeHash();
 
     $('zone-search').addEventListener('input', (e) => { state.search = e.target.value; renderZones(Date.now()); updateCountdowns(Date.now()); });
-    region.addEventListener('change', (e) => { state.region = e.target.value; renderZones(Date.now()); updateCountdowns(Date.now()); });
+    region.addEventListener('change', (e) => { state.area = e.target.value; renderZones(Date.now()); updateCountdowns(Date.now()); });
+    // toggle does not bubble, so listen in the capture phase.
+    $('zone-list').addEventListener('toggle', (e) => {
+      const group = e.target.dataset && e.target.dataset.group;
+      if (!group) return;
+      if (e.target.open) state.openGroups.add(group); else state.openGroups.delete(group);
+      Store.write('openGroups', [...state.openGroups]);
+    }, true);
     $('fav-only').addEventListener('click', (e) => {
       state.favOnly = !state.favOnly;
       e.currentTarget.setAttribute('aria-pressed', String(state.favOnly));

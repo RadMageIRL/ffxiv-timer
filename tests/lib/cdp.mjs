@@ -140,9 +140,10 @@ async function makePage(conn, sessionId) {
     },
     // fullPage: true for the whole page, or { height } for the top of the page down to that y.
     async screenshot(file, fullPage = false) {
-      const params = { format: 'png', captureBeyondViewport: fullPage === true };
+      const params = { format: 'png', captureBeyondViewport: Boolean(fullPage) };
       if (fullPage) {
-        const w = await page.eval('document.documentElement.clientWidth');
+        // Capturing beyond the viewport drops the scrollbar, so the page lays out at full width.
+        const w = await page.eval('innerWidth');
         const h = fullPage === true ? await page.eval('document.documentElement.scrollHeight') : fullPage.height;
         params.clip = { x: 0, y: 0, width: w, height: h, scale: 1 };
       }

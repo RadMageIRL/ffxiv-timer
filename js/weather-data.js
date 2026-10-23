@@ -6,7 +6,8 @@
   'use strict';
   const data = {
     source: {"dataset":"xivapi/ffxiv-datamining","commit":"44948e4cda5846eab0baa9872122a888fcc4f1b1","patch":"7.57h1","language":"en"},
-    weathers: {"1":"Clear Skies","2":"Fair Skies","3":"Clouds","4":"Fog","5":"Wind","6":"Gales","7":"Rain","8":"Showers","9":"Thunder","10":"Thunderstorms","11":"Dust Storms","14":"Heat Waves","15":"Snow","16":"Blizzards","17":"Gloom","49":"Umbral Wind","50":"Umbral Static"},
+    expansions: ["A Realm Reborn","Heavensward","Stormblood","Shadowbringers","Endwalker","Dawntrail"],
+    weathers: {"1":"Clear Skies","2":"Fair Skies","3":"Clouds","4":"Fog","5":"Wind","6":"Gales","7":"Rain","8":"Showers","9":"Thunder","10":"Thunderstorms","11":"Dust Storms","14":"Heat Waves","15":"Snow","16":"Blizzards","17":"Gloom","49":"Umbral Wind","50":"Umbral Static","148":"Moon Dust","149":"Astromagnetic Storms"},
     zones: [
       {"key":"limsa-lominsa-upper-decks","name":"Limsa Lominsa Upper Decks","territory":128,"region":"La Noscea","expansion":"A Realm Reborn","weatherRate":14,"rates":[[3,20],[1,30],[2,30],[4,10],[7,10]]},
       {"key":"limsa-lominsa-lower-decks","name":"Limsa Lominsa Lower Decks","territory":129,"region":"La Noscea","expansion":"A Realm Reborn","weatherRate":15,"rates":[[3,20],[1,30],[2,30],[4,10],[7,10]]},
@@ -41,6 +42,31 @@
       {"key":"foundation","name":"Foundation","territory":418,"region":"Coerthas","expansion":"Heavensward","weatherRate":47,"rates":[[15,60],[2,10],[1,5],[3,15],[4,10]]},
       {"key":"the-pillars","name":"The Pillars","territory":419,"region":"Coerthas","expansion":"Heavensward","weatherRate":48,"rates":[[15,60],[2,10],[1,5],[3,15],[4,10]]},
       {"key":"idyllshire","name":"Idyllshire","territory":478,"region":"Dravania","expansion":"Heavensward","weatherRate":55,"rates":[[3,10],[4,10],[7,10],[8,10],[1,30],[2,30]]},
+      {"key":"kugane","name":"Kugane","territory":628,"region":"Hingashi","expansion":"Stormblood","weatherRate":82,"rates":[[7,10],[4,10],[3,20],[2,40],[1,20]]},
+      {"key":"rhalgrs-reach","name":"Rhalgr's Reach","territory":635,"region":"Gyr Abania","expansion":"Stormblood","weatherRate":78,"rates":[[1,15],[2,45],[3,20],[4,10],[9,10]]},
+      {"key":"the-doman-enclave","name":"The Doman Enclave","territory":759,"region":"Othard","expansion":"Stormblood","weatherRate":84,"rates":[[8,5],[7,10],[4,10],[3,15],[2,40],[1,20]]},
+      {"key":"the-fringes","name":"The Fringes","territory":612,"region":"Gyr Abania","expansion":"Stormblood","weatherRate":79,"rates":[[1,15],[2,45],[3,20],[4,10],[9,10]]},
+      {"key":"the-peaks","name":"The Peaks","territory":620,"region":"Gyr Abania","expansion":"Stormblood","weatherRate":80,"rates":[[1,10],[2,50],[3,15],[4,10],[5,10],[11,5]]},
+      {"key":"the-lochs","name":"The Lochs","territory":621,"region":"Gyr Abania","expansion":"Stormblood","weatherRate":81,"rates":[[1,20],[2,40],[3,20],[4,10],[10,10]]},
+      {"key":"the-ruby-sea","name":"The Ruby Sea","territory":613,"region":"Othard","expansion":"Stormblood","weatherRate":83,"rates":[[9,10],[5,10],[3,15],[2,40],[1,25]]},
+      {"key":"yanxia","name":"Yanxia","territory":614,"region":"Othard","expansion":"Stormblood","weatherRate":84,"rates":[[8,5],[7,10],[4,10],[3,15],[2,40],[1,20]]},
+      {"key":"the-azim-steppe","name":"The Azim Steppe","territory":622,"region":"Othard","expansion":"Stormblood","weatherRate":85,"rates":[[6,5],[5,5],[7,7],[4,8],[3,10],[2,40],[1,25]]},
+      {"key":"the-crystarium","name":"The Crystarium","territory":819,"region":"Norvrandt","expansion":"Shadowbringers","weatherRate":112,"rates":[[1,20],[2,40],[3,15],[4,10],[7,10],[10,5]]},
+      {"key":"eulmore","name":"Eulmore","territory":820,"region":"Norvrandt","expansion":"Shadowbringers","weatherRate":113,"rates":[[6,10],[7,10],[4,10],[3,15],[2,40],[1,15]]},
+      {"key":"lakeland","name":"Lakeland","territory":813,"region":"Norvrandt","expansion":"Shadowbringers","weatherRate":106,"rates":[[1,20],[2,40],[3,15],[4,10],[7,10],[10,5]]},
+      {"key":"kholusia","name":"Kholusia","territory":814,"region":"Norvrandt","expansion":"Shadowbringers","weatherRate":107,"rates":[[6,10],[7,10],[4,10],[3,15],[2,40],[1,15]]},
+      {"key":"amh-araeng","name":"Amh Araeng","territory":815,"region":"Norvrandt","expansion":"Shadowbringers","weatherRate":108,"rates":[[2,45],[3,15],[11,10],[14,10],[1,20]]},
+      {"key":"il-mheg","name":"Il Mheg","territory":816,"region":"Norvrandt","expansion":"Shadowbringers","weatherRate":109,"rates":[[7,10],[4,10],[3,15],[10,10],[1,15],[2,40]]},
+      {"key":"the-raktika-greatwood","name":"The Rak'tika Greatwood","territory":817,"region":"Norvrandt","expansion":"Shadowbringers","weatherRate":110,"rates":[[4,10],[7,10],[49,10],[1,15],[2,40],[3,15]]},
+      {"key":"the-tempest","name":"The Tempest","territory":818,"region":"Norvrandt","expansion":"Shadowbringers","weatherRate":111,"rates":[[3,20],[2,60],[1,20]]},
+      {"key":"old-sharlayan","name":"Old Sharlayan","territory":962,"region":"The Northern Empty","expansion":"Endwalker","weatherRate":137,"rates":[[1,10],[2,40],[3,20],[4,15],[15,15]]},
+      {"key":"radz-at-han","name":"Radz-at-Han","territory":963,"region":"Ilsabard","expansion":"Endwalker","weatherRate":138,"rates":[[4,10],[7,15],[1,15],[2,40],[3,20]]},
+      {"key":"labyrinthos","name":"Labyrinthos","territory":956,"region":"The Northern Empty","expansion":"Endwalker","weatherRate":131,"rates":[[1,15],[2,45],[3,25],[7,15]]},
+      {"key":"thavnair","name":"Thavnair","territory":957,"region":"Ilsabard","expansion":"Endwalker","weatherRate":132,"rates":[[4,10],[7,10],[8,5],[1,15],[2,40],[3,20]]},
+      {"key":"garlemald","name":"Garlemald","territory":958,"region":"Ilsabard","expansion":"Endwalker","weatherRate":133,"rates":[[15,45],[9,5],[7,5],[4,5],[3,25],[2,10],[1,5]]},
+      {"key":"mare-lamentorum","name":"Mare Lamentorum","territory":959,"region":"The Sea of Stars","expansion":"Endwalker","weatherRate":135,"rates":[[49,15],[148,15],[2,70]]},
+      {"key":"ultima-thule","name":"Ultima Thule","territory":960,"region":"The Sea of Stars","expansion":"Endwalker","weatherRate":136,"rates":[[149,15],[2,70],[49,15]]},
+      {"key":"elpis","name":"Elpis","territory":961,"region":"The World Unsundered","expansion":"Endwalker","weatherRate":134,"rates":[[3,25],[49,15],[2,45],[1,15]]},
       {"key":"tuliyollal","name":"Tuliyollal","territory":1185,"region":"Yok Tural","expansion":"Dawntrail","weatherRate":159,"rates":[[1,40],[2,40],[3,5],[4,10],[7,5]]},
       {"key":"solution-nine","name":"Solution Nine","territory":1186,"region":"Xak Tural","expansion":"Dawntrail","weatherRate":163,"rates":[[2,100]]},
       {"key":"urqopacha","name":"Urqopacha","territory":1187,"region":"Yok Tural","expansion":"Dawntrail","weatherRate":160,"rates":[[1,20],[2,30],[3,20],[4,10],[5,10],[15,10]]},
@@ -55,7 +81,7 @@
       {"key":"eureka-hydatos","name":"Eureka Hydatos","territory":827,"region":"Eureka","expansion":"Stormblood","weatherRate":100,"rates":[[2,12],[8,22],[17,22],[10,22],[15,22]]},
     ],
     // Places that have weather in the game but no forecast here yet.
-    unsupported: [{"key":"amh-araeng","name":"Amh Araeng"},{"key":"auxesia","name":"Auxesia"},{"key":"bozjan-southern-front","name":"Bozjan Southern Front"},{"key":"elpis","name":"Elpis"},{"key":"empyreum","name":"Empyreum"},{"key":"eulmore","name":"Eulmore"},{"key":"garlemald","name":"Garlemald"},{"key":"il-mheg","name":"Il Mheg"},{"key":"kholusia","name":"Kholusia"},{"key":"kugane","name":"Kugane"},{"key":"labyrinthos","name":"Labyrinthos"},{"key":"lakeland","name":"Lakeland"},{"key":"mare-lamentorum","name":"Mare Lamentorum"},{"key":"mist","name":"Mist"},{"key":"north-horn","name":"North Horn"},{"key":"oizys","name":"Oizys"},{"key":"old-sharlayan","name":"Old Sharlayan"},{"key":"phaenna","name":"Phaenna"},{"key":"radz-at-han","name":"Radz-at-Han"},{"key":"rhalgrs-reach","name":"Rhalgr's Reach"},{"key":"shirogane","name":"Shirogane"},{"key":"sinus-ardorum","name":"Sinus Ardorum"},{"key":"south-horn","name":"South Horn"},{"key":"thavnair","name":"Thavnair"},{"key":"the-azim-steppe","name":"The Azim Steppe"},{"key":"the-crystarium","name":"The Crystarium"},{"key":"the-doman-enclave","name":"The Doman Enclave"},{"key":"the-fringes","name":"The Fringes"},{"key":"the-goblet","name":"The Goblet"},{"key":"the-lavender-beds","name":"The Lavender Beds"},{"key":"the-lochs","name":"The Lochs"},{"key":"the-peaks","name":"The Peaks"},{"key":"the-raktika-greatwood","name":"The Rak'tika Greatwood"},{"key":"the-ruby-sea","name":"The Ruby Sea"},{"key":"the-tempest","name":"The Tempest"},{"key":"ultima-thule","name":"Ultima Thule"},{"key":"unnamed-island","name":"Unnamed Island"},{"key":"yanxia","name":"Yanxia"},{"key":"zadnor","name":"Zadnor"}],
+    unsupported: [{"key":"auxesia","name":"Auxesia"},{"key":"bozjan-southern-front","name":"Bozjan Southern Front"},{"key":"empyreum","name":"Empyreum"},{"key":"mist","name":"Mist"},{"key":"north-horn","name":"North Horn"},{"key":"oizys","name":"Oizys"},{"key":"phaenna","name":"Phaenna"},{"key":"shirogane","name":"Shirogane"},{"key":"sinus-ardorum","name":"Sinus Ardorum"},{"key":"south-horn","name":"South Horn"},{"key":"the-goblet","name":"The Goblet"},{"key":"the-lavender-beds","name":"The Lavender Beds"},{"key":"unnamed-island","name":"Unnamed Island"},{"key":"zadnor","name":"Zadnor"}],
   };
   if (typeof module === 'object' && module.exports) module.exports = data;
   else root.FFXIV_WEATHER_DATA = data;

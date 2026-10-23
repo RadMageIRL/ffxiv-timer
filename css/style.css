@@ -190,6 +190,20 @@ input[type="search"]::placeholder { color: #6f7b94; }
 .zone-next li { display: inline-flex; align-items: center; gap: 6px; }
 .zone-next .at { color: var(--muted); font-size: 12px; }
 .zone-row.unsupported { grid-template-columns: 1fr; grid-template-areas: none; opacity: .85; }
+.zone-heading { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 4px 6px 4px; }
+.zone-group { border-top: 1px solid var(--line); }
+.zone-group summary {
+  display: flex; align-items: center; gap: 10px; padding: 12px 6px; cursor: pointer; font-weight: 600; list-style: none; border-radius: var(--radius-sm);
+}
+.zone-group summary::-webkit-details-marker { display: none; }
+.zone-group summary::before {
+  content: ""; width: 7px; height: 7px; margin: 0 6px 0 4px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg); transition: transform .15s;
+}
+.zone-group details[open] > summary::before { transform: rotate(45deg); }
+.zone-group summary .muted { font-weight: 400; font-size: 13px; margin-left: auto; }
+.zone-group summary:hover { background: var(--panel-2); }
+.zone-group .zone-list { padding-bottom: 6px; }
 .zone-row.unsupported .muted { font-size: 13px; }
 
 /* ---- timeline and results ---- */

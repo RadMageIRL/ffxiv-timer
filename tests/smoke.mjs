@@ -152,6 +152,24 @@ try {
     }
   });
 
+  await test('expansion groups start closed and remember being opened', async () => {
+    const page = await chrome.newPage();
+    await page.goto(`${servers.github.origin}/ffxiv-timer/`);
+    await page.waitFor(READY);
+    const groups = await page.eval("[...document.querySelectorAll('#zone-list details[data-group]')].map(d => [d.dataset.group, d.open])");
+    assert.ok(groups.length >= 5 && groups.every(([, open]) => !open), JSON.stringify(groups));
+    await page.eval("document.querySelector('#zone-list details[data-group=\"Stormblood\"] summary').click()");
+    await page.waitFor("document.querySelector('#zone-list details[data-group=\"Stormblood\"]').open");
+    await page.reload();
+    await page.waitFor(READY);
+    assert.equal(await page.eval("document.querySelector('#zone-list details[data-group=\"Stormblood\"]').open"), true);
+    assert.equal(await page.eval("document.querySelector('#zone-list details[data-group=\"Heavensward\"]').open"), false);
+    await page.eval("const s = document.getElementById('region-filter'); s.value = 'r:Othard'; s.dispatchEvent(new Event('change'))");
+    const names = await page.eval("[...document.querySelectorAll('#zone-list .zone-row .zone-title')].map(n => n.textContent)");
+    assert.deepEqual(names.sort(), ['The Azim Steppe', 'The Doman Enclave', 'The Ruby Sea', 'Yanxia']);
+    assert.deepEqual(page.problems, []);
+  });
+
   await test('the About dialog opens and lists sources', async () => {
     const page = await chrome.newPage();
     await page.viewport(1440, 1000);

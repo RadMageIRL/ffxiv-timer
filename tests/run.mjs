@@ -294,6 +294,9 @@ test('a weather a zone never has is reported impossible, not just unmatched', ()
 });
 
 // ---- base path and build ----
+test('every page script parses (app.js is only exercised by the browser tests)', () => {
+  for (const f of readdirSync(join(ROOT, 'js'))) execFileSync(process.execPath, ['--check', join(ROOT, 'js', f)], { stdio: 'pipe' });
+});
 test('the site uses no root-relative URLs (it must work under any base path)', () => {
   const files = ['index.html', 'css/style.css', ...readdirSync(join(ROOT, 'js')).map((f) => `js/${f}`)];
   for (const f of files) {
