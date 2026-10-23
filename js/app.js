@@ -32,10 +32,28 @@
     forecastCount: 12,
     finder: Object.assign({ zone: 'eureka-pagos', prev: [], to: [15], bells: [] }, Store.read('finder', {})),
     nodeFavorites: new Set((Store.read('nodeFavorites', []) || []).filter((id) => NODES.some((n) => n.id === id))),
-    nodeSearch: '', nodeFilters: new Set(),
+    nodeSearch: '',
+    gather: loadGather(),
     remindLead: Store.read('remindLead', null),
   };
   const NODE_BY_ID = new Map(NODES.map((n) => [n.id, n]));
+
+  // Gathering view and filters, saved between visits. Anything unexpected falls back to the default.
+  function loadGather() {
+    const s = Store.read('gathering', {}) || {};
+    const list = (v, allowed) => (Array.isArray(v) ? v.filter((x) => allowed.includes(x)) : []);
+    const level = (v) => (Number.isInteger(v) && v >= 1 && v <= 100 ? v : null);
+    const mine = s.myLevels || {};
+    return {
+      view: ['15', '30', 'hour', 'all'].includes(s.view) ? s.view : 'hour',
+      jobs: list(s.jobs, ['Miner', 'Botanist']),
+      kinds: list(s.kinds, ['legendary', 'unspoiled']),
+      expansions: list(s.expansions, DATA.expansions),
+      minLevel: level(s.minLevel), maxLevel: level(s.maxLevel),
+      myLevels: { Miner: level(mine.Miner), Botanist: level(mine.Botanist) },
+      hideAbove: s.hideAbove === true, up: s.up === true, starred: s.starred === true,
+    };
+  }
 
   // ---- small DOM helpers ----
   const $ = (id) => document.getElementById(id);
@@ -193,13 +211,18 @@
     for (const bell of [6, 18]) {
       for (let t = E.nextEtTime(now, bell); t <= until; t += E.SUN) events.push({ at: t, bell });
     }
-    for (const id of state.nodeFavorites) {
-      const node = NODE_BY_ID.get(id);
-      for (const w of G.windows(node, now, until)) if (w.start > now) events.push({ at: w.start, node });
-    }
+    const starred = G.starredEvents(NODES, state.nodeFavorites, now, TIMELINE_SPAN);
+    for (const s of starred.spawns) events.push({ at: s.at, node: s.node });
     events.sort((a, b) => a.at - b.at || (a.bell != null ? -1 : 1));
-    timelineNext = events.length ? events[0].at : Infinity;
-    const items = events.slice(0, TIMELINE_MAX).map((ev) => el('li', { class: `tl-item${ev.bell != null ? ' tl-sun' : ''}${ev.node ? ' tl-node' : ''}` },
+    // Redraw when the next event happens or a starred node that is up now goes down.
+    timelineNext = Math.min(events.length ? events[0].at : Infinity, ...starred.up.map((u) => u.end));
+    // Starred nodes already up come first, labeled as such, ending soonest first.
+    const upNow = starred.up.map((u) => el('li', { class: 'tl-item tl-node tl-up', 'data-node': String(u.node.id) },
+      el('div', { class: 'tl-when' }, el('span', null, el('span', { class: 'badge now' }, 'Up now')), el('span', { class: 'muted' }, `until ${etLabel(u.end)}`)),
+      el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, nodeTitle(u.node)),
+        el('span', { class: 'muted' }, `${KIND_LABEL[u.node.kind]} ${u.node.job.toLowerCase()} node · ${u.node.zone} ${fmtCoords(u.node.coords)}`)),
+      el('div', { class: 'tl-cd' }, el('span', { class: 'muted small' }, 'ends in '), countdown(u.end))));
+    const items = upNow.concat(events.slice(0, TIMELINE_MAX).map((ev) => el('li', { class: `tl-item${ev.bell != null ? ' tl-sun' : ''}${ev.node ? ' tl-node' : ''}` },
       el('div', { class: 'tl-when' }, el('span', null, localWhen(ev.at, now)), el('span', { class: 'muted' }, etLabel(ev.at))),
       ev.bell != null
         ? el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, ev.bell === 6 ? 'Sunrise' : 'Sunset'), el('span', { class: 'muted' }, ev.bell === 6 ? 'Day begins' : 'Night begins'))
@@ -208,7 +231,7 @@
             el('span', { class: 'muted' }, `${KIND_LABEL[ev.node.kind]} ${ev.node.job.toLowerCase()} node appears · ${ev.node.zone}`))
           : el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, ev.zone.name),
           el('span', { class: 'tl-change' }, chip(ev.p.previous, true), el('span', { class: 'arrow', 'aria-label': 'to' }, '→'), chip(ev.p.weather, true))),
-      el('div', { class: 'tl-cd' }, countdown(ev.at))));
+      el('div', { class: 'tl-cd' }, countdown(ev.at)))));
     if (!state.favorites.size && !state.nodeFavorites.size) items.unshift(el('li', { class: 'tl-item tl-note muted' }, 'Star zones in Weather now or nodes in Timed gathering to see them here.'));
     $('timeline-list').replaceChildren(...items);
   }
@@ -217,25 +240,43 @@
   const KIND_LABEL = { unspoiled: 'Unspoiled', legendary: 'Legendary' };
   const nodeTitle = (n) => n.items.map((i) => i.name).join(', ');
   const fmtCoords = (c) => `(${c[0].toFixed(1)}, ${c[1].toFixed(1)})`;
+  // The time windows the list can show: nodes up now plus those appearing within the window.
+  const VIEWS = {
+    15: { within: 15 * 60000, heading: 'Next 15 minutes', more: 'more within 15 minutes' },
+    30: { within: 30 * 60000, heading: 'Next 30 minutes', more: 'more within 30 minutes' },
+    hour: { within: 60 * 60000, heading: 'Next hour', more: 'more within the next hour' },
+    all: { within: Infinity, heading: 'Later', more: 'later' },
+  };
+  const EXPANSION_SHORT = { 'A Realm Reborn': 'ARR', Heavensward: 'HW', Stormblood: 'SB', Shadowbringers: 'ShB', Endwalker: 'EW', Dawntrail: 'DT' };
+  const NODE_EXPANSIONS = DATA.expansions.filter((x) => NODES.some((n) => n.expansion === x));
+  const NODE_LEVELS = [...new Set(NODES.map((n) => n.level))].sort((a, b) => a - b);
   let gatheringNext = Infinity;
 
-  function nodeMatches(n, q) {
-    if (!q) return true;
-    return `${nodeTitle(n)} ${n.zone} ${n.area} ${n.folklore || ''} ${n.gathering} ${n.expansion}`.toLowerCase().includes(q);
+  function gatherFilters() {
+    const g = state.gather;
+    return {
+      jobs: g.jobs, kinds: g.kinds, expansions: g.expansions, minLevel: g.minLevel, maxLevel: g.maxLevel,
+      hideAbove: g.hideAbove, myLevels: g.myLevels, starred: g.starred ? state.nodeFavorites : null, query: state.nodeSearch,
+    };
   }
+  // Nodes up now (ending soonest first), then nodes appearing within the chosen window of real
+  // time (soonest first). "All" is the same order with no time limit.
   function renderGathering(now) {
-    const f = state.nodeFilters, q = state.nodeSearch.trim().toLowerCase();
-    const jobs = ['Miner', 'Botanist'].filter((j) => f.has(j)), kinds = ['legendary', 'unspoiled'].filter((k) => f.has(k));
-    const rows = NODES.map((n) => ({ n, s: G.status(n, now) }))
-      .filter(({ n, s }) => (!jobs.length || jobs.includes(n.job)) && (!kinds.length || kinds.includes(n.kind))
-        && (!f.has('up') || s.up) && (!f.has('starred') || state.nodeFavorites.has(n.id)) && nodeMatches(n, q));
-    // Up now first, ending soonest; then by when they next appear.
-    rows.sort((a, b) => (b.s.up - a.s.up) || (a.s.up ? a.s.end - b.s.end : a.s.start - b.s.start));
-    gatheringNext = Math.min(Infinity, ...NODES.map((n) => { const s = G.status(n, now); return s.up ? s.end : s.start; }));
-    $('node-list').replaceChildren(...rows.map(({ n, s }) => nodeRow(n, s, now)));
+    const g = state.gather, view = VIEWS[g.view], within = view.within;
+    const nodes = NODES.filter((n) => G.matches(n, gatherFilters()));
+    const { active, upcoming } = G.schedule(nodes, now, within);
+    const later = g.up ? [] : upcoming;
+    gatheringNext = G.scheduleChangesAt(nodes, now, within);
+    const heading = (label, count) => el('li', { class: 'node-heading' }, label, el('span', { class: 'muted' }, ` ${count}`));
+    const items = [];
+    if (active.length) items.push(heading('Up now', active.length), ...active.map((e) => nodeRow(e.node, { up: true, start: e.start, end: e.end }, now)));
+    if (later.length) items.push(heading(view.heading, later.length), ...later.map((e) => nodeRow(e.node, { up: false, start: e.start, end: e.end }, now)));
+    $('node-list').replaceChildren(...items);
+    const filtered = nodes.length < NODES.length ? ` · ${nodes.length} of ${NODES.length} nodes match the filters` : '';
+    setText($('node-summary'), `${active.length} up now${g.up ? '' : `, ${later.length} ${view.more}`}${filtered}`);
     const empty = $('node-empty');
-    empty.hidden = rows.length > 0;
-    if (!rows.length) empty.textContent = f.has('starred') && !state.nodeFavorites.size ? 'Star a node to pin it here.' : 'No node matches.';
+    empty.hidden = items.length > 0;
+    if (!items.length) empty.textContent = g.starred && !state.nodeFavorites.size ? 'Star a node to pin it here.' : 'No node matches these filters.';
   }
   function nodeRow(n, s, now) {
     const fav = state.nodeFavorites.has(n.id);
@@ -247,7 +288,11 @@
       i.hidden ? el('span', { class: 'badge tag' }, 'Hidden') : null));
     const times = n.times.map(([start]) => E.formatEt(Math.floor(start / 60), start % 60)).join(' and ');
     const hours = n.times[0][1] / 60;
-    return el('li', { class: `node-row${s.up ? ' up' : ''}${fav ? ' fav' : ''}` },
+    return el('li', {
+      class: `node-row${s.up ? ' up' : ''}${fav ? ' fav' : ''}`, 'data-id': String(n.id), 'data-up': String(s.up),
+      'data-start': String(s.start), 'data-end': String(s.end), 'data-level': String(n.level), 'data-job': n.job,
+      'data-kind': n.kind, 'data-expansion': n.expansion,
+    },
       el('button', { class: 'star', type: 'button', 'data-node-star': String(n.id), 'aria-pressed': String(fav), 'aria-label': `Star ${nodeTitle(n)}`, html: '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>' }),
       el('div', { class: 'node-main' },
         el('ul', { class: 'node-items' }, items),
@@ -455,14 +500,7 @@
     writeHash();
 
     $('node-search').addEventListener('input', (e) => { state.nodeSearch = e.target.value; renderGathering(Date.now()); updateCountdowns(Date.now()); });
-    for (const b of document.querySelectorAll('[data-node-filter]')) {
-      b.addEventListener('click', () => {
-        const f = b.dataset.nodeFilter;
-        if (state.nodeFilters.has(f)) state.nodeFilters.delete(f); else state.nodeFilters.add(f);
-        b.setAttribute('aria-pressed', String(state.nodeFilters.has(f)));
-        renderGathering(Date.now()); updateCountdowns(Date.now());
-      });
-    }
+    wireGatheringFilters();
     $('node-list').addEventListener('click', (e) => {
       const star = e.target.closest('[data-node-star]'), open = e.target.closest('[data-open]');
       if (star) {
@@ -552,6 +590,60 @@
 
     tick();
     setInterval(tick, 250);
+  }
+  // Gathering controls: every change is saved and redraws the list.
+  function wireGatheringFilters() {
+    const g = state.gather;
+    const changed = () => { Store.write('gathering', g); const t = Date.now(); renderGathering(t); updateCountdowns(t); };
+    const flip = (list, v) => (list.includes(v) ? list.filter((x) => x !== v) : list.concat(v));
+
+    for (const b of document.querySelectorAll('[data-node-view]')) {
+      b.setAttribute('aria-pressed', String(g.view === b.dataset.nodeView));
+      b.addEventListener('click', () => {
+        g.view = b.dataset.nodeView;
+        for (const o of document.querySelectorAll('[data-node-view]')) o.setAttribute('aria-pressed', String(o === b));
+        changed();
+      });
+    }
+    // Job, kind and status chips.
+    const chip = { Miner: ['jobs', 'Miner'], Botanist: ['jobs', 'Botanist'], legendary: ['kinds', 'legendary'], unspoiled: ['kinds', 'unspoiled'], up: ['up'], starred: ['starred'] };
+    for (const b of document.querySelectorAll('[data-node-filter]')) {
+      const [key, value] = chip[b.dataset.nodeFilter];
+      const pressed = () => (value ? g[key].includes(value) : g[key]);
+      b.setAttribute('aria-pressed', String(pressed()));
+      b.addEventListener('click', () => {
+        if (value) g[key] = flip(g[key], value); else g[key] = !g[key];
+        b.setAttribute('aria-pressed', String(pressed()));
+        changed();
+      });
+    }
+    // Expansions, in the game's release order.
+    $('node-expansions').replaceChildren(...NODE_EXPANSIONS.map((x) => {
+      const b = el('button', { type: 'button', class: 'toggle', 'data-node-exp': x, title: x, 'aria-label': x, 'aria-pressed': String(g.expansions.includes(x)) }, EXPANSION_SHORT[x] || x);
+      b.addEventListener('click', () => { g.expansions = flip(g.expansions, x); b.setAttribute('aria-pressed', String(g.expansions.includes(x))); changed(); });
+      return b;
+    }));
+    // Level range, from the node levels that exist.
+    for (const [id, key, any] of [['node-min-level', 'minLevel', 'Any'], ['node-max-level', 'maxLevel', 'Any']]) {
+      const select = $(id);
+      select.replaceChildren(el('option', { value: '' }, any), ...NODE_LEVELS.map((lv) => el('option', { value: String(lv) }, String(lv))));
+      select.value = g[key] == null ? '' : String(g[key]);
+      select.addEventListener('change', () => { g[key] = select.value === '' ? null : Number(select.value); changed(); });
+    }
+    // The player's own levels, and hiding nodes above them.
+    for (const [id, job] of [['my-level-miner', 'Miner'], ['my-level-botanist', 'Botanist']]) {
+      const input = $(id);
+      input.value = g.myLevels[job] == null ? '' : String(g.myLevels[job]);
+      input.addEventListener('change', () => {
+        const v = Number(input.value);
+        g.myLevels[job] = Number.isInteger(v) && v >= 1 && v <= 100 ? v : null;
+        input.value = g.myLevels[job] == null ? '' : String(g.myLevels[job]);
+        changed();
+      });
+    }
+    const hide = $('hide-above');
+    hide.setAttribute('aria-pressed', String(g.hideAbove));
+    hide.addEventListener('click', () => { g.hideAbove = !g.hideAbove; hide.setAttribute('aria-pressed', String(g.hideAbove)); changed(); });
   }
   function openForecast(key) {
     state.forecastZone = key;

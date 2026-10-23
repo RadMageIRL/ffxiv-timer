@@ -264,14 +264,38 @@ input[type="search"]::placeholder { color: #6f7b94; }
 .reminder-note strong { color: var(--text); font-weight: 600; }
 .inline-select { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
 .inline-select select { width: auto; min-height: 34px; padding: 4px 10px; }
-#gathering .filters .chips { gap: 6px; }
-#gathering .toggle { min-height: 36px; padding: 4px 12px; }
-.node-list { list-style: none; margin: 0; padding: 0; }
-.node-row {
-  display: grid; grid-template-columns: 36px minmax(0, 1fr) minmax(220px, auto); gap: 4px 12px; align-items: center;
-  padding: 10px 6px; border-top: 1px solid var(--line);
+.node-filters { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.filter-row .search { flex: 1 1 240px; }
+#gathering .toggle { min-height: 34px; padding: 3px 12px; font-size: 14px; }
+.segmented { display: inline-flex; gap: 0; }
+.segmented .toggle { border-radius: 0; }
+.segmented .toggle + .toggle { margin-left: -1px; }
+.segmented .toggle:first-child { border-radius: 999px 0 0 999px; }
+.segmented .toggle:last-child { border-radius: 0 999px 999px 0; }
+.segmented .toggle[aria-pressed="true"] { position: relative; z-index: 1; }
+.level-row .inline-select select { min-height: 34px; }
+.level-row input[type="number"] {
+  width: 64px; min-height: 34px; padding: 4px 8px; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: var(--radius-sm);
 }
-.node-row:first-child { border-top: 0; }
+.level-sep { width: 1px; height: 22px; background: var(--line-2); margin: 0 4px; }
+.my-level { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; }
+.node-summary { margin: 0 0 6px; color: var(--muted); font-size: 13px; }
+/* The list scrolls inside the panel, so every node stays reachable without pushing the rest of
+   the dashboard far down. Nothing is paged away; the soonest nodes are at the top. */
+.node-list {
+  list-style: none; margin: 0; padding: 0 4px 0 0; max-height: min(760px, 78vh); overflow-y: auto; overscroll-behavior: contain;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.node-heading {
+  position: sticky; top: 0; z-index: 1; padding: 6px 6px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--accent-2); background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.node-row {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr) minmax(210px, auto); gap: 2px 12px; align-items: center;
+  padding: 6px 6px; border-top: 1px solid var(--line);
+}
+.node-heading + .node-row { border-top: 0; }
 .node-row.up { background: linear-gradient(90deg, rgba(127, 214, 202, .07), transparent 70%); border-radius: var(--radius-sm); }
 .node-row .star { grid-column: 1; align-self: start; }
 .node-items .muted.small { white-space: nowrap; }
@@ -284,7 +308,7 @@ input[type="search"]::placeholder { color: #6f7b94; }
 .badge.kind { font-size: 11px; padding: 0 7px; margin-right: 2px; }
 .badge.kind.legendary { color: #f3dc9b; border-color: #6c5a24; background: rgba(230, 196, 110, .1); }
 .badge.kind.unspoiled { color: #9fe3d9; border-color: #2c5e57; background: rgba(127, 214, 202, .08); }
-.node-meta { margin: 3px 0 0; font-size: 13px; color: var(--text); }
+.node-meta { margin: 2px 0 0; font-size: 13px; color: var(--text); }
 .node-meta.muted { color: var(--muted); font-size: 12px; }
 .node-meta .link { font-size: 13px; }
 .node-when { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; font-size: 13px; }
@@ -292,6 +316,8 @@ input[type="search"]::placeholder { color: #6f7b94; }
 .node-status { font-weight: 600; white-space: nowrap; }
 .node-status .cd { font-variant-numeric: tabular-nums; }
 .tl-node .tl-zone { color: #9fe3d9; }
+.tl-up { background: linear-gradient(90deg, rgba(127, 214, 202, .08), transparent 70%); border-radius: var(--radius-sm); }
+.tl-up .tl-when { gap: 2px; }
 
 .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 20; display: flex; flex-direction: column; gap: 8px; max-width: min(380px, calc(100vw - 32px)); }
 .toast {
@@ -339,6 +365,15 @@ dialog p { margin: 0 0 8px; }
   .odds li { grid-template-columns: minmax(0, 150px) minmax(0, 1fr) 40px; }
   .hide-narrow { display: none; }
   .node-row { grid-template-columns: 34px minmax(0, 1fr); }
+  /* Keep the filters short on a phone with smaller chips that wrap (no sideways scrolling). */
+  .node-filters { gap: 6px; }
+  .filter-row { gap: 5px 5px; }
+  #gathering .toggle { min-height: 32px; padding: 2px 10px; font-size: 13px; }
+  .segmented { flex: 1 1 100%; }
+  .segmented .toggle { flex: 1 1 0; }
+  .level-sep { display: none; }
+  .level-row input[type="number"] { width: 52px; }
+  .my-level { gap: 4px 6px; }
   .node-when { grid-column: 2; align-items: flex-start; text-align: left; }
   .node-times { white-space: normal; }
   .periods td, .periods th { padding-left: 5px; padding-right: 5px; }

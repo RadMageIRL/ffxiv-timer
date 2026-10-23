@@ -144,7 +144,9 @@ try {
     await page.goto(`${servers.github.origin}/ffxiv-timer/#zone=eureka-pagos&fz=eureka-pagos&prev=fog&to=heat-waves`);
     await page.waitFor(READY);
     assert.equal(await page.eval('innerWidth'), 390);
-    const wide = await page.eval("[...document.querySelectorAll('body *')].filter(n => n.getBoundingClientRect().right > innerWidth + 1 && !n.closest('.table-wrap, .jump')).map(n => n.tagName + '.' + n.className).slice(0, 5)");
+    // Only the section nav and the forecast table may hold content past the edge (they scroll
+    // inside themselves); the strips themselves must fit, and nothing else may overflow.
+    const wide = await page.eval("[...document.querySelectorAll('body *')].filter(n => n.getBoundingClientRect().right > innerWidth + 1 && !(n.parentElement && n.parentElement.closest('.table-wrap, .jump'))).map(n => n.tagName + '.' + n.className).slice(0, 5)");
     assert.deepEqual(wide, [], 'elements past the right edge');
     assert.ok(await page.eval('document.documentElement.scrollWidth <= innerWidth'), 'page scrolls sideways');
     if (shots) {
@@ -180,7 +182,28 @@ try {
     await page.viewport(1440, 1000);
     await page.startClockAt(spawn - 50000); // 50 s before Turali Alumen appears
     await page.goto(`${servers.github.origin}/ffxiv-timer/`);
-    await page.waitFor(`${READY} && document.querySelectorAll('#node-list .node-row').length === ${nodes.length}`);
+    // Default view: Next hour, up now first (ending soonest), then spawns within the hour (soonest).
+    await page.waitFor(READY);
+    assert.equal(await page.eval("document.querySelector('[data-node-view=\"hour\"]').getAttribute('aria-pressed')"), 'true');
+    const rows = await page.eval("[...document.querySelectorAll('#node-list .node-row')].map(r => [r.dataset.up === 'true', +r.dataset.start, +r.dataset.end])");
+    const now = await page.eval('Date.now()');
+    const firstLater = rows.findIndex(([up]) => !up);
+    assert.ok(firstLater > 0 && rows.slice(firstLater).every(([up]) => !up), 'all up rows come first');
+    for (let i = 1; i < firstLater; i++) assert.ok(rows[i - 1][2] <= rows[i][2], 'up rows by time left');
+    for (let i = firstLater + 1; i < rows.length; i++) assert.ok(rows[i - 1][1] <= rows[i][1], 'later rows by spawn time');
+    assert.ok(rows.slice(firstLater).every(([, start]) => start - now <= 3600000 + 5000), 'later rows spawn within the hour');
+    const headings = await page.eval("[...document.querySelectorAll('#node-list .node-heading')].map(h => h.textContent)");
+    assert.match(headings.join('|'), /^Up now \d+\|Next hour \d+$/);
+    await page.eval("document.querySelector('[data-node-view=\"all\"]').click()");
+    assert.equal(await page.eval("document.querySelectorAll('#node-list .node-row').length"), nodes.length, 'All nodes lists all 189');
+    // 15 min: the same up-now rows, and only spawns within 15 minutes.
+    await page.eval("document.querySelector('[data-node-view=\"15\"]').click()");
+    const quarter = await page.eval("[...document.querySelectorAll('#node-list .node-row')].map(r => [r.dataset.up === 'true', +r.dataset.start])");
+    const now15 = await page.eval('Date.now()');
+    assert.equal(quarter.filter(([up]) => up).length, firstLater, 'same up-now rows');
+    assert.ok(quarter.filter(([up]) => !up).every(([, start]) => start - now15 <= 15 * 60000 + 5000) && quarter.length < rows.length);
+    assert.match(await page.eval("[...document.querySelectorAll('#node-list .node-heading')].map(h => h.textContent).join('|')"), /Next 15 minutes/);
+    await page.eval("document.querySelector('[data-node-view=\"hour\"]').click()");
     await page.eval("document.querySelector('[data-node-filter=\"Miner\"]').click()");
     const metas = await page.eval("[...document.querySelectorAll('#node-list .node-meta:not(.muted)')].map(n => n.textContent)");
     assert.ok(metas.length > 0 && metas.length < nodes.length && metas.every((m) => m.includes('Miner')), JSON.stringify(metas));
@@ -195,6 +218,39 @@ try {
     const upNow = await page.eval("XivGathering && FFXIV_GATHERING_DATA.nodes.filter(n => XivGathering.status(n, Date.now()).up).length");
     await page.eval("{ const s = document.getElementById('node-search'); s.value = ''; s.dispatchEvent(new Event('input')); document.querySelector('[data-node-filter=\"up\"]').click(); }");
     assert.equal(await page.eval("document.querySelectorAll('#node-list .node-row').length"), upNow);
+    await page.eval("document.querySelector('[data-node-filter=\"up\"]').click()");
+    assert.deepEqual(page.problems, []);
+  });
+
+  await test('gathering: expansion and level filters, Hide higher per job, settings kept, Up now in Upcoming', async () => {
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    await page.goto(`${servers.github.origin}/ffxiv-timer/#zone=middle-la-noscea`);
+    await page.waitFor(READY);
+    const rowsOf = () => page.eval("[...document.querySelectorAll('#node-list .node-row')].map(r => ({ id: +r.dataset.id, exp: r.dataset.expansion, job: r.dataset.job, level: +r.dataset.level, up: r.dataset.up === 'true' }))");
+    await page.eval("document.querySelector('[data-node-view=\"all\"]').click(); document.querySelector('[data-node-exp=\"Dawntrail\"]').click()");
+    let rows = await rowsOf();
+    assert.ok(rows.length === 26 && rows.every((r) => r.exp === 'Dawntrail'), JSON.stringify(rows.length));
+    assert.match(await page.eval("document.getElementById('node-summary').textContent"), /26 of 189 nodes match/);
+    await page.eval("document.querySelector('[data-node-exp=\"Dawntrail\"]').click(); { const s = document.getElementById('node-min-level'); s.value = '90'; s.dispatchEvent(new Event('change')); }");
+    rows = await rowsOf();
+    assert.ok(rows.length > 0 && rows.every((r) => r.level >= 90));
+    await page.eval("{ const s = document.getElementById('node-min-level'); s.value = ''; s.dispatchEvent(new Event('change')); const m = document.getElementById('my-level-miner'); m.value = '60'; m.dispatchEvent(new Event('change')); document.getElementById('hide-above').click(); }");
+    rows = await rowsOf();
+    assert.ok(rows.every((r) => r.job !== 'Miner' || r.level <= 60), 'no Miner node above 60');
+    assert.ok(rows.some((r) => r.job === 'Botanist' && r.level > 60), 'Botanist nodes are not held to the Miner level');
+    // Everything is remembered across a reload.
+    await page.reload();
+    await page.waitFor(READY);
+    assert.deepEqual(await page.eval("[document.querySelector('[data-node-view=\"all\"]').getAttribute('aria-pressed'), document.getElementById('my-level-miner').value, document.getElementById('hide-above').getAttribute('aria-pressed')]"), ['true', '60', 'true']);
+    assert.ok((await rowsOf()).every((r) => r.job !== 'Miner' || r.level <= 60));
+    // Star a node that is up right now: Upcoming lists it first, labeled Up now.
+    const up = (await rowsOf()).find((r) => r.up);
+    assert.ok(up, 'some node is up');
+    await page.eval(`document.querySelector('[data-node-star="${up.id}"]').click()`);
+    await page.waitFor(`document.querySelector('#timeline-list .tl-up[data-node="${up.id}"]')`);
+    assert.match(await page.eval(`document.querySelector('#timeline-list .tl-up[data-node="${up.id}"]').textContent`), /^Up now.*ends in/s);
+    assert.equal(await page.eval("document.querySelector('#timeline-list li').classList.contains('tl-up')"), true, 'Up now entries come first');
     assert.deepEqual(page.problems, []);
   });
 

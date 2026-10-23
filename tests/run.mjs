@@ -365,6 +365,99 @@ test('upcoming returns the next windows in order, all in the future', () => {
     assert.ok([480, 1200].includes(etMinuteOfDay(up[i].start)));
   }
 });
+// ---- gathering filters and the Next hour view ----
+const HOUR_MS = 60 * MIN;
+const once = { id: 9001, job: 'Miner', kind: 'legendary', expansion: 'Dawntrail', level: 100, zone: 'Z', area: 'A', gathering: 'Mining', folklore: null, items: [{ name: 'Test Ore' }], times: [[480, 120]] };
+test('filters: job, kind, expansion and level range each narrow the list, and combine', () => {
+  const N = GDATA.nodes, pick = (f) => N.filter((n) => G.matches(n, f));
+  assert.equal(pick({}).length, N.length);
+  assert.ok(pick({ jobs: ['Miner'] }).every((n) => n.job === 'Miner') && pick({ jobs: ['Miner'] }).length < N.length);
+  assert.equal(pick({ jobs: ['Miner', 'Botanist'] }).length, N.length);
+  assert.ok(pick({ kinds: ['legendary'] }).every((n) => n.kind === 'legendary'));
+  assert.equal(pick({ expansions: ['Dawntrail'] }).length, 26);
+  assert.equal(pick({ expansions: ['Dawntrail', 'Endwalker'] }).length, 54);
+  const mid = pick({ minLevel: 80, maxLevel: 90 });
+  assert.ok(mid.length > 0 && mid.every((n) => n.level >= 80 && n.level <= 90));
+  assert.ok(N.some((n) => n.level === 80) && mid.some((n) => n.level === 80) && mid.some((n) => n.level === 90), 'both ends inclusive');
+  const both = pick({ jobs: ['Botanist'], kinds: ['legendary'], expansions: ['Stormblood'], minLevel: 70 });
+  assert.deepEqual(both.map((n) => n.id), N.filter((n) => n.job === 'Botanist' && n.kind === 'legendary' && n.expansion === 'Stormblood' && n.level >= 70).map((n) => n.id));
+});
+test('hide higher: each job is held to its own level, and a job with no level hides nothing', () => {
+  const N = GDATA.nodes, pick = (f) => N.filter((n) => G.matches(n, f));
+  const f = { hideAbove: true, myLevels: { Miner: 60, Botanist: null } };
+  assert.ok(pick(f).filter((n) => n.job === 'Miner').every((n) => n.level <= 60));
+  assert.ok(pick(f).some((n) => n.job === 'Miner' && n.level === 60), 'a node at exactly your level stays');
+  assert.equal(pick(f).filter((n) => n.job === 'Botanist').length, N.filter((n) => n.job === 'Botanist').length);
+  assert.equal(pick({ hideAbove: false, myLevels: { Miner: 50, Botanist: 50 } }).length, N.length, 'the levels do nothing until Hide higher is on');
+  assert.equal(pick({ hideAbove: true, myLevels: { Miner: 100, Botanist: 100 } }).length, N.length);
+});
+test('search and starred: any case, any field, only the starred ids', () => {
+  const N = GDATA.nodes, pick = (f) => N.filter((n) => G.matches(n, f));
+  assert.deepEqual(pick({ query: '  TURALI alumen ' }).map((n) => n.items[0].name), ['Turali Alumen']);
+  assert.ok(pick({ query: 'heavensward' }).every((n) => n.expansion === 'Heavensward') && pick({ query: 'heavensward' }).length === 31);
+  assert.ok(pick({ query: 'yok tural' }).every((n) => /Yok Tural/.test(n.folklore || '')));
+  const ids = new Set([N[0].id, N[5].id]);
+  assert.deepEqual(pick({ starred: ids }).map((n) => n.id).sort(), [...ids].sort());
+  assert.equal(pick({ starred: new Set() }).length, 0);
+});
+test('Next hour: up now ordered by time left, then upcoming by spawn time, nothing else (brute force)', () => {
+  for (let i = 0; i < 300; i++) {
+    const t = randomTime(), { active, upcoming } = G.schedule(GDATA.nodes, t, HOUR_MS);
+    for (let k = 1; k < active.length; k++) assert.ok(active[k - 1].end <= active[k].end);
+    for (let k = 1; k < upcoming.length; k++) assert.ok(upcoming[k - 1].start <= upcoming[k].start);
+    const inActive = new Set(active.map((e) => e.node.id)), inUpcoming = new Set(upcoming.map((e) => e.node.id));
+    for (const n of GDATA.nodes) {
+      const s = G.status(n, t);
+      assert.equal(inActive.has(n.id), s.up, `${n.id} active`);
+      assert.equal(inUpcoming.has(n.id), !s.up && s.start - t <= HOUR_MS, `${n.id} upcoming`);
+    }
+  }
+});
+test('Next hour boundary: a spawn exactly 60 minutes away is in, one millisecond later is out', () => {
+  const w = G.windows(once, NOW, NOW + 4 * E.SUN).find((x) => x.start > NOW + 2 * HOUR_MS);
+  const at = (t) => { const s = G.schedule([once], t, HOUR_MS); return s.active.length ? 'up' : s.upcoming.length ? 'soon' : 'out'; };
+  assert.deepEqual([at(w.start - HOUR_MS - 1), at(w.start - HOUR_MS), at(w.start - 1)], ['out', 'soon', 'soon']);
+  assert.deepEqual([at(w.start), at(w.end - 1), at(w.end)], ['up', 'up', 'out'], 'up from its first millisecond; gone at its end (next spawn is 64 min away)');
+  assert.equal(G.schedule([once], w.start - HOUR_MS, Infinity).upcoming.length, 1);
+  assert.equal(G.schedule([once], w.end, Infinity).upcoming.length, 1, 'All nodes has no time limit');
+});
+test('shorter windows: 15 and 30 minutes hold the same up-now nodes and a subset of the hour', () => {
+  for (let i = 0; i < 100; i++) {
+    const t = randomTime(), s = (m) => G.schedule(GDATA.nodes, t, m * MIN);
+    const [q, h, hr] = [s(15), s(30), s(60)];
+    const ids = (x) => x.upcoming.map((e) => e.node.id);
+    assert.deepEqual(q.active, hr.active);
+    assert.ok(ids(q).every((id) => ids(h).includes(id)) && ids(h).every((id) => ids(hr).includes(id)));
+    assert.ok(q.upcoming.every((e) => e.start - t <= 15 * MIN) && h.upcoming.every((e) => e.start - t <= 30 * MIN));
+    assert.deepEqual(ids(q), ids(hr).filter((id) => hr.upcoming.find((e) => e.node.id === id).start - t <= 15 * MIN), '15 min is the hour cut at 15 min, same order');
+  }
+});
+test('the schedule cannot change before scheduleChangesAt says it can', () => {
+  const key = (t) => { const s = G.schedule(GDATA.nodes, t, HOUR_MS); return JSON.stringify([s.active.map((e) => e.node.id), s.upcoming.map((e) => e.node.id)]); };
+  for (let i = 0; i < 40; i++) {
+    const t = randomTime(), c = G.scheduleChangesAt(GDATA.nodes, t, HOUR_MS);
+    assert.ok(c > t && c - t < HOUR_MS, 'with 189 nodes something changes within the hour');
+    const before = key(t);
+    for (let k = 1; k <= 8; k++) assert.equal(key(t + Math.floor(((c - 1 - t) * k) / 8)), before);
+  }
+  const w = G.windows(once, NOW, NOW + 4 * E.SUN).find((x) => x.start > NOW + 2 * HOUR_MS);
+  // 64 minutes before w the previous day's window (70 minutes before w, 5 min 50 s long) is over,
+  // so the next change is w entering the hour.
+  assert.equal(G.scheduleChangesAt([once], w.start - 64 * MIN, HOUR_MS), w.start - HOUR_MS, 'next change is when it enters the hour');
+  assert.equal(G.scheduleChangesAt([once], w.start - 2 * HOUR_MS, HOUR_MS), w.start - 70 * MIN, 'earlier, the previous day’s window comes first');
+  assert.equal(G.scheduleChangesAt([once], w.start + 1, HOUR_MS), w.end);
+});
+test('Upcoming: starred nodes that are up now are included, with their end; others are not', () => {
+  const w = G.windows(once, NOW, NOW + 2 * E.SUN)[0], other = { ...once, id: 9002 };
+  const ev = G.starredEvents([once, other], new Set([once.id]), w.start + 1000, 2 * HOUR_MS);
+  assert.deepEqual(ev.up.map((u) => [u.node.id, u.start, u.end]), [[once.id, w.start, w.end]]);
+  assert.ok(ev.spawns.every((s) => s.node.id === once.id && s.at > w.start + 1000 && s.at <= w.start + 1000 + 2 * HOUR_MS));
+  assert.equal(G.starredEvents([once], new Set([once.id]), w.end, 2 * HOUR_MS).up.length, 0, 'not up at its end');
+  const atStart = G.starredEvents([once], new Set([once.id]), w.start, 2 * HOUR_MS);
+  assert.ok(atStart.up.length === 1 && !atStart.spawns.some((s) => s.at === w.start), 'a window starting now is up, not upcoming');
+  const exact = G.starredEvents([once], new Set([once.id]), w.start - HOUR_MS, HOUR_MS);
+  assert.deepEqual(exact.spawns.map((s) => s.at), [w.start], 'a spawn exactly at the end of the span is in');
+});
 test('every supported node is generated, timed and placed', () => {
   const listed = JSON.parse(readFileSync(join(ROOT, 'data', 'supported-nodes.json'), 'utf8')).nodes.map((n) => n.base);
   assert.deepEqual(GDATA.nodes.map((n) => n.id), listed);

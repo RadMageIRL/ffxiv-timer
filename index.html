@@ -120,12 +120,20 @@
           <p class="hint">Unspoiled and legendary nodes. Starred nodes show in Upcoming and get reminders.</p>
           <p class="reminder-note" id="reminder-note">Reminders only work while this page is open in a tab. System notifications also need your browser's permission; without it, reminders show on this page only. <strong id="notify-state"></strong></p>
         </div>
-        <div class="filters">
-          <label class="search">
-            <span class="visually-hidden">Search nodes</span>
-            <input id="node-search" type="search" placeholder="Search items, zones, tomes or expansions" autocomplete="off">
-          </label>
-          <div class="chips" role="group" aria-label="Filter nodes">
+        <div class="node-filters">
+          <div class="filter-row">
+            <label class="search">
+              <span class="visually-hidden">Search nodes</span>
+              <input id="node-search" type="search" placeholder="Search items, zones, tomes or expansions" autocomplete="off">
+            </label>
+            <div class="segmented" role="group" aria-label="Show nodes up now or appearing within">
+              <button type="button" class="toggle" data-node-view="15" aria-pressed="false" aria-label="Within 15 minutes">15 min</button>
+              <button type="button" class="toggle" data-node-view="30" aria-pressed="false" aria-label="Within 30 minutes">30 min</button>
+              <button type="button" class="toggle" data-node-view="hour" aria-pressed="true" aria-label="Within the next hour">1 hour</button>
+              <button type="button" class="toggle" data-node-view="all" aria-pressed="false" aria-label="All nodes">All</button>
+            </div>
+          </div>
+          <div class="filter-row chips" role="group" aria-label="Job, kind and status">
             <button type="button" class="toggle" data-node-filter="Miner" aria-pressed="false">Miner</button>
             <button type="button" class="toggle" data-node-filter="Botanist" aria-pressed="false">Botanist</button>
             <button type="button" class="toggle" data-node-filter="legendary" aria-pressed="false">Legendary</button>
@@ -133,7 +141,32 @@
             <button type="button" class="toggle" data-node-filter="up" aria-pressed="false">Up now</button>
             <button type="button" class="toggle" data-node-filter="starred" aria-pressed="false">Starred</button>
           </div>
+          <div class="filter-row chips" role="group" aria-label="Expansion" id="node-expansions"></div>
+          <div class="filter-row level-row">
+            <label class="inline-select">
+              <span>Level</span>
+              <select id="node-min-level" aria-label="Lowest node level"></select>
+            </label>
+            <label class="inline-select">
+              <span>to</span>
+              <select id="node-max-level" aria-label="Highest node level"></select>
+            </label>
+            <span class="level-sep" aria-hidden="true"></span>
+            <span class="my-level" role="group" aria-label="My levels">
+              <span class="muted">My level</span>
+              <label class="inline-select" title="Miner level">
+                <span>MIN</span>
+                <input id="my-level-miner" type="number" min="1" max="100" inputmode="numeric" placeholder="-" aria-label="Miner level">
+              </label>
+              <label class="inline-select" title="Botanist level">
+                <span>BTN</span>
+                <input id="my-level-botanist" type="number" min="1" max="100" inputmode="numeric" placeholder="-" aria-label="Botanist level">
+              </label>
+              <button type="button" class="toggle" id="hide-above" aria-pressed="false" title="Hide nodes above your level for that job">Hide higher</button>
+            </span>
+          </div>
         </div>
+        <p id="node-summary" class="node-summary" aria-live="polite"></p>
         <ul id="node-list" class="node-list"></ul>
         <p id="node-empty" class="empty" hidden></p>
       </section>

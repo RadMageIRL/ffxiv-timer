@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Gathering: the list shows the nodes up now, ending soonest first, then the nodes appearing
+  within the next 15 minutes, 30 minutes or hour of real time (the default), soonest first, under
+  sticky headings; All drops the time limit. The list scrolls inside the panel, so nothing is
+  paged away.
+- Gathering filters for expansion (ARR, HW, SB, ShB, EW, DT) and level range, and your own Miner
+  and Botanist levels with Hide higher, which holds each job's nodes to that job's level. All
+  gathering filters and the view are remembered on this device.
+- Starred nodes that are up appear at the top of Upcoming, marked Up now, with the time left.
+- On phones the gathering chips are smaller and wrap, so the filters take less room.
+- README: the duplicated gathering sentence is gone.
 - A RadMage Labs link in the tagline under the FFXIV Timer name, back to radmagelabs.com.
 - Weather forecasts for 25 more zones, finishing A Realm Reborn and Heavensward: Ul'dah (both
   steps), Gridania (old and new), the five Thanalan and four Black Shroud field zones, Coerthas

@@ -23,14 +23,16 @@ The build is made to be served at two addresses, with the first as the canonical
   Waves"), optionally only at 00:00, 08:00 or 16:00 ET, up to 30 days ahead. The search is in
   the address, so a link shares it and a reload or bookmark keeps it.
 
-- **Timed gathering.** Unspoiled and legendary nodes with their items (level, stars,
-  collectable), job and level, zone, area and map coordinates, folklore tome, spawn times, and
-  whether each is up now or how long until it appears. Filter by job, kind, up now or starred;
-  starred nodes show in Upcoming and can remind you when they appear or a few minutes before.
-  Reminders only work while the page is open in a tab, and system notifications also need your
-  browser's permission (without it, reminders show on the page only). Every timed node in
-  Every timed unspoiled and legendary node from A Realm Reborn through Dawntrail (189); search also
-  matches the expansion.
+- **Timed gathering.** Every timed unspoiled and legendary node from A Realm Reborn through
+  Dawntrail (189), with its items (level, stars, collectable), job and level, zone, area and map
+  coordinates, folklore tome and spawn times. The list shows the nodes up now, ending soonest
+  first, then the ones appearing within the next 15 minutes, 30 minutes or hour of real time
+  (the default), soonest first; All drops the time limit. Filter by job, kind, expansion, level range, up now or starred, or set your
+  Miner and Botanist levels and hide nodes above them; search matches items, places, tomes and
+  expansions. Filters are remembered. Starred nodes show in Upcoming (marked "Up now" while they
+  are up) and can remind you when they appear or a few minutes before. Reminders only work while
+  the page is open in a tab, and system notifications also need your browser's permission
+  (without it, reminders show on the page only).
 
 Zones without a verified weather table are named as not supported. They never get a guess.
 
