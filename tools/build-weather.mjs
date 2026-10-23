@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { DATASET, ROOT, WEATHER_SHEETS, loadTables, ratePairs } from './lib/gamedata.mjs';
+import { DATASET, ROOT, WEATHER_SHEETS, loadTables, plainText, ratePairs } from './lib/gamedata.mjs';
 
 // TerritoryIntendedUse values for places a player stands around in: cities, field zones,
 // housing, Eureka, Bozja and Zadnor, Island Sanctuary, Cosmic Exploration and Occult Crescent.
@@ -22,7 +22,7 @@ const OPEN_WORLD = new Set([0, 1, 13, 41, 48, 49, 60, 61]);
 export const { slug } = createRequire(import.meta.url)('../js/format.js');
 
 export function buildWeatherData(tables, supported) {
-  const place = new Map(tables.PlaceName.map((r) => [r['#'], r.Name]));
+  const place = new Map(tables.PlaceName.map((r) => [r['#'], plainText(r.Name)]));
   const expansion = new Map(tables.ExVersion.map((r) => [r['#'], r.Name]));
   const weatherName = new Map(tables.Weather.map((r) => [Number(r['#']), r.Name]));
   const rates = new Map(tables.WeatherRate.map((r) => [r['#'], ratePairs(r)]));

@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { hhmmToMinutes } from './build-gathering.mjs';
 import { ROOT } from './lib/gamedata.mjs';
 import { WIKI_EXCEPTIONS, compareGatheringWiki, compareGatheringXivapi } from './lib/compare-gathering.mjs';
+import { parseWikiTables } from './lib/wiki-gathering.mjs';
 
 const XIVAPI = 'https://v2.xivapi.com/api', XIVAPI_VERSION = '7.57x1';
 const WIKI = 'https://ffxiv.consolegameswiki.com/mediawiki';
@@ -57,51 +58,16 @@ async function captureXivapi() {
   return { source: 'v2.xivapi.com', version: XIVAPI_VERSION, schema: (await xivapi('sheet/GatheringType/0', 'Name')).schema, nodes };
 }
 
-// One row per item in the Dawntrail tables of both pages.
-function parseTimes(text) {
-  const m = text.match(/(\d{1,2})(?::(\d\d))?\s*(AM\/PM|AM|PM)/i);
-  if (!m) return null;
-  const h = Number(m[1]) % 12, min = Number(m[2] || 0), base = h * 60 + min;
-  const ap = m[3].toUpperCase();
-  return ap === 'AM/PM' ? [base, base + 720] : [ap === 'PM' ? base + 720 : base];
-}
-export function parseWikiTables(page, raw) {
-  const rows = [];
-  // Each Dawntrail section ends at the next heading; a stub section has no table and adds nothing.
-  const sections = raw.split(/^===\s*Dawntrail\s*===\s*$/m).slice(1).map((s) => s.split(/^==/m)[0].split(/^\|\}/m)[0]);
-  for (const section of sections) {
-    for (const line of section.split('\n')) {
-      if (!line.startsWith('|') || line.startsWith('|-') || !line.includes('{{item icon|')) continue;
-      const cells = line.slice(1).split('||').map((c) => c.trim());
-      const item = (line.match(/\{\{item icon\|([^}|]+)\}\}/) || [])[1];
-      const zone = (line.match(/\[\[([^\]|]+)\]\]\s*\|\|\s*\{\{coords/) || [])[1];
-      const coords = (line.match(/\{\{coords\|([\d.]+),\s*([\d.]+)/) || []).slice(1).map(Number);
-      const row = { page, item: item.trim(), zone, coords: coords.length === 2 ? coords : null };
-      if (page === 'Folklore Nodes') {
-        row.kind = 'legendary';
-        row.tome = (cells[0].match(/\[\[([^\]|]+)/) || [])[1] || null;
-        row.starts = parseTimes(cells[1]);
-      } else {
-        row.kind = 'unspoiled';
-        row.starts = parseTimes(cells[0]);
-        row.level = Number(cells[5]) || null;
-        row.stars = (cells[6].match(/★/g) || []).length;
-      }
-      rows.push(row);
-    }
-  }
-  return rows;
-}
-
+// Only the sections for expansions that have supported nodes are read.
 async function captureWiki() {
-  const rows = [];
+  const rows = [], expansions = [...new Set(data.nodes.map((n) => n.expansion))];
   for (const [page, revision] of Object.entries(WIKI_PAGES)) {
     // Through the MediaWiki API, the wiki's route for programs.
     const res = await get(`${WIKI}/api.php?action=query&prop=revisions&revids=${revision}&rvprop=content&rvslots=main&format=json&formatversion=2`);
     const raw = res.query.pages[0].revisions[0].slots.main.content;
-    rows.push(...parseWikiTables(page, raw));
+    rows.push(...parseWikiTables(page, raw, expansions));
   }
-  return { source: 'ffxiv.consolegameswiki.com', revisions: WIKI_PAGES, rows };
+  return { source: 'ffxiv.consolegameswiki.com', revisions: WIKI_PAGES, expansions, rows };
 }
 
 const line = (v) => `  ${JSON.stringify(v)}`;

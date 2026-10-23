@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { DATASET, GATHERING_SHEETS, ROOT, loadTables } from './lib/gamedata.mjs';
+import { DATASET, GATHERING_SHEETS, ROOT, loadTables, plainText } from './lib/gamedata.mjs';
 
 const { slug } = createRequire(import.meta.url)('../js/format.js');
 
@@ -34,7 +34,7 @@ export function mapCoordinate(raw, sizeFactor, offset) {
 
 export function buildGatheringData(t, supported, weatherZones = new Set()) {
   const index = (rows) => new Map(rows.map((r) => [r['#'], r]));
-  const territory = index(t.TerritoryType), place = new Map(t.PlaceName.map((r) => [r['#'], r.Name]));
+  const territory = index(t.TerritoryType), place = new Map(t.PlaceName.map((r) => [r['#'], plainText(r.Name)]));
   const expansion = new Map(t.ExVersion.map((r) => [r['#'], r.Name]));
   const base = index(t.GatheringPointBase), gItem = index(t.GatheringItem), item = index(t.Item);
   const transient = index(t.GatheringPointTransient), pop = index(t.GatheringRarePopTimeTable);

@@ -28,8 +28,8 @@ The build is made to be served at two addresses, with the first as the canonical
   whether each is up now or how long until it appears. Filter by job, kind, up now or starred;
   starred nodes show in Upcoming and can remind you when they appear or a few minutes before.
   Reminders only work while the page is open in a tab, and system notifications also need your
-  browser's permission (without it, reminders show on the page only). The first set is every
-  timed node in Dawntrail.
+  browser's permission (without it, reminders show on the page only). Every timed node in
+  Dawntrail and Endwalker so far; older expansions are being added one at a time.
 
 Zones without a verified weather table are named as not supported. They never get a guess.
 

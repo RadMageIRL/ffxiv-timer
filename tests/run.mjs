@@ -22,8 +22,15 @@ const DATA = require('../js/weather-data.js');
 const fixture = (name) => JSON.parse(readFileSync(join(ROOT, 'tests', 'fixtures', name), 'utf8'));
 
 let passed = 0, failed = 0;
+const pending = [];
+const fail = (name, e) => { failed++; console.error(`FAIL ${name}\n  ${String(e.message).split('\n').join('\n  ')}`); };
+// Async tests are awaited before the summary, so a rejected promise counts as a failure.
 function test(name, fn) {
-  try { fn(); passed++; } catch (e) { failed++; console.error(`FAIL ${name}\n  ${String(e.message).split('\n').join('\n  ')}`); }
+  try {
+    const result = fn();
+    if (result && typeof result.then === 'function') pending.push(result.then(() => { passed++; }, (e) => fail(name, e)));
+    else passed++;
+  } catch (e) { fail(name, e); }
 }
 
 const zone = (key) => { const z = DATA.zones.find((x) => x.key === key); assert.ok(z, `no zone ${key}`); return z; };
@@ -379,7 +386,8 @@ test('nodes match the wiki\'s node tables (times, places, levels, stars, tomes)'
   const w = fixture('wiki-gathering.json');
   assert.ok(w.rows.length >= GDATA.nodes.length);
   assert.deepEqual(compareGatheringWiki(w, GDATA, { exceptions: WIKI_EXCEPTIONS }), []);
-  assert.ok(WIKI_EXCEPTIONS.every((e) => e.field === 'coords' && e.reason && w.rows.some((r) => r.item === e.item)));
+  // Exceptions only ever excuse the wiki's coordinates or level, each with a stated reason.
+  assert.ok(WIKI_EXCEPTIONS.every((e) => ['coords', 'level'].includes(e.field) && e.reason.length > 40 && w.rows.some((r) => r.item === e.item)));
 });
 test('both gathering comparisons notice a changed node (the checks can fail)', () => {
   const x = fixture('xivapi-gathering.json'), w = fixture('wiki-gathering.json');
@@ -408,6 +416,27 @@ test('the wiki comparison on its own notices wrong stars, level, tome and start 
     change(bad.nodes.find((n) => n.items.some((it) => it.name === key)));
     assert.ok(compareGatheringWiki(w, bad, { exceptions: WIKI_EXCEPTIONS }).length > 0, `change ${i} went unnoticed`);
   }
+});
+test('the wiki parser reads columns by name, splits multi-node rows and ignores stray breaks', async () => {
+  const { parseWikiTables, parseTimes } = await import('../tools/lib/wiki-gathering.mjs');
+  assert.deepEqual(['12:00 AM/PM', '8AM/PM', '1:00 AM', '3 PM', 'ANY'].map(parseTimes), [[0, 720], [480, 1200], [60], [900], null]);
+  const folklore = [
+    '==Botanist==', '===Endwalker===', '{| {{STDT}}', '|-', '! Folklore Tome', '! Time', '! Item', '! Slot', '! Location', '! Coordinates', '! Used to make', '|-',
+    '| [[Tome A|A]]<br>[[Tome B|B]] || 6AM/PM<br>8AM/PM || {{item icon|Potent Spice}} || 1 || [[Elpis]]<br>[[Thavnair]] || {{coords|33.1, 14.7}}<br>{{coords|25.4, 21.8}} || {{item icon|X}}',
+    '|-', '| [[Tome C|C]] || 10AM/PM || {{item icon|Log}} || 6 || [[Ultima Thule]] || {{coords|28, 13}}<br> || {{item icon|Y}}', '|}',
+    '===Shadowbringers===', '{|', '! Time', '! Item', '|-', '| 1AM || {{item icon|Skipped}}', '|}',
+    '==Fisher==', '===Endwalker===', '{|', '! Folklore Tome', '! Time', '! Item', '! Location', '|-', '| [[T|T]] || ANY || {{item icon|A Fish}} || [[Elpis]]', '|}',
+  ].join('\n');
+  const rows = parseWikiTables('Folklore Nodes', folklore, ['Endwalker']);
+  assert.deepEqual(rows.map((r) => [r.item, r.tome, r.zone, r.starts, r.coords]), [
+    ['Potent Spice', 'Tome A', 'Elpis', [360, 1080], [33.1, 14.7]],
+    ['Potent Spice', 'Tome B', 'Thavnair', [480, 1200], [25.4, 21.8]],
+    ['Log', 'Tome C', 'Ultima Thule', [600, 1320], [28, 13]],
+  ]);
+  const arr = ['==Botanist==', '===A Realm Reborn===', '{|', '! Time', '! Item', '! Slot #', '! Location', '! Coordinate', '! Extra', '!Star', '|-',
+    '|1:00 AM || {{item icon|Silkworm Cocoon}} || 4 || [[East Shroud]] || {{coords|22, 26}}|| ||★', '|}'].join('\n');
+  const [r] = parseWikiTables('Unspoiled Nodes', arr, ['A Realm Reborn']);
+  assert.deepEqual([r.kind, r.item, r.zone, r.starts, r.coords, r.stars, 'level' in r], ['unspoiled', 'Silkworm Cocoon', 'East Shroud', [60], [22, 26], 1, false]);
 });
 test('js/gathering-data.js is exactly what the generator builds from the cached game tables', () => {
   const cache = join(ROOT, 'tools', '.cache', GDATA.source.commit);
@@ -471,5 +500,6 @@ test('js/weather-data.js is exactly what the generator builds from the cached ga
   execFileSync(process.execPath, [join(ROOT, 'tools', 'build-weather.mjs'), '--check', '--csv', cache], { stdio: 'pipe' });
 });
 
+await Promise.all(pending);
 console.log(`${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

@@ -68,6 +68,10 @@ export async function loadTables(dir, sheets = Object.keys(DATASET.sha256)) {
   return out;
 }
 
+// Game text marks italics with asterisks ("The *Ragnarok*"); shown as plain text here, the way
+// XIVAPI returns it.
+export const plainText = (s) => (s || '').replace(/\*([^*]+)\*/g, '$1');
+
 // A WeatherRate row as ordered [weatherId, percent] pairs. Order matters: the game walks the
 // list accumulating percentages, so two entries for one weather must stay where they are. Zero
 // entries are dropped; a 0% slot can never be chosen.

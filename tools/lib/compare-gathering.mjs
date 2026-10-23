@@ -6,6 +6,7 @@
 // and why; anything else that disagrees still fails.
 export const WIKI_EXCEPTIONS = [
   { item: 'Rarefied White Gold Ore', field: 'coords', reason: 'The wiki gives the two items of this one node different coordinates (34, 8 and 38, 8). The game has one node (GatheringPointBase 1024) with one position, 34.6, 8.3.' },
+  { item: 'Rarefied Palm Log', field: 'level', reason: 'The wiki lists level 85, the level of Rarefied Coconut on the same node. Both game-data extractions say 81, and so does the official Lodestone Eorzea Database (Gathering Log: Logging 81, patch 7.57, item a3a3ab08eb5).' },
 ];
 
 const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
@@ -30,25 +31,31 @@ export function compareGatheringXivapi(capture, data) {
   return problems;
 }
 
-// Wiki rows name one item each. Every row must land on a supported node with the same zone and
-// start times (and, where the wiki gives them, item level, stars and folklore tome), and every
+// Wiki rows name one item at one node. Every row must land on a supported node with the same zone
+// and start times (and, where the wiki gives them, item level, stars and folklore tome), and every
 // supported node must be named by at least one row. Coordinates are rounded on the wiki and
-// sometimes given per item, so they only have to be within `tolerance`.
+// sometimes given per item, so they only have to be within `tolerance`. An item found at several
+// nodes (crystal clusters, some folklore items) is matched by zone, then by start times.
 export function compareGatheringWiki(capture, data, { tolerance = 1.5, exceptions = [] } = {}) {
   const problems = [], named = new Set();
   const excused = (item, field) => exceptions.some((e) => e.item === item && e.field === field);
+  const starts = (n) => n.times.map(([s]) => s);
   for (const row of capture.rows) {
-    const nodes = data.nodes.filter((n) => n.items.some((i) => i.name === row.item));
-    if (nodes.length !== 1) { problems.push(`wiki ${row.item}: ${nodes.length} supported nodes have it`); continue; }
+    let nodes = data.nodes.filter((n) => n.items.some((i) => i.name === row.item));
+    if (nodes.length > 1) nodes = nodes.filter((n) => n.zone === row.zone);
+    if (nodes.length > 1) nodes = nodes.filter((n) => sameSet(row.starts || [], starts(n)));
+    if (nodes.length !== 1) { problems.push(`wiki ${row.item} (${row.zone} ${row.starts}): ${nodes.length} supported nodes match`); continue; }
     const n = nodes[0], it = n.items.find((i) => i.name === row.item);
     named.add(n.id);
     if (row.zone !== n.zone) problems.push(`wiki ${row.item}: zone ${row.zone} vs ${n.zone}`);
     if (!sameSet(row.starts, n.times.map(([s]) => s))) problems.push(`wiki ${row.item}: starts ${row.starts} vs ${n.times.map(([s]) => s)}`);
     if (row.coords && !excused(row.item, 'coords')) {
+      // A node appears anywhere within its spawn radius; one layout unit is 41/2048 of a map unit.
+      const allowed = tolerance + (n.radius || 0) * 41 / 2048;
       const off = Math.max(Math.abs(row.coords[0] - n.coords[0]), Math.abs(row.coords[1] - n.coords[1]));
-      if (off > tolerance) problems.push(`wiki ${row.item}: coords ${row.coords} vs ${n.coords} (off by ${off.toFixed(1)})`);
+      if (off > allowed) problems.push(`wiki ${row.item}: coords ${row.coords} vs ${n.coords} (off by ${off.toFixed(1)}, allowed ${allowed.toFixed(1)})`);
     }
-    if (row.level != null && row.level !== it.level) problems.push(`wiki ${row.item}: level ${row.level} vs ${it.level}`);
+    if (row.level != null && row.level !== it.level && !excused(row.item, 'level')) problems.push(`wiki ${row.item}: level ${row.level} vs ${it.level}`);
     if (row.stars != null && row.stars !== it.stars) problems.push(`wiki ${row.item}: stars ${row.stars} vs ${it.stars}`);
     if (row.kind && row.kind !== n.kind) problems.push(`wiki ${row.item}: listed as ${row.kind}, data says ${n.kind}`);
     if (row.tome && row.tome !== n.folklore) problems.push(`wiki ${row.item}: tome ${row.tome} vs ${n.folklore}`);

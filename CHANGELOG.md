@@ -21,6 +21,9 @@
   and, if allowed, as system notifications.
 - Gathering data is generated from the game tables and checked against XIVAPI and the wiki's
   node tables.
+- Timed gathering for Endwalker: all 28 nodes (10 unspoiled, 18 legendary), 54 in all. Place
+  names drop the game's italics markers ("The Ragnarok"). Where the wiki and the game data
+  disagree, the official Lodestone database decided (Rarefied Palm Log is level 81).
 - README screenshot, taken by `node tools/screenshot.mjs` at a fixed moment.
 
 ## Milestone 1
