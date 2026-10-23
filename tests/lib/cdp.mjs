@@ -54,14 +54,22 @@ export async function launchChrome() {
     '--no-default-browser-check', '--disable-extensions', '--disable-background-networking', '--mute-audio',
     ...(process.env.CI ? ['--no-sandbox'] : []), // Linux CI runners do not allow Chrome's sandbox
     'about:blank',
-  ], { stdio: 'ignore' });
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  // Keep the end of Chrome's own error output, so a failed start says why.
+  let stderr = '';
+  child.stderr.on('data', (d) => { stderr = (stderr + d).slice(-4000); });
   const portFile = join(profile, 'DevToolsActivePort');
   let lines = [];
-  for (let i = 0; i < 150 && lines.length < 2; i++) {
+  // On Windows the launched chrome.exe can hand off to the real browser and exit 0, so only a
+  // non-zero exit ends the wait early.
+  for (let i = 0; i < 300 && lines.length < 2 && !child.exitCode; i++) {
     await sleep(100);
     if (existsSync(portFile)) lines = readFileSync(portFile, 'utf8').trim().split('\n');
   }
-  if (lines.length < 2) { child.kill(); throw new Error('Chrome did not start'); }
+  if (lines.length < 2) {
+    child.kill();
+    throw new Error(`Chrome did not start (${exe}, exit ${child.exitCode}):\n${stderr.trim() || '(no output)'}`);
+  }
   const ws = new WebSocket(`ws://127.0.0.1:${lines[0]}${lines[1]}`);
   await new Promise((ok, fail) => { ws.addEventListener('open', ok, { once: true }); ws.addEventListener('error', fail, { once: true }); });
   const conn = new Connection(ws);
