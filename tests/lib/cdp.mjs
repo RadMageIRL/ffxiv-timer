@@ -67,6 +67,10 @@ export async function launchChrome() {
   const conn = new Connection(ws);
 
   return {
+    // Lets pages from `origin` show notifications without a prompt.
+    async grantNotifications(origin) {
+      await conn.send('Browser.grantPermissions', { origin, permissions: ['notifications'] });
+    },
     async newPage() {
       const { targetId } = await conn.send('Target.createTarget', { url: 'about:blank' });
       const { sessionId } = await conn.send('Target.attachToTarget', { targetId, flatten: true });
@@ -88,10 +92,11 @@ export async function launchChrome() {
 
 async function makePage(conn, sessionId) {
   const send = (method, params) => conn.send(method, params, sessionId);
-  const problems = [];
+  const problems = [], requests = [];
   conn.listeners.push((msg) => {
     if (msg.sessionId !== sessionId) return;
     const p = msg.params;
+    if (msg.method === 'Network.requestWillBeSent') requests.push(p.request.url);
     if (msg.method === 'Runtime.exceptionThrown') problems.push(`exception: ${p.exceptionDetails.exception?.description || p.exceptionDetails.text}`);
     if (msg.method === 'Runtime.consoleAPICalled' && p.type === 'error') problems.push(`console.error: ${p.args.map((a) => a.value ?? a.description).join(' ')}`);
     if (msg.method === 'Log.entryAdded' && p.entry.level === 'error' && !/status of 404/.test(p.entry.text)) problems.push(`log: ${p.entry.text}`);
@@ -102,7 +107,9 @@ async function makePage(conn, sessionId) {
   await send('Network.setCacheDisabled', { cacheDisabled: true });
 
   const page = {
-    problems,
+    problems, requests,
+    // Runs `source` in every later document before its own scripts.
+    async beforeLoad(source) { await send('Page.addScriptToEvaluateOnNewDocument', { source }); },
     async eval(expression) {
       const r = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
       if (r.exceptionDetails) throw new Error(`${expression}: ${r.exceptionDetails.exception?.description || r.exceptionDetails.text}`);

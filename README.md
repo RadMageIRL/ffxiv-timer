@@ -26,9 +26,10 @@ The build is made to be served at two addresses, with the first as the canonical
 - **Timed gathering.** Unspoiled and legendary nodes with their items (level, stars,
   collectable), job and level, zone, area and map coordinates, folklore tome, spawn times, and
   whether each is up now or how long until it appears. Filter by job, kind, up now or starred;
-  starred nodes show in Upcoming and can remind you (in the page, and as a system notification
-  if you allow it) when they appear or a few minutes before. The first set is every timed node in
-  Dawntrail.
+  starred nodes show in Upcoming and can remind you when they appear or a few minutes before.
+  Reminders only work while the page is open in a tab, and system notifications also need your
+  browser's permission (without it, reminders show on the page only). The first set is every
+  timed node in Dawntrail.
 
 Zones without a verified weather table are named as not supported. They never get a guess.
 
@@ -54,30 +55,39 @@ Eorzea Time runs 144/7 times faster than real time and reads 00:00 on the 1st Su
 Astral Moon at the Unix epoch, the same zero the weather calculation uses. The game shows only the
 time; the date here counts suns (days) and moons (32 suns each) from that zero.
 
+## Where the data comes from
+
+Weather tables and gathering nodes are generated from the game's own data tables for patch 7.57
+hotfix 1 (TerritoryType, WeatherRate, Weather, PlaceName, ExVersion, GatheringPoint,
+GatheringPointBase, GatheringItem, GatheringRarePopTimeTable and related tables), read from a
+pinned commit of [xivapi/ffxiv-datamining](https://github.com/xivapi/ffxiv-datamining) with every
+file's SHA-256 checked. `NOTICE` lists every source. All calculations are deterministic: the same
+moment always gives the same answer, in every time zone.
+
 ## How it is checked
 
-- Weather tables are generated from the game's own TerritoryType, WeatherRate, Weather, PlaceName
-  and ExVersion tables for patch 7.57 hotfix 1, read from a pinned commit of
-  [xivapi/ffxiv-datamining](https://github.com/xivapi/ffxiv-datamining) with every file's SHA-256
-  checked. Every supported zone is compared with a second extraction from
-  [XIVAPI](https://v2.xivapi.com).
+### Against reference data (done)
+
+- Every supported weather table and gathering node is compared with a second, independent
+  extraction of the game data from [XIVAPI](https://v2.xivapi.com).
 - The weather roll was compared with two independent implementations,
   [ffxivweather](https://github.com/karashiiro/ffxivweather-py) and
   [eorzea-weather](https://github.com/flowercartelet/eorzea-weather), on 71,002 timestamps from
   2013 to 2045 with no differences. A sample of their results is kept as fixed test vectors.
-- The unit tests also check the roll against a BigInt version of the same arithmetic (including
-  dates past the 32-bit wrap), the clock against the known real-time lengths of a bell, sun, moon
-  and year, and the transition finder against a brute-force search.
-
-- Gathering nodes are generated from the game's GatheringPoint, GatheringPointBase,
-  GatheringItem, GatheringRarePopTimeTable and related tables at the same commit. Every node is
-  compared with XIVAPI, and with the node tables players keep on the
+- Every gathering node is compared with the node tables players keep on the
   [FFXIV wiki](https://ffxiv.consolegameswiki.com) (zone, spawn times, coordinates, item level and
   stars, folklore tome), read at pinned revisions. The game stores spawn lengths as hours and
   minutes (160 is two hours, 300 is three), which matches the wiki.
+- The unit tests also check the roll against a BigInt version of the same arithmetic (including
+  dates past the 32-bit wrap), the clock against the known real-time lengths of a bell, sun, moon
+  and year, and the transition finder and node windows against brute-force searches.
 
-Not yet checked: forecasts and node times against the game itself (a Skywatcher NPC, the weather
-on the minimap, a node appearing) for each supported zone and node.
+### In the game (not done yet)
+
+Nobody has yet compared these forecasts and node times with what the game itself shows (a
+Skywatcher NPC, the weather on the minimap, a node appearing). Until that happens they are
+computed from the game's data, not observed. Differences are welcome as
+[issues](https://github.com/RadMageIRL/ffxiv-timer/issues).
 
 ## Run it locally
 
@@ -129,8 +139,8 @@ base path they came in on, and version stamps on every file.
   proxies `/ffxiv/` to the same files.
 - `labs` is a standalone copy laid out for a host that serves the files under `/ffxiv/` itself.
 
-`.github/workflows/pages.yml` builds, tests and deploys the `pages` target. It runs only when
-started by hand.
+`.github/workflows/pages.yml` tests, builds and deploys the `pages` target on every push to
+`main`; a commit that fails the tests is not deployed.
 
 Settings and starred zones are saved in the browser under keys starting with `ffxiv-timer:`. Each
 address is its own browser origin, so the two addresses keep separate settings.

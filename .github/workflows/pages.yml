@@ -1,9 +1,12 @@
-# Builds the "pages" target and deploys it to GitHub Pages. Started by hand only (Actions tab >
-# Deploy to GitHub Pages > Run workflow), so a push never publishes by itself. Needs the repo's
-# Pages source set to "GitHub Actions". radmagelabs.com/ffxiv/ proxies these same files.
+# Builds the "pages" target and deploys it to GitHub Pages on every push to main (and by hand
+# from the Actions tab). The unit and browser tests run first; a failing commit is not deployed.
+# Needs the repo's Pages source set to "GitHub Actions". radmagelabs.com/ffxiv/ proxies these
+# same files, so one deploy updates both addresses.
 name: Deploy to GitHub Pages
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

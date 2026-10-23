@@ -292,8 +292,14 @@
     } catch (e) { /* the toast is enough */ }
   }
   function syncNotifyButton() {
-    const b = $('notify-enable');
-    b.hidden = state.remindLead == null || !('Notification' in window) || Notification.permission !== 'default';
+    const supported = 'Notification' in window, permission = supported ? Notification.permission : 'unsupported';
+    $('notify-enable').hidden = state.remindLead == null || permission !== 'default';
+    setText($('notify-state'), {
+      granted: 'Notifications are allowed.',
+      denied: 'Notifications are blocked for this site in your browser settings.',
+      unsupported: 'This browser does not offer notifications.',
+      default: '',
+    }[permission] || '');
   }
 
   // ---- forecast ----
@@ -394,9 +400,17 @@
       el('ul', { class: 'about-list' }, zonesByExpansion.map((t) => el('li', null, t))),
       el('p', null, `${DATA.unsupported.length} other cities, field zones and areas have weather in the game but no forecast here yet. More are added only after their tables are verified.`),
       el('h3', null, `Timed gathering (${NODES.length} nodes)`),
-      el('p', null, `Unspoiled and legendary nodes from ${[...new Set(NODES.map((n) => n.expansion))].join(', ')}. Times, items, levels, places and folklore tomes come from the same game data, were checked against XIVAPI, and were compared with the node tables players keep on the FFXIV wiki. More expansions are added the same way.`),
-      el('h3', null, 'Sources and checks'),
-      el('p', null, `Weather tables come from the game data for patch ${src.patch}, as exported by the ${src.dataset} project (commit ${src.commit.slice(0, 10)}), and each one was checked against a second extraction from XIVAPI. The weather calculation was checked against two independent implementations over tens of thousands of times.`),
+      el('p', null, `Unspoiled and legendary nodes from ${[...new Set(NODES.map((n) => n.expansion))].join(', ')}. Times, items, levels, places and folklore tomes come from the game data; more expansions are added the same way.`),
+      el('h3', null, 'Where the data comes from'),
+      el('p', null, `Weather tables and gathering nodes come from the game's own data tables for patch ${src.patch}, as exported by the ${src.dataset} project (commit ${src.commit.slice(0, 10)}). Calculations are deterministic: the same moment always gives the same answer.`),
+      el('h3', null, 'Checked against reference data'),
+      el('ul', { class: 'about-list' },
+        el('li', null, 'Every weather table and every gathering node matches a second, independent extraction of the game data from XIVAPI.'),
+        el('li', null, 'The weather calculation gives the same result as two independent implementations at tens of thousands of moments.'),
+        el('li', null, 'Every gathering node matches the node tables players keep on the FFXIV wiki: zone, spawn times, coordinates, item level and stars, and folklore tome.')),
+      el('h3', null, 'Not yet checked in the game'),
+      el('p', null, 'Forecasts and node times have not yet been compared with what the game itself shows (a Skywatcher, the weather on the minimap, a node appearing). They are computed from the game’s data, not observed. If you see a difference, ',
+        el('a', { href: 'https://github.com/RadMageIRL/ffxiv-timer/issues', rel: 'noopener' }, 'please report it'), '.'),
       el('h3', null, 'Credits'),
       el('p', null, 'FINAL FANTASY XIV © SQUARE ENIX. Zone and weather names are game text, used under the FINAL FANTASY XIV Materials Usage Policy. FFXIV Timer is a free fan tool and is not affiliated with or endorsed by Square Enix. Icons are original.'),
       el('p', null, 'Code is MIT licensed: ', el('a', { href: 'https://github.com/RadMageIRL/ffxiv-timer', rel: 'noopener' }, 'github.com/RadMageIRL/ffxiv-timer'), '.'));
