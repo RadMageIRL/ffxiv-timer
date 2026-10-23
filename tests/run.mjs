@@ -373,6 +373,7 @@ test('every supported node is generated, timed and placed', () => {
     assert.equal(n.job, ['Mining', 'Quarrying'].includes(n.gathering) ? 'Miner' : 'Botanist', n.id);
     assert.ok(n.times.length >= 1 && n.times.every(([s, d]) => s >= 0 && s < 1440 && d > 0), n.id);
     assert.ok(n.items.length >= 1 && n.coords.every((c) => c >= 1 && c <= 42), n.id);
+    assert.ok(n.zone && n.expansion, `${n.id} has a zone`);
     // The wiki: nodes from Heavensward on last 2 bells, A Realm Reborn nodes 3.
     assert.ok(n.times.every(([, d]) => d === (n.expansion === 'A Realm Reborn' ? 180 : 120)), `${n.id} (${n.expansion}) duration`);
     if (n.zoneKey) assert.ok(DATA.zones.some((z) => z.key === n.zoneKey), n.zoneKey);
