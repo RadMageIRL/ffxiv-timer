@@ -386,8 +386,8 @@ test('nodes match the wiki\'s node tables (times, places, levels, stars, tomes)'
   const w = fixture('wiki-gathering.json');
   assert.ok(w.rows.length >= GDATA.nodes.length);
   assert.deepEqual(compareGatheringWiki(w, GDATA, { exceptions: WIKI_EXCEPTIONS }), []);
-  // Exceptions only ever excuse the wiki's coordinates, level or stars, each with a stated reason.
-  assert.ok(WIKI_EXCEPTIONS.every((e) => ['coords', 'level', 'stars'].includes(e.field) && e.reason.length > 40 && w.rows.some((r) => r.item === e.item)));
+  // Exceptions only ever excuse the wiki's coordinates, level, stars or a row with no timed node, each with a stated reason.
+  assert.ok(WIKI_EXCEPTIONS.every((e) => ['coords', 'level', 'stars', 'row'].includes(e.field) && e.reason.length > 40 && w.rows.some((r) => r.item === e.item)));
 });
 test('both gathering comparisons notice a changed node (the checks can fail)', () => {
   const x = fixture('xivapi-gathering.json'), w = fixture('wiki-gathering.json');
@@ -437,6 +437,13 @@ test('the wiki parser reads columns by name, splits multi-node rows and ignores 
     '|1:00 AM || {{item icon|Silkworm Cocoon}} || 4 || [[East Shroud]] || {{coords|22, 26}}|| ||★', '|}'].join('\n');
   const [r] = parseWikiTables('Unspoiled Nodes', arr, ['A Realm Reborn']);
   assert.deepEqual([r.kind, r.item, r.zone, r.starts, r.coords, r.stars, 'level' in r], ['unspoiled', 'Silkworm Cocoon', 'East Shroud', [60], [22, 26], 1, false]);
+});
+test('wiki naming differences are forgiven, real zone differences are not', () => {
+  const data = { nodes: [{ id: 1, zone: 'The Azim Steppe', times: [[120, 120]], coords: [20, 20], radius: 0, kind: 'legendary', folklore: null, items: [{ name: "Hawk's Eye", level: 70, stars: 0 }] }] };
+  const row = (zone, item) => ({ capture: { rows: [{ item, zone, starts: [120], coords: [20, 20], kind: 'legendary' }] } });
+  assert.deepEqual(compareGatheringWiki(row('Azim Steppe', "Hawk's Eye (Material)").capture, data), []);
+  assert.equal(compareGatheringWiki(row('The Ruby Sea', "Hawk's Eye").capture, data).length, 1);
+  assert.equal(compareGatheringWiki(row('Azim Steppe', "Hawk's Feather").capture, data).length, 2, 'unknown item, and the node goes unnamed');
 });
 test('js/gathering-data.js is exactly what the generator builds from the cached game tables', () => {
   const cache = join(ROOT, 'tools', '.cache', GDATA.source.commit);

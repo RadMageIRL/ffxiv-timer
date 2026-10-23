@@ -29,6 +29,11 @@
   of Wattle Petribark and the Rarefied Raw Petalite node); each is a reviewed exception with its
   evidence, and each is on the list to check in the game.
 - The data checks retry dropped connections.
+- Timed gathering for Stormblood: all 31 nodes (19 unspoiled, 12 legendary), 120 in all. Six wiki
+  rows disagree with the game data; for five, the official Lodestone database settles it (its
+  star rating, or a player's posted position and time that matches the game data), and one
+  (Chromite Ore's position) is on the list to check in the game. The wiki's unspoiled Beech
+  Branch has no timed node in the current game data and is left out.
 - README screenshot, taken by `node tools/screenshot.mjs` at a fixed moment.
 
 ## Milestone 1

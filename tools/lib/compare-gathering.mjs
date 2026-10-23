@@ -12,6 +12,12 @@ export const WIKI_EXCEPTIONS = [
   { item: 'Wattle Petribark', field: 'coords', reason: 'The game puts this node (761) in The Hour of Certain Durance at 5.2, 26.6; the wiki’s own page for that area gives 7.4, 22.3. The node table’s 16, 10 is in another part of Lakeland. Worth an in-game look.' },
   { item: 'Rarefied Raw Petalite', field: 'coords', reason: 'The game puts this node (330) in The Belt at 31.3, 24.2; the wiki’s page for The Belt gives 28.2, 25.4, and the node table says 36, 24. Worth an in-game look.' },
   { item: 'Rarefied Titancopper Ore', field: 'coords', reason: 'Same node (330) as Rarefied Raw Petalite, same disagreement.' },
+  { item: 'Beech Branch', field: 'row', reason: 'The wiki lists an unspoiled Beech Branch node in The Fringes. In the patch 7.57 game data Beech Branch is only on regular, untimed nodes in East End (GatheringPointBase 506); no timed node has it. The wiki row may predate a change. Worth an in-game look.' },
+  { item: 'Othardian Plum', field: 'coords', reason: 'Game data: 27.2, 16.3. A player comment on the official Lodestone database (item 8f0ce7d700a) says 2:00 AM and PM at about X:27.3, Y:16.0 in The Azim Steppe. The wiki says 23, 16.' },
+  { item: 'Gyr Abanian Ore', field: 'coords', reason: 'Game data: 27.4, 30.2. A player comment on the Lodestone database (item 170dc01c270) says x27.7, y30.3, 12 to 2. The wiki says 31, 27.' },
+  { item: "Hawk's Eye (Material)", field: 'coords', reason: 'Game data: 10.9, 22.6. A player comment on the Lodestone database (item cb2fa7480eb) says X10.8 Y22.1, 6 to 8 AM and PM. The wiki gives 23, 36, the same numbers as its Chromite Ore row.' },
+  { item: 'Chromite Ore', field: 'coords', reason: 'Game data (both extractions): 15.9, 33.9, in Wightrock. The wiki gives 23, 36, which it also gives for Hawk’s Eye. No third report found. Worth an in-game look.' },
+  { item: 'Raw Triphane', field: 'stars', reason: 'Game data: two stars. The official Lodestone database (item 7eb9aab7d78) shows Mining 60 with two stars; the wiki shows none.' },
 ];
 
 const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
@@ -41,18 +47,26 @@ export function compareGatheringXivapi(capture, data) {
 // supported node must be named by at least one row. Coordinates are rounded on the wiki and
 // sometimes given per item, so they only have to be within `tolerance`. An item found at several
 // nodes (crystal clusters, some folklore items) is matched by zone, then by start times.
+// Wiki page titles drop a leading "The" ("Azim Steppe") and disambiguate items that share a name
+// with something else ("Hawk's Eye (Material)"); neither is a disagreement about the game.
+const sameZone = (a, b) => String(a).replace(/^The /i, '').toLowerCase() === String(b).replace(/^The /i, '').toLowerCase();
+const itemNamed = (n, name) => n.items.some((i) => i.name === name);
+
 export function compareGatheringWiki(capture, data, { tolerance = 1.5, exceptions = [] } = {}) {
   const problems = [], named = new Set();
   const excused = (item, field) => exceptions.some((e) => e.item === item && e.field === field);
   const starts = (n) => n.times.map(([s]) => s);
   for (const row of capture.rows) {
-    let nodes = data.nodes.filter((n) => n.items.some((i) => i.name === row.item));
-    if (nodes.length > 1) nodes = nodes.filter((n) => n.zone === row.zone);
+    let item = row.item;
+    if (!data.nodes.some((n) => itemNamed(n, item))) item = item.replace(/\s+\([^)]*\)$/, '');
+    let nodes = data.nodes.filter((n) => itemNamed(n, item));
+    if (nodes.length > 1) nodes = nodes.filter((n) => sameZone(n.zone, row.zone));
     if (nodes.length > 1) nodes = nodes.filter((n) => sameSet(row.starts || [], starts(n)));
+    if (!nodes.length && excused(row.item, 'row')) continue;
     if (nodes.length !== 1) { problems.push(`wiki ${row.item} (${row.zone} ${row.starts}): ${nodes.length} supported nodes match`); continue; }
-    const n = nodes[0], it = n.items.find((i) => i.name === row.item);
+    const n = nodes[0], it = n.items.find((i) => i.name === item);
     named.add(n.id);
-    if (row.zone !== n.zone) problems.push(`wiki ${row.item}: zone ${row.zone} vs ${n.zone}`);
+    if (!sameZone(row.zone, n.zone)) problems.push(`wiki ${row.item}: zone ${row.zone} vs ${n.zone}`);
     if (!sameSet(row.starts, n.times.map(([s]) => s))) problems.push(`wiki ${row.item}: starts ${row.starts} vs ${n.times.map(([s]) => s)}`);
     if (row.coords && !excused(row.item, 'coords')) {
       // A node appears anywhere within its spawn radius; one layout unit is 41/2048 of a map unit.
