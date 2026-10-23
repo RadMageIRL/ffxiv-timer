@@ -7,6 +7,11 @@
     {"base": 1300}, {"base": 1301}, {"base": 338}, {"base": 346}, {"base": 400}, {"base": 463}, {"base": 627}, {"base": 695},
     {"base": 829}, {"base": 830}, {"base": 831}, {"base": 832}, {"base": 833}, {"base": 834}, {"base": 835}, {"base": 836},
     {"base": 851}, {"base": 852}, {"base": 853}, {"base": 854}, {"base": 855}, {"base": 856}, {"base": 857}, {"base": 858},
-    {"base": 932}, {"base": 933}, {"base": 934}, {"base": 935}, {"base": 936}, {"base": 937}
+    {"base": 932}, {"base": 933}, {"base": 934}, {"base": 935}, {"base": 936}, {"base": 937}, {"base": 330}, {"base": 332},
+    {"base": 334}, {"base": 603}, {"base": 604}, {"base": 605}, {"base": 606}, {"base": 607}, {"base": 608}, {"base": 609},
+    {"base": 610}, {"base": 628}, {"base": 629}, {"base": 630}, {"base": 631}, {"base": 632}, {"base": 633}, {"base": 634},
+    {"base": 681}, {"base": 682}, {"base": 683}, {"base": 684}, {"base": 713}, {"base": 714}, {"base": 758}, {"base": 759},
+    {"base": 760}, {"base": 761}, {"base": 762}, {"base": 763}, {"base": 766}, {"base": 773}, {"base": 774}, {"base": 775},
+    {"base": 776}
   ]
 }

@@ -24,6 +24,11 @@
 - Timed gathering for Endwalker: all 28 nodes (10 unspoiled, 18 legendary), 54 in all. Place
   names drop the game's italics markers ("The Ragnarok"). Where the wiki and the game data
   disagree, the official Lodestone database decided (Rarefied Palm Log is level 81).
+- Timed gathering for Shadowbringers: all 35 nodes (19 unspoiled, 16 legendary), 89 in all.
+  Four wiki rows disagree with the game data (Rarefied Kelp's level and star, and the positions
+  of Wattle Petribark and the Rarefied Raw Petalite node); each is a reviewed exception with its
+  evidence, and each is on the list to check in the game.
+- The data checks retry dropped connections.
 - README screenshot, taken by `node tools/screenshot.mjs` at a fixed moment.
 
 ## Milestone 1

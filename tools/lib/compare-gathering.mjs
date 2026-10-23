@@ -7,6 +7,11 @@
 export const WIKI_EXCEPTIONS = [
   { item: 'Rarefied White Gold Ore', field: 'coords', reason: 'The wiki gives the two items of this one node different coordinates (34, 8 and 38, 8). The game has one node (GatheringPointBase 1024) with one position, 34.6, 8.3.' },
   { item: 'Rarefied Palm Log', field: 'level', reason: 'The wiki lists level 85, the level of Rarefied Coconut on the same node. Both game-data extractions say 81, and so does the official Lodestone Eorzea Database (Gathering Log: Logging 81, patch 7.57, item a3a3ab08eb5).' },
+  { item: 'Rarefied Kelp', field: 'level', reason: 'The wiki lists level 80, the level of Rarefied Coral on the same node. Both game-data extractions and the official Lodestone database (Logging 79, patch 7.57, item 9141a2abb56) say 79; a player comment there places it at Tempest x:37 y:11, 4:00 to 6:00 am/pm, as the game data does.' },
+  { item: 'Rarefied Kelp', field: 'stars', reason: 'The wiki gives a star, as for Rarefied Coral on the same node. Both game-data extractions say none. Worth an in-game look.' },
+  { item: 'Wattle Petribark', field: 'coords', reason: 'The game puts this node (761) in The Hour of Certain Durance at 5.2, 26.6; the wiki’s own page for that area gives 7.4, 22.3. The node table’s 16, 10 is in another part of Lakeland. Worth an in-game look.' },
+  { item: 'Rarefied Raw Petalite', field: 'coords', reason: 'The game puts this node (330) in The Belt at 31.3, 24.2; the wiki’s page for The Belt gives 28.2, 25.4, and the node table says 36, 24. Worth an in-game look.' },
+  { item: 'Rarefied Titancopper Ore', field: 'coords', reason: 'Same node (330) as Rarefied Raw Petalite, same disagreement.' },
 ];
 
 const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
@@ -56,7 +61,7 @@ export function compareGatheringWiki(capture, data, { tolerance = 1.5, exception
       if (off > allowed) problems.push(`wiki ${row.item}: coords ${row.coords} vs ${n.coords} (off by ${off.toFixed(1)}, allowed ${allowed.toFixed(1)})`);
     }
     if (row.level != null && row.level !== it.level && !excused(row.item, 'level')) problems.push(`wiki ${row.item}: level ${row.level} vs ${it.level}`);
-    if (row.stars != null && row.stars !== it.stars) problems.push(`wiki ${row.item}: stars ${row.stars} vs ${it.stars}`);
+    if (row.stars != null && row.stars !== it.stars && !excused(row.item, 'stars')) problems.push(`wiki ${row.item}: stars ${row.stars} vs ${it.stars}`);
     if (row.kind && row.kind !== n.kind) problems.push(`wiki ${row.item}: listed as ${row.kind}, data says ${n.kind}`);
     if (row.tome && row.tome !== n.folklore) problems.push(`wiki ${row.item}: tome ${row.tome} vs ${n.folklore}`);
   }

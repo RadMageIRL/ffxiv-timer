@@ -386,8 +386,8 @@ test('nodes match the wiki\'s node tables (times, places, levels, stars, tomes)'
   const w = fixture('wiki-gathering.json');
   assert.ok(w.rows.length >= GDATA.nodes.length);
   assert.deepEqual(compareGatheringWiki(w, GDATA, { exceptions: WIKI_EXCEPTIONS }), []);
-  // Exceptions only ever excuse the wiki's coordinates or level, each with a stated reason.
-  assert.ok(WIKI_EXCEPTIONS.every((e) => ['coords', 'level'].includes(e.field) && e.reason.length > 40 && w.rows.some((r) => r.item === e.item)));
+  // Exceptions only ever excuse the wiki's coordinates, level or stars, each with a stated reason.
+  assert.ok(WIKI_EXCEPTIONS.every((e) => ['coords', 'level', 'stars'].includes(e.field) && e.reason.length > 40 && w.rows.some((r) => r.item === e.item)));
 });
 test('both gathering comparisons notice a changed node (the checks can fail)', () => {
   const x = fixture('xivapi-gathering.json'), w = fixture('wiki-gathering.json');

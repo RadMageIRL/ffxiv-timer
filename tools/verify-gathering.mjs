@@ -23,12 +23,19 @@ const WIKI_PAGES = { 'Unspoiled Nodes': 1490944, 'Folklore Nodes': 1491386 };
 const KINDS = { 2: 'unspoiled', 5: 'legendary' };
 const data = createRequire(import.meta.url)('../js/gathering-data.js');
 
+// Retries both HTTP errors and dropped connections, backing off a little more each time.
 async function get(url, as = 'json') {
   for (let attempt = 1; ; attempt++) {
-    const res = await fetch(url, { headers: { 'user-agent': 'ffxiv-timer data check (github.com/RadMageIRL/ffxiv-timer)' } });
-    if (res.ok) return as === 'json' ? res.json() : res.text();
-    if (attempt === 3) throw new Error(`${url}: HTTP ${res.status}`);
-    await new Promise((r) => setTimeout(r, 1000 * attempt));
+    let failure;
+    try {
+      const res = await fetch(url, { headers: { 'user-agent': 'ffxiv-timer data check (github.com/RadMageIRL/ffxiv-timer)' } });
+      if (res.ok) return as === 'json' ? await res.json() : await res.text();
+      failure = `HTTP ${res.status}`;
+    } catch (e) {
+      failure = e.cause?.code || e.message;
+    }
+    if (attempt === 5) throw new Error(`${url}: ${failure}`);
+    await new Promise((r) => setTimeout(r, 1500 * attempt));
   }
 }
 const xivapi = (path, fields) => get(`${XIVAPI}/${path}${path.includes('?') ? '&' : '?'}version=${XIVAPI_VERSION}&fields=${encodeURIComponent(fields)}`);
