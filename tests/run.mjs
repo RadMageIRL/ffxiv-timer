@@ -293,6 +293,128 @@ test('a weather a zone never has is reported impossible, not just unmatched', ()
   assert.equal(solution.matches.length, 5, 'always Fair Skies after Fair Skies');
 });
 
+// ---- timed gathering ----
+const G = require('../js/gathering.js');
+const GDATA = require('../js/gathering-data.js');
+const { hhmmToMinutes, mapCoordinate } = await import('../tools/build-gathering.mjs');
+const { WIKI_EXCEPTIONS, compareGatheringXivapi, compareGatheringWiki } = await import('../tools/lib/compare-gathering.mjs');
+const etMinuteOfDay = (t) => { const c = E.clock(t); return c.bell * 60 + c.minute; };
+
+test('spawn durations are HHMM: 160 is the 2 bells and 300 the 3 bells the wiki states', () => {
+  assert.deepEqual([0, 800, 2200, 160, 300, 130].map(hhmmToMinutes), [0, 480, 1320, 120, 180, 90]);
+});
+test('map coordinates: a raw position at -offset is the map center', () => {
+  assert.equal(mapCoordinate(0, 100, 0), 21.5);
+  assert.equal(mapCoordinate(-150, 100, 150), 21.5);
+  assert.equal(mapCoordinate(0, 200, 0), 11.25);
+  assert.ok(mapCoordinate(1024, 100, 0) > 41 && mapCoordinate(-1024, 100, 0) === 1);
+});
+test('a window starts on the exact ET minute and lasts its duration of Eorzean time', () => {
+  const node = { times: [[480, 120], [1200, 120]] };
+  const ws = G.windows(node, NOW, NOW + E.SUN * 3);
+  assert.ok(ws.length >= 5);
+  for (const w of ws) {
+    assert.ok([480, 1200].includes(etMinuteOfDay(w.start)) && E.clock(w.start).second === 0);
+    assert.notEqual(etMinuteOfDay(w.start - 1), etMinuteOfDay(w.start));
+    assert.equal(w.end - w.start, 120 * 175000 / 60, '2 bells = 5 min 50 s');
+    assert.equal(etMinuteOfDay(w.end), etMinuteOfDay(w.start) + 120);
+  }
+});
+test('node status agrees with the ET clock at random times (brute force)', () => {
+  for (const node of [GDATA.nodes[0], GDATA.nodes[10], { times: [[1380, 180]] }]) {
+    for (let i = 0; i < 2000; i++) {
+      const t = randomTime(), m = etMinuteOfDay(t);
+      const inside = node.times.some(([s, d]) => (m - s + 1440) % 1440 < d);
+      const st = G.status(node, t);
+      assert.equal(st.up, inside, `${JSON.stringify(node.times)} at ${t}`);
+      assert.ok(st.up ? st.start <= t && t < st.end : st.start > t);
+    }
+  }
+});
+test('window edges: up from the first millisecond, down at the end, not counted once over', () => {
+  const node = { times: [[480, 120]] };
+  const w = G.windows(node, NOW, NOW + E.SUN * 2)[0];
+  assert.deepEqual([w.start - 1, w.start, w.end - 1, w.end].map((t) => G.status(node, t).up), [false, true, true, false]);
+  assert.equal(G.status(node, w.start).start, w.start);
+  assert.ok(!G.windows(node, w.end, w.end + E.BELL).some((x) => x.start === w.start), 'a window ending at `from` does not overlap');
+  assert.ok(G.windows(node, w.end - 1, w.end).some((x) => x.start === w.start));
+  assert.ok(G.upcoming(node, w.start, 1)[0].start > w.start, 'upcoming means after t');
+});
+test('a window that runs past ET midnight is found from either side of midnight', () => {
+  const node = { times: [[1380, 180]] }; // 23:00 for 3 bells
+  const midnight = E.sunStart(NOW) + E.SUN, oneAm = midnight + E.BELL;
+  const st = G.status(node, oneAm);
+  assert.ok(st.up);
+  assert.equal(st.start, midnight - E.BELL);
+  assert.equal(st.end, midnight + 2 * E.BELL);
+  assert.equal(G.status(node, midnight + 2 * E.BELL).up, false);
+});
+test('upcoming returns the next windows in order, all in the future', () => {
+  const node = GDATA.nodes.find((n) => n.items.some((i) => i.name === 'Turali Alumen'));
+  const up = G.upcoming(node, NOW, 5);
+  assert.equal(up.length, 5);
+  for (let i = 0; i < 5; i++) {
+    assert.ok(up[i].start > NOW && (i === 0 || up[i].start > up[i - 1].start));
+    assert.ok([480, 1200].includes(etMinuteOfDay(up[i].start)));
+  }
+});
+test('every supported node is generated, timed and placed', () => {
+  const listed = JSON.parse(readFileSync(join(ROOT, 'data', 'supported-nodes.json'), 'utf8')).nodes.map((n) => n.base);
+  assert.deepEqual(GDATA.nodes.map((n) => n.id), listed);
+  for (const n of GDATA.nodes) {
+    assert.ok(['unspoiled', 'legendary'].includes(n.kind), n.id);
+    assert.equal(n.job, ['Mining', 'Quarrying'].includes(n.gathering) ? 'Miner' : 'Botanist', n.id);
+    assert.ok(n.times.length >= 1 && n.times.every(([s, d]) => s >= 0 && s < 1440 && d > 0), n.id);
+    assert.ok(n.items.length >= 1 && n.coords.every((c) => c >= 1 && c <= 42), n.id);
+    if (n.expansion !== 'A Realm Reborn') assert.ok(n.times.every(([, d]) => d === 120), `${n.id} lasts 2 bells`);
+    if (n.zoneKey) assert.ok(DATA.zones.some((z) => z.key === n.zoneKey), n.zoneKey);
+  }
+});
+test('nodes match a second extraction of the game data (XIVAPI)', () => {
+  const x = fixture('xivapi-gathering.json');
+  assert.equal(x.nodes.length, GDATA.nodes.length);
+  assert.deepEqual(compareGatheringXivapi(x, GDATA), []);
+});
+test('nodes match the wiki\'s node tables (times, places, levels, stars, tomes)', () => {
+  const w = fixture('wiki-gathering.json');
+  assert.ok(w.rows.length >= GDATA.nodes.length);
+  assert.deepEqual(compareGatheringWiki(w, GDATA, { exceptions: WIKI_EXCEPTIONS }), []);
+  assert.ok(WIKI_EXCEPTIONS.every((e) => e.field === 'coords' && e.reason && w.rows.some((r) => r.item === e.item)));
+});
+test('both gathering comparisons notice a changed node (the checks can fail)', () => {
+  const x = fixture('xivapi-gathering.json'), w = fixture('wiki-gathering.json');
+  const changes = [
+    (n) => { n.times[0][0] += 60; },
+    (n) => { n.zone = 'Yanxia'; },
+    (n) => { n.items[0].stars += 1; },
+    (n) => { n.coords[0] += 3; },
+  ];
+  changes.forEach((change, i) => {
+    const bad = JSON.parse(JSON.stringify(GDATA));
+    change(bad.nodes.find((n) => n.items.some((it) => it.name === 'Rarefied Ash Soil')));
+    const found = compareGatheringXivapi(x, bad).length + compareGatheringWiki(w, bad, { exceptions: WIKI_EXCEPTIONS }).length;
+    assert.ok(found > 0, `change ${i} went unnoticed`);
+  });
+});
+test('the wiki comparison on its own notices wrong stars, level, tome and start time', () => {
+  const w = fixture('wiki-gathering.json');
+  const changes = [
+    (n) => { n.items[0].stars += 1; }, (n) => { n.items[0].level -= 2; },
+    (n) => { n.folklore = 'Tome of Geological Folklore - Xak Tural'; }, (n) => { n.times[1][0] += 120; },
+  ];
+  for (const [i, change] of changes.entries()) {
+    const bad = JSON.parse(JSON.stringify(GDATA));
+    const key = i === 2 ? 'Turali Alumen' : 'Rarefied Ash Soil';
+    change(bad.nodes.find((n) => n.items.some((it) => it.name === key)));
+    assert.ok(compareGatheringWiki(w, bad, { exceptions: WIKI_EXCEPTIONS }).length > 0, `change ${i} went unnoticed`);
+  }
+});
+test('js/gathering-data.js is exactly what the generator builds from the cached game tables', () => {
+  const cache = join(ROOT, 'tools', '.cache', GDATA.source.commit);
+  if (!existsSync(join(cache, 'GatheringPoint.csv'))) { console.log('  (skipped: run node tools/build-gathering.mjs once to cache the game tables)'); return; }
+  execFileSync(process.execPath, [join(ROOT, 'tools', 'build-gathering.mjs'), '--check', '--csv', cache], { stdio: 'pipe' });
+});
+
 // ---- base path and build ----
 test('every page script parses (app.js is only exercised by the browser tests)', () => {
   for (const f of readdirSync(join(ROOT, 'js'))) execFileSync(process.execPath, ['--check', join(ROOT, 'js', f)], { stdio: 'pipe' });

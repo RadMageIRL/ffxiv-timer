@@ -31,6 +31,7 @@
     <nav class="jump" aria-label="Sections">
       <button type="button" data-jump="now">Weather</button>
       <button type="button" data-jump="timeline">Upcoming</button>
+      <button type="button" data-jump="gathering">Gathering</button>
       <button type="button" data-jump="forecast">Forecast</button>
       <button type="button" data-jump="finder">Transitions</button>
     </nav>
@@ -92,9 +93,45 @@
       <section class="panel" id="timeline" aria-labelledby="timeline-title">
         <div class="panel-head">
           <h2 id="timeline-title">Upcoming</h2>
-          <p class="hint">Weather changes in starred zones, and sunrise and sunset, over the next two hours.</p>
+          <p class="hint">Weather changes in starred zones, starred gathering nodes appearing, and sunrise and sunset, over the next two hours.</p>
         </div>
         <ol id="timeline-list" class="timeline"></ol>
+      </section>
+
+      <section class="panel wide" id="gathering" aria-labelledby="gathering-title">
+        <div class="panel-head">
+          <h2 id="gathering-title">Timed gathering</h2>
+          <div class="reminders">
+            <label class="inline-select">
+              <span>Remind me</span>
+              <select id="remind-lead">
+                <option value="">Off</option>
+                <option value="0">When it appears</option>
+                <option value="1">1 minute before</option>
+                <option value="2">2 minutes before</option>
+                <option value="5">5 minutes before</option>
+              </select>
+            </label>
+            <button type="button" id="notify-enable" class="ghost small" hidden>Allow notifications</button>
+          </div>
+          <p class="hint">Unspoiled and legendary nodes. Starred nodes show in Upcoming, and reminders for them work while this page is open.</p>
+        </div>
+        <div class="filters">
+          <label class="search">
+            <span class="visually-hidden">Search nodes</span>
+            <input id="node-search" type="search" placeholder="Search items, zones or tomes" autocomplete="off">
+          </label>
+          <div class="chips" role="group" aria-label="Filter nodes">
+            <button type="button" class="toggle" data-node-filter="Miner" aria-pressed="false">Miner</button>
+            <button type="button" class="toggle" data-node-filter="Botanist" aria-pressed="false">Botanist</button>
+            <button type="button" class="toggle" data-node-filter="legendary" aria-pressed="false">Legendary</button>
+            <button type="button" class="toggle" data-node-filter="unspoiled" aria-pressed="false">Unspoiled</button>
+            <button type="button" class="toggle" data-node-filter="up" aria-pressed="false">Up now</button>
+            <button type="button" class="toggle" data-node-filter="starred" aria-pressed="false">Starred</button>
+          </div>
+        </div>
+        <ul id="node-list" class="node-list"></ul>
+        <p id="node-empty" class="empty" hidden></p>
       </section>
 
       <section class="panel" id="forecast" aria-labelledby="forecast-title">
@@ -136,6 +173,8 @@
     <p>FINAL FANTASY XIV &copy; SQUARE ENIX. FFXIV Timer is a free fan tool and is not affiliated with Square Enix.</p>
   </footer>
 
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
   <dialog id="about" aria-labelledby="about-title">
     <form method="dialog" class="dialog-close"><button class="ghost" aria-label="Close">&times;</button></form>
     <h2 id="about-title">About FFXIV Timer</h2>
@@ -150,6 +189,8 @@
   <script src="js/eorzea.js"></script>
   <script src="js/weather.js"></script>
   <script src="js/weather-data.js"></script>
+  <script src="js/gathering.js"></script>
+  <script src="js/gathering-data.js"></script>
   <script src="js/format.js"></script>
   <script src="js/store.js"></script>
   <script src="js/icons.js"></script>

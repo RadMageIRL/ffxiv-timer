@@ -24,6 +24,8 @@ jobs:
         run: for f in js/*.js tools/*.mjs tools/lib/*.mjs tests/*.mjs tests/lib/*.mjs; do node --check "$f" || exit 1; done
       - name: Generated weather data matches the pinned game tables
         run: node tools/build-weather.mjs --check
+      - name: Generated gathering data matches the pinned game tables
+        run: node tools/build-gathering.mjs --check
       - name: Unit tests
         run: node tests/run.mjs
 

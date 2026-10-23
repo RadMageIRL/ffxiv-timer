@@ -5,6 +5,7 @@
 (function () {
   'use strict';
   const E = window.Eorzea, W = window.XivWeather, DATA = window.FFXIV_WEATHER_DATA;
+  const G = window.XivGathering, NODES = window.FFXIV_GATHERING_DATA.nodes;
   const Store = window.FfxivStore, Icons = window.FfxivIcons, Format = window.FfxivFormat;
 
   const ZONES = DATA.zones;
@@ -30,7 +31,11 @@
     forecastZone: Store.read('forecastZone', 'middle-la-noscea'),
     forecastCount: 12,
     finder: Object.assign({ zone: 'eureka-pagos', prev: [], to: [15], bells: [] }, Store.read('finder', {})),
+    nodeFavorites: new Set((Store.read('nodeFavorites', []) || []).filter((id) => NODES.some((n) => n.id === id))),
+    nodeSearch: '', nodeFilters: new Set(),
+    remindLead: Store.read('remindLead', null),
   };
+  const NODE_BY_ID = new Map(NODES.map((n) => [n.id, n]));
 
   // ---- small DOM helpers ----
   const $ = (id) => document.getElementById(id);
@@ -188,17 +193,107 @@
     for (const bell of [6, 18]) {
       for (let t = E.nextEtTime(now, bell); t <= until; t += E.SUN) events.push({ at: t, bell });
     }
+    for (const id of state.nodeFavorites) {
+      const node = NODE_BY_ID.get(id);
+      for (const w of G.windows(node, now, until)) if (w.start > now) events.push({ at: w.start, node });
+    }
     events.sort((a, b) => a.at - b.at || (a.bell != null ? -1 : 1));
     timelineNext = events.length ? events[0].at : Infinity;
-    const items = events.slice(0, TIMELINE_MAX).map((ev) => el('li', { class: `tl-item${ev.bell != null ? ' tl-sun' : ''}` },
+    const items = events.slice(0, TIMELINE_MAX).map((ev) => el('li', { class: `tl-item${ev.bell != null ? ' tl-sun' : ''}${ev.node ? ' tl-node' : ''}` },
       el('div', { class: 'tl-when' }, el('span', null, localWhen(ev.at, now)), el('span', { class: 'muted' }, etLabel(ev.at))),
       ev.bell != null
         ? el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, ev.bell === 6 ? 'Sunrise' : 'Sunset'), el('span', { class: 'muted' }, ev.bell === 6 ? 'Day begins' : 'Night begins'))
-        : el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, ev.zone.name),
+        : ev.node
+          ? el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, nodeTitle(ev.node)),
+            el('span', { class: 'muted' }, `${KIND_LABEL[ev.node.kind]} ${ev.node.job.toLowerCase()} node appears · ${ev.node.zone}`))
+          : el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, ev.zone.name),
           el('span', { class: 'tl-change' }, chip(ev.p.previous, true), el('span', { class: 'arrow', 'aria-label': 'to' }, '→'), chip(ev.p.weather, true))),
       el('div', { class: 'tl-cd' }, countdown(ev.at))));
-    if (!state.favorites.size) items.unshift(el('li', { class: 'tl-item tl-note muted' }, 'Star zones in Weather now to see their weather changes here.'));
+    if (!state.favorites.size && !state.nodeFavorites.size) items.unshift(el('li', { class: 'tl-item tl-note muted' }, 'Star zones in Weather now or nodes in Timed gathering to see them here.'));
     $('timeline-list').replaceChildren(...items);
+  }
+
+  // ---- timed gathering ----
+  const KIND_LABEL = { unspoiled: 'Unspoiled', legendary: 'Legendary' };
+  const nodeTitle = (n) => n.items.map((i) => i.name).join(', ');
+  const fmtCoords = (c) => `(${c[0].toFixed(1)}, ${c[1].toFixed(1)})`;
+  let gatheringNext = Infinity;
+
+  function nodeMatches(n, q) {
+    if (!q) return true;
+    return `${nodeTitle(n)} ${n.zone} ${n.area} ${n.folklore || ''} ${n.gathering}`.toLowerCase().includes(q);
+  }
+  function renderGathering(now) {
+    const f = state.nodeFilters, q = state.nodeSearch.trim().toLowerCase();
+    const jobs = ['Miner', 'Botanist'].filter((j) => f.has(j)), kinds = ['legendary', 'unspoiled'].filter((k) => f.has(k));
+    const rows = NODES.map((n) => ({ n, s: G.status(n, now) }))
+      .filter(({ n, s }) => (!jobs.length || jobs.includes(n.job)) && (!kinds.length || kinds.includes(n.kind))
+        && (!f.has('up') || s.up) && (!f.has('starred') || state.nodeFavorites.has(n.id)) && nodeMatches(n, q));
+    // Up now first, ending soonest; then by when they next appear.
+    rows.sort((a, b) => (b.s.up - a.s.up) || (a.s.up ? a.s.end - b.s.end : a.s.start - b.s.start));
+    gatheringNext = Math.min(Infinity, ...NODES.map((n) => { const s = G.status(n, now); return s.up ? s.end : s.start; }));
+    $('node-list').replaceChildren(...rows.map(({ n, s }) => nodeRow(n, s, now)));
+    const empty = $('node-empty');
+    empty.hidden = rows.length > 0;
+    if (!rows.length) empty.textContent = f.has('starred') && !state.nodeFavorites.size ? 'Star a node to pin it here.' : 'No node matches.';
+  }
+  function nodeRow(n, s, now) {
+    const fav = state.nodeFavorites.has(n.id);
+    const items = n.items.map((i) => el('li', null,
+      el('span', { class: 'node-item' }, i.name),
+      i.stars ? el('span', { class: 'stars', 'aria-label': `${i.stars} star${i.stars > 1 ? 's' : ''}` }, '★'.repeat(i.stars)) : null,
+      el('span', { class: 'muted small' }, ` Lv ${i.level}`),
+      i.collectable ? el('span', { class: 'badge tag' }, 'Collectable') : null,
+      i.hidden ? el('span', { class: 'badge tag' }, 'Hidden') : null));
+    const times = n.times.map(([start]) => E.formatEt(Math.floor(start / 60), start % 60)).join(' and ');
+    const hours = n.times[0][1] / 60;
+    return el('li', { class: `node-row${s.up ? ' up' : ''}${fav ? ' fav' : ''}` },
+      el('button', { class: 'star', type: 'button', 'data-node-star': String(n.id), 'aria-pressed': String(fav), 'aria-label': `Star ${nodeTitle(n)}`, html: '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>' }),
+      el('div', { class: 'node-main' },
+        el('ul', { class: 'node-items' }, items),
+        el('p', { class: 'node-meta' },
+          el('span', { class: `badge kind ${n.kind}` }, KIND_LABEL[n.kind]),
+          ` ${n.job} · ${n.gathering} Lv ${n.level} · `,
+          n.zoneKey ? el('button', { class: 'link', type: 'button', 'data-open': n.zoneKey }, n.zone) : n.zone,
+          `, ${n.area} ${fmtCoords(n.coords)}`),
+        n.folklore ? el('p', { class: 'node-meta muted' }, `Needs ${n.folklore}`) : null),
+      el('div', { class: 'node-when' },
+        el('span', { class: 'node-times' }, `${times} ET`, el('span', { class: 'muted' }, ` for ${hours} bell${hours === 1 ? '' : 's'}`)),
+        s.up
+          ? el('span', { class: 'node-status' }, el('span', { class: 'badge now' }, 'Up'), ' ends in ', countdown(s.end))
+          : el('span', { class: 'node-status' }, `${localWhen(s.start, now)} · in `, countdown(s.start))));
+  }
+
+  // Reminders for starred nodes while the page is open: a toast, and a system notification when
+  // the browser allows one. Each window is announced once.
+  const reminded = new Set();
+  function checkReminders(now) {
+    if (state.remindLead == null) return;
+    const lead = state.remindLead * 60000;
+    for (const id of state.nodeFavorites) {
+      const n = NODE_BY_ID.get(id), s = G.status(n, now);
+      const start = s.start, key = `${id}:${start}`;
+      if (reminded.has(key)) continue;
+      const due = start - lead;
+      if (now >= due && now < Math.max(start, due + 15000)) {
+        reminded.add(key);
+        const when = start > now ? `in ${fmtCountdown(start - now)} (${etLabel(start)})` : `now (${etLabel(start)})`;
+        notify(`${nodeTitle(n)}`, `${KIND_LABEL[n.kind]} ${n.job.toLowerCase()} node in ${n.zone}, ${n.area} ${fmtCoords(n.coords)}: up ${when}.`);
+      }
+    }
+  }
+  function notify(title, body) {
+    const toast = el('div', { class: 'toast', role: 'status' }, el('strong', null, title), el('span', null, body),
+      el('button', { type: 'button', class: 'ghost small', 'aria-label': 'Dismiss', onclick: (e) => e.currentTarget.parentElement.remove() }, '×'));
+    $('toasts').append(toast);
+    setTimeout(() => toast.remove(), 20000);
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body, tag: title });
+    } catch (e) { /* the toast is enough */ }
+  }
+  function syncNotifyButton() {
+    const b = $('notify-enable');
+    b.hidden = state.remindLead == null || !('Notification' in window) || Notification.permission !== 'default';
   }
 
   // ---- forecast ----
@@ -298,6 +393,8 @@
       el('h3', null, `Zones with forecasts (${ZONES.length})`),
       el('ul', { class: 'about-list' }, zonesByExpansion.map((t) => el('li', null, t))),
       el('p', null, `${DATA.unsupported.length} other cities, field zones and areas have weather in the game but no forecast here yet. More are added only after their tables are verified.`),
+      el('h3', null, `Timed gathering (${NODES.length} nodes)`),
+      el('p', null, `Unspoiled and legendary nodes from ${[...new Set(NODES.map((n) => n.expansion))].join(', ')}. Times, items, levels, places and folklore tomes come from the same game data, were checked against XIVAPI, and were compared with the node tables players keep on the FFXIV wiki. More expansions are added the same way.`),
       el('h3', null, 'Sources and checks'),
       el('p', null, `Weather tables come from the game data for patch ${src.patch}, as exported by the ${src.dataset} project (commit ${src.commit.slice(0, 10)}), and each one was checked against a second extraction from XIVAPI. The weather calculation was checked against two independent implementations over tens of thousands of times.`),
       el('h3', null, 'Credits'),
@@ -311,6 +408,7 @@
     renderTimeline(now);
     renderForecast(now);
     renderFinder(now);
+    renderGathering(now);
     updateCountdowns(now);
   }
   function updateCountdowns(now) {
@@ -322,7 +420,9 @@
     renderClock(now);
     const period = E.periodStart(now);
     if (period !== lastPeriod) { lastPeriod = period; renderWeather(now); return; }
+    if (now >= gatheringNext) renderGathering(now);
     if (now >= timelineNext) renderTimeline(now);
+    checkReminders(now);
     updateCountdowns(now);
   }
 
@@ -340,6 +440,39 @@
     renderAbout();
     writeHash();
 
+    $('node-search').addEventListener('input', (e) => { state.nodeSearch = e.target.value; renderGathering(Date.now()); updateCountdowns(Date.now()); });
+    for (const b of document.querySelectorAll('[data-node-filter]')) {
+      b.addEventListener('click', () => {
+        const f = b.dataset.nodeFilter;
+        if (state.nodeFilters.has(f)) state.nodeFilters.delete(f); else state.nodeFilters.add(f);
+        b.setAttribute('aria-pressed', String(state.nodeFilters.has(f)));
+        renderGathering(Date.now()); updateCountdowns(Date.now());
+      });
+    }
+    $('node-list').addEventListener('click', (e) => {
+      const star = e.target.closest('[data-node-star]'), open = e.target.closest('[data-open]');
+      if (star) {
+        const id = Number(star.dataset.nodeStar);
+        if (state.nodeFavorites.has(id)) state.nodeFavorites.delete(id); else state.nodeFavorites.add(id);
+        Store.write('nodeFavorites', [...state.nodeFavorites]);
+        const now = Date.now();
+        renderGathering(now); renderTimeline(now); updateCountdowns(now);
+        const again = document.querySelector(`[data-node-star="${id}"]`);
+        if (again) again.focus();
+      } else if (open) openForecast(open.dataset.open);
+    });
+    const lead = $('remind-lead');
+    lead.value = state.remindLead == null ? '' : String(state.remindLead);
+    lead.addEventListener('change', () => {
+      state.remindLead = lead.value === '' ? null : Number(lead.value);
+      Store.write('remindLead', state.remindLead);
+      syncNotifyButton();
+    });
+    $('notify-enable').addEventListener('click', async () => {
+      try { await Notification.requestPermission(); } catch (e) { /* unsupported */ }
+      syncNotifyButton();
+    });
+    syncNotifyButton();
     $('zone-search').addEventListener('input', (e) => { state.search = e.target.value; renderZones(Date.now()); updateCountdowns(Date.now()); });
     region.addEventListener('change', (e) => { state.area = e.target.value; renderZones(Date.now()); updateCountdowns(Date.now()); });
     // toggle does not bubble, so listen in the capture phase.
@@ -364,13 +497,7 @@
         renderZones(now); renderTimeline(now); updateCountdowns(now);
         const again = document.querySelector(`[data-star="${key}"]`);
         if (again) again.focus();
-      } else if (open) {
-        state.forecastZone = open.dataset.open;
-        state.forecastCount = 12;
-        $('forecast-zone').value = state.forecastZone;
-        writeHash(); renderForecast(Date.now()); updateCountdowns(Date.now());
-        jump('forecast');
-      }
+      } else if (open) openForecast(open.dataset.open);
     });
     $('forecast-zone').addEventListener('change', (e) => {
       state.forecastZone = e.target.value; state.forecastCount = 12;
@@ -411,6 +538,13 @@
 
     tick();
     setInterval(tick, 250);
+  }
+  function openForecast(key) {
+    state.forecastZone = key;
+    state.forecastCount = 12;
+    $('forecast-zone').value = key;
+    writeHash(); renderForecast(Date.now()); updateCountdowns(Date.now());
+    jump('forecast');
   }
   function jump(id) {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -14,6 +14,13 @@
   and close (and stay that way). The area filter, the zone pickers and the About list are grouped
   by expansion too.
 - About explains that story versions of a zone can have their own weather.
+- Timed gathering: all 26 timed nodes in Dawntrail (8 unspoiled, 18 legendary) with items,
+  levels, stars, job, place, map coordinates, folklore tome and spawn times; live up-now and
+  next-spawn countdowns; filters for job, kind, up now and starred. Starred nodes appear in
+  Upcoming, and reminders (when a node appears, or 1, 2 or 5 minutes before) show in the page
+  and, if allowed, as system notifications.
+- Gathering data is generated from the game tables and checked against XIVAPI and the wiki's
+  node tables.
 - README screenshot, taken by `node tools/screenshot.mjs` at a fixed moment.
 
 ## Milestone 1

@@ -11,6 +11,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from '../tools/build.mjs';
@@ -167,6 +168,33 @@ try {
     await page.eval("const s = document.getElementById('region-filter'); s.value = 'r:Othard'; s.dispatchEvent(new Event('change'))");
     const names = await page.eval("[...document.querySelectorAll('#zone-list .zone-row .zone-title')].map(n => n.textContent)");
     assert.deepEqual(names.sort(), ['The Azim Steppe', 'The Doman Enclave', 'The Ruby Sea', 'Yanxia']);
+    assert.deepEqual(page.problems, []);
+  });
+
+  await test('timed gathering: filters, a starred node in Upcoming, and a reminder toast', async () => {
+    const require = createRequire(import.meta.url);
+    const G = require('../js/gathering.js'), nodes = require('../js/gathering-data.js').nodes;
+    const alumen = nodes.find((n) => n.items.some((i) => i.name === 'Turali Alumen'));
+    const spawn = G.upcoming(alumen, Date.UTC(2026, 9, 24), 1)[0].start;
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    await page.startClockAt(spawn - 50000); // 50 s before Turali Alumen appears
+    await page.goto(`${servers.github.origin}/ffxiv-timer/`);
+    await page.waitFor(`${READY} && document.querySelectorAll('#node-list .node-row').length === ${nodes.length}`);
+    await page.eval("document.querySelector('[data-node-filter=\"Miner\"]').click()");
+    const metas = await page.eval("[...document.querySelectorAll('#node-list .node-meta:not(.muted)')].map(n => n.textContent)");
+    assert.ok(metas.length > 0 && metas.length < nodes.length && metas.every((m) => m.includes('Miner')), JSON.stringify(metas));
+    await page.eval("document.querySelector('[data-node-filter=\"Miner\"]').click()");
+    await page.eval("{ const s = document.getElementById('node-search'); s.value = 'turali alumen'; s.dispatchEvent(new Event('input')); }");
+    await page.waitFor("document.querySelectorAll('#node-list .node-row').length === 1");
+    assert.match(await page.eval("document.querySelector('#node-list .node-row').textContent"), /Turali Alumen.*Urqopacha.*\(37\.\d, 29\.\d\).*Tome of Geological Folklore - Yok Tural.*08:00 and 20:00 ET/s);
+    await page.eval(`document.querySelector('[data-node-star="${alumen.id}"]').click()`);
+    await page.waitFor("document.getElementById('timeline-list').textContent.includes('Turali Alumen')");
+    await page.eval("{ const r = document.getElementById('remind-lead'); r.value = '1'; r.dispatchEvent(new Event('change')); }");
+    await page.waitFor("document.getElementById('toasts').textContent.includes('Turali Alumen')", 5000);
+    const upNow = await page.eval("XivGathering && FFXIV_GATHERING_DATA.nodes.filter(n => XivGathering.status(n, Date.now()).up).length");
+    await page.eval("{ const s = document.getElementById('node-search'); s.value = ''; s.dispatchEvent(new Event('input')); document.querySelector('[data-node-filter=\"up\"]').click(); }");
+    assert.equal(await page.eval("document.querySelectorAll('#node-list .node-row').length"), upNow);
     assert.deepEqual(page.problems, []);
   });
 

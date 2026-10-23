@@ -23,6 +23,13 @@ The build is made to be served at two addresses, with the first as the canonical
   Waves"), optionally only at 00:00, 08:00 or 16:00 ET, up to 30 days ahead. The search is in
   the address, so a link shares it and a reload or bookmark keeps it.
 
+- **Timed gathering.** Unspoiled and legendary nodes with their items (level, stars,
+  collectable), job and level, zone, area and map coordinates, folklore tome, spawn times, and
+  whether each is up now or how long until it appears. Filter by job, kind, up now or starred;
+  starred nodes show in Upcoming and can remind you (in the page, and as a system notification
+  if you allow it) when they appear or a few minutes before. The first set is every timed node in
+  Dawntrail.
+
 Zones without a verified weather table are named as not supported. They never get a guess.
 
 ## How the forecast works
@@ -62,8 +69,15 @@ time; the date here counts suns (days) and moons (32 suns each) from that zero.
   dates past the 32-bit wrap), the clock against the known real-time lengths of a bell, sun, moon
   and year, and the transition finder against a brute-force search.
 
-Not yet checked: forecasts against the game itself (a Skywatcher NPC, or the weather on the
-minimap) for each supported zone.
+- Gathering nodes are generated from the game's GatheringPoint, GatheringPointBase,
+  GatheringItem, GatheringRarePopTimeTable and related tables at the same commit. Every node is
+  compared with XIVAPI, and with the node tables players keep on the
+  [FFXIV wiki](https://ffxiv.consolegameswiki.com) (zone, spawn times, coordinates, item level and
+  stars, folklore tome), read at pinned revisions. The game stores spawn lengths as hours and
+  minutes (160 is two hours, 300 is three), which matches the wiki.
+
+Not yet checked: forecasts and node times against the game itself (a Skywatcher NPC, the weather
+on the minimap, a node appearing) for each supported zone and node.
 
 ## Run it locally
 
@@ -93,10 +107,14 @@ and fail on any request outside the base path.
 node tools/build-weather.mjs           # regenerate js/weather-data.js (downloads into tools/.cache)
 node tools/build-weather.mjs --check   # fail if js/weather-data.js is out of date
 node tools/verify-weather.mjs          # compare every supported zone with XIVAPI
+node tools/build-gathering.mjs         # regenerate js/gathering-data.js (and --check)
+node tools/verify-gathering.mjs        # compare every node with XIVAPI and the wiki
 ```
 
 Supported zones are listed in `data/supported-zones.json` by their game territory id. To add one:
-add its id, rebuild, run `verify-weather.mjs --write-fixture`, and run the tests. A new game patch
+add its id, rebuild, run `verify-weather.mjs --write-fixture`, and run the tests. Gathering nodes
+work the same way from `data/supported-nodes.json` (game GatheringPointBase ids) with
+`verify-gathering.mjs --write-fixtures`. A new game patch
 means a new pinned commit and new hashes in `tools/lib/gamedata.mjs`.
 
 ## Hosting
@@ -125,11 +143,13 @@ css/style.css
 js/eorzea.js            Eorzea Time math (no time zone, shared with the tests)
 js/weather.js           weather roll, forecasts, transition search
 js/weather-data.js      generated weather tables
+js/gathering.js         gathering node windows
+js/gathering-data.js    generated gathering nodes
 js/format.js            countdown text and URL keys
 js/store.js             saved settings
 js/icons.js             weather icons
 js/app.js               the page logic
-data/                   which zones are supported
+data/                   which zones and nodes are supported
 deploy/targets.json     hosting targets and base paths
 tools/                  data generator, data check, build, local server, screenshot
 screenshots/            the README screenshot

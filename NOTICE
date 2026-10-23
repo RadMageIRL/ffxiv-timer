@@ -15,10 +15,20 @@ Game data in js/weather-data.js
   notice above.
   Source: the CSV export of the game tables in xivapi/ffxiv-datamining,
   https://github.com/xivapi/ffxiv-datamining, commit 44948e4cda5846eab0baa9872122a888fcc4f1b1
-  (patch 7.57 hotfix 1). That repository publishes no license of its own; only the five tables
-  named in tools/lib/gamedata.mjs are read, and only the rows for supported zones are kept.
+  (patch 7.57 hotfix 1). That repository publishes no license of its own; only the tables named
+  in tools/lib/gamedata.mjs are read, and only the rows for supported zones and nodes are kept.
   Checked against XIVAPI (https://v2.xivapi.com), whose capture is in
   tests/fixtures/xivapi-weather.json.
+
+Game data in js/gathering-data.js
+  Item names, places, levels, spawn times and folklore tome names of timed gathering nodes, from
+  the same xivapi/ffxiv-datamining commit (GatheringPoint, GatheringPointBase, GatheringItem,
+  GatheringPointTransient, GatheringRarePopTimeTable, GatheringSubCategory, ExportedGatheringPoint,
+  Map, Item and related tables), under the same Materials Usage Policy. Checked against XIVAPI
+  (tests/fixtures/xivapi-gathering.json) and against the node tables on the FFXIV wiki,
+  https://ffxiv.consolegameswiki.com, pages "Unspoiled Nodes" (revision 1490944) and
+  "Folklore Nodes" (revision 1491386). tests/fixtures/wiki-gathering.json holds only the facts
+  read from those revisions (item, zone, times, coordinates, level, stars, tome); no wiki text.
 
 Test vectors in tests/fixtures/weather-vectors.json
   Computed with ffxivweather 1.0.14 (https://github.com/karashiiro/ffxivweather-py, MIT) and

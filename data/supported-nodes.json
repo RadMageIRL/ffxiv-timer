@@ -1,0 +1,9 @@
+{
+  "note": "Timed gathering nodes with forecasts. Each entry is a GatheringPointBase row id from the game data (one node; it may have several spawn points). A node is added here only after tools/verify-gathering.mjs agrees with both XIVAPI and the wiki's node tables.",
+  "nodes": [
+    {"base": 1022}, {"base": 1023}, {"base": 1024}, {"base": 1025}, {"base": 1026}, {"base": 1027}, {"base": 1028}, {"base": 1029},
+    {"base": 1030}, {"base": 1031}, {"base": 1032}, {"base": 1033}, {"base": 1034}, {"base": 1035},
+    {"base": 1188}, {"base": 1189}, {"base": 1190}, {"base": 1191}, {"base": 1192}, {"base": 1193},
+    {"base": 1296}, {"base": 1297}, {"base": 1298}, {"base": 1299}, {"base": 1300}, {"base": 1301}
+  ]
+}

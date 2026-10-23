@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { DATASET, ROOT, loadTables, ratePairs } from './lib/gamedata.mjs';
+import { DATASET, ROOT, WEATHER_SHEETS, loadTables, ratePairs } from './lib/gamedata.mjs';
 
 // TerritoryIntendedUse values for places a player stands around in: cities, field zones,
 // housing, Eureka, Bozja and Zadnor, Island Sanctuary, Cosmic Exploration and Occult Crescent.
@@ -103,7 +103,7 @@ async function main() {
   const args = process.argv.slice(2);
   const csvDir = args.includes('--csv') ? args[args.indexOf('--csv') + 1] : undefined;
   const supported = JSON.parse(readFileSync(join(ROOT, 'data', 'supported-zones.json'), 'utf8'));
-  const text = renderModule(buildWeatherData(await loadTables(csvDir), supported));
+  const text = renderModule(buildWeatherData(await loadTables(csvDir, WEATHER_SHEETS), supported));
   const out = join(ROOT, 'js', 'weather-data.js');
   if (args.includes('--check')) {
     if (readFileSync(out, 'utf8') !== text) { console.error('js/weather-data.js is out of date; run node tools/build-weather.mjs'); process.exit(1); }
