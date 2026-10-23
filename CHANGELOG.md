@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Weather forecasts for 25 more zones, finishing A Realm Reborn and Heavensward: Ul'dah (both
+  steps), Gridania (old and new), the five Thanalan and four Black Shroud field zones, Coerthas
+  Central Highlands, Mor Dhona, Wolves' Den Pier, Ishgard (Foundation and The Pillars),
+  Idyllshire and the six Heavensward field zones. 45 zones in all.
+- README screenshot, taken by `node tools/screenshot.mjs` at a fixed moment.
+
+## Milestone 1
+
 First milestone: the clock, the weather engine and the dashboard.
 
 - Eorzea clock: ET time, sun and moon, local time, day or night, a day bar with the weather

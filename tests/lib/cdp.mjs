@@ -126,13 +126,24 @@ async function makePage(conn, sessionId) {
       await sleep(200);
       await page.waitFor("document.readyState === 'complete'");
     },
+    // Makes Date.now() in every later page load read `ms` at the moment of loading, then tick on.
+    async startClockAt(ms) {
+      const source = `(() => { const real = Date.now; const offset = ${Number(ms)} - real(); Date.now = () => real() + offset; })();`;
+      await send('Page.addScriptToEvaluateOnNewDocument', { source });
+    },
+    async emulate({ timezone, locale }) {
+      if (timezone) await send('Emulation.setTimezoneOverride', { timezoneId: timezone });
+      if (locale) await send('Emulation.setLocaleOverride', { locale });
+    },
     async viewport(width, height, mobile = false) {
       await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: mobile ? 2 : 1, mobile });
     },
+    // fullPage: true for the whole page, or { height } for the top of the page down to that y.
     async screenshot(file, fullPage = false) {
-      const params = { format: 'png', captureBeyondViewport: fullPage };
+      const params = { format: 'png', captureBeyondViewport: fullPage === true };
       if (fullPage) {
-        const h = await page.eval('document.documentElement.scrollHeight'), w = await page.eval('document.documentElement.clientWidth');
+        const w = await page.eval('document.documentElement.clientWidth');
+        const h = fullPage === true ? await page.eval('document.documentElement.scrollHeight') : fullPage.height;
         params.clip = { x: 0, y: 0, width: w, height: h, scale: 1 };
       }
       const { data } = await send('Page.captureScreenshot', params);

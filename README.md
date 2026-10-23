@@ -3,6 +3,8 @@
 Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. It is a static
 page: no account, no backend, nothing to install, and nothing leaves your browser.
 
+![FFXIV Timer at ET 12:05 on the 17th Sun of the 4th Umbral Moon: rain in Middle La Noscea, snow in Urqopacha and blizzards in Eureka Pagos, with the next weather changes and sunset in the Upcoming timeline](screenshots/ffxiv-timer.png)
+
 The build is made to be served at two addresses, with the first as the canonical one:
 
 - https://radmagelabs.com/ffxiv/
@@ -76,8 +78,9 @@ To see it the way each host serves it, run `node tools/serve.mjs` (Node 22 or la
 ## Tests
 
 ```
-node tests/run.mjs      # unit tests: clock, weather, transitions, countdowns, data, build
-node tests/smoke.mjs    # browser and base-path tests in headless Chrome (CHROME_PATH if needed)
+node tests/run.mjs        # unit tests: clock, weather, transitions, countdowns, data, build
+node tests/smoke.mjs      # browser and base-path tests in headless Chrome (CHROME_PATH if needed)
+node tools/screenshot.mjs # retake screenshots/ffxiv-timer.png at a fixed moment
 ```
 
 Neither installs anything. The browser tests serve the built site under `/ffxiv-timer/`, through
@@ -128,7 +131,8 @@ js/icons.js             weather icons
 js/app.js               the page logic
 data/                   which zones are supported
 deploy/targets.json     hosting targets and base paths
-tools/                  data generator, data check, build, local server
+tools/                  data generator, data check, build, local server, screenshot
+screenshots/            the README screenshot
 tests/                  unit tests, browser tests, fixtures
 ```
 

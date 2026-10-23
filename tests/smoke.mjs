@@ -9,7 +9,7 @@
 //   standalone labs     /ffxiv/        the labs build, for a host that serves the files itself
 //   development         /dev/deep/path/ and file://   the source tree, unbuilt
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -94,10 +94,10 @@ try {
     });
 
     await test(`${site.name}: an unsupported zone is named as unsupported, never forecast`, async () => {
-      await page.goto(url('#zone=kugane'));
-      await page.waitFor("document.getElementById('forecast-body').textContent.includes('Kugane has weather in the game')");
+      await page.goto(url('#zone=zadnor'));
+      await page.waitFor("document.getElementById('forecast-body').textContent.includes('Zadnor has weather in the game')");
       assert.equal(await page.eval("document.querySelectorAll('#forecast-body tbody tr').length"), 0);
-      await page.eval("const s = document.getElementById('zone-search'); s.value = 'kugane'; s.dispatchEvent(new Event('input'))");
+      await page.eval("const s = document.getElementById('zone-search'); s.value = 'zadnor'; s.dispatchEvent(new Event('input'))");
       await page.waitFor("document.querySelectorAll('#zone-list .unsupported').length === 1");
       clean();
     });
@@ -163,7 +163,8 @@ try {
     const text = await page.eval("document.getElementById('about-body').textContent");
     assert.match(text, /SQUARE ENIX/);
     assert.match(text, /xivapi\/ffxiv-datamining/);
-    assert.match(text, /Zones with forecasts \(20\)/);
+    const count = JSON.parse(readFileSync(join(ROOT, 'data', 'supported-zones.json'), 'utf8')).zones.length;
+    assert.ok(text.includes(`Zones with forecasts (${count})`), `About lists ${count} zones`);
     if (shots) await page.screenshot(join(shots, 'about.png'));
   });
 } finally {

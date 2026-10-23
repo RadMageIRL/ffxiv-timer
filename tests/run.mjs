@@ -189,8 +189,9 @@ test('picking walks the table in order and keeps repeated weathers separate', ()
   assert.deepEqual([...W.odds(z)], [[1, 30], [2, 30], [3, 40]]);
   assert.throws(() => W.pick({ name: 'short', rates: [[1, 50]] }, 50));
 });
-test('every supported zone has a table that sums to 100 with named weathers', () => {
-  assert.equal(DATA.zones.length, 20);
+test('every zone in data/supported-zones.json is generated, with a table that sums to 100', () => {
+  const listed = JSON.parse(readFileSync(join(ROOT, 'data', 'supported-zones.json'), 'utf8')).zones;
+  assert.deepEqual(DATA.zones.map((z) => z.territory), listed.map((z) => z.territory));
   for (const z of DATA.zones) {
     assert.equal(z.rates.reduce((s, [, r]) => s + r, 0), 100, z.name);
     for (const [w, r] of z.rates) { assert.ok(name(w), `${z.name} weather ${w}`); assert.ok(r > 0); }
@@ -217,12 +218,12 @@ test('known tables: Middle La Noscea, Eureka Pagos and Solution Nine', () => {
 });
 test('unsupported places are named, carry no tables, and never overlap supported ones', () => {
   const supported = new Set(DATA.zones.map((z) => z.name));
-  assert.ok(DATA.unsupported.length > 40);
+  assert.ok(DATA.unsupported.length > 0);
   for (const u of DATA.unsupported) {
     assert.deepEqual(Object.keys(u).sort(), ['key', 'name']);
     assert.ok(!supported.has(u.name), u.name);
   }
-  for (const n of ['Kugane', 'Old Sharlayan', 'The Ruby Sea', 'Coerthas Central Highlands']) assert.ok(DATA.unsupported.some((u) => u.name === n), n);
+  for (const n of ['Mist', 'The Lavender Beds', 'Bozjan Southern Front', 'Zadnor', 'South Horn']) assert.ok(DATA.unsupported.some((u) => u.name === n), n);
 });
 test('weather-data.js names its source commit and patch', () => {
   assert.equal(DATA.source.dataset, 'xivapi/ffxiv-datamining');
