@@ -151,7 +151,7 @@ test('the weather roll matches two independent implementations', () => {
 });
 test('zone weather matches two independent implementations, incl. their published Anemos case', () => {
   assert.ok(vectors.weathers.length >= 30);
-  for (const [key, t, weather] of vectors.weathers) assert.equal(name(W.weatherAt(zone(key), t)), weather, `${key} @ ${t}`);
+  for (const [key, t, id, theirName] of vectors.weathers) assert.equal(W.weatherAt(zone(key), t), id, `${key} @ ${t} (${theirName})`);
   assert.equal(name(W.weatherAt(zone('eureka-anemos'), 1522399121529)), 'Showers');
 });
 // Same algorithm, written with BigInt so no 32-bit JavaScript operator is involved.
