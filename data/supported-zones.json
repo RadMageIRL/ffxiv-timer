@@ -1,0 +1,25 @@
+{
+  "note": "Territories with weather forecasts. Each entry is a TerritoryType row id from the game data. A zone is added here only after its weather table has been checked against a second, independent extraction (tools/verify-weather.mjs). region overrides the game's region name where the game has none (it labels Eureka '???').",
+  "zones": [
+    { "territory": 128 },
+    { "territory": 129 },
+    { "territory": 134 },
+    { "territory": 135 },
+    { "territory": 137 },
+    { "territory": 138 },
+    { "territory": 139 },
+    { "territory": 180 },
+    { "territory": 1185 },
+    { "territory": 1186 },
+    { "territory": 1187 },
+    { "territory": 1188 },
+    { "territory": 1189 },
+    { "territory": 1190 },
+    { "territory": 1191 },
+    { "territory": 1192 },
+    { "territory": 732, "region": "Eureka" },
+    { "territory": 763, "region": "Eureka" },
+    { "territory": 795, "region": "Eureka" },
+    { "territory": 827, "region": "Eureka" }
+  ]
+}

@@ -1,0 +1,8 @@
+# Build output (node tools/build.mjs)
+dist/
+# Downloaded game tables (node tools/build-weather.mjs re-downloads and hash-checks them)
+tools/.cache/
+# Operating-system clutter
+Thumbs.db
+Desktop.ini
+.DS_Store

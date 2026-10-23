@@ -1,0 +1,18 @@
+{
+  "note": "Hosting targets for tools/build.mjs. urls lists every public URL a target's files are served at; the site must work under each one's path. mount is the folder inside outDir that holds the app, for hosts that serve outDir at their root. canonical is the URL search engines should prefer ('self' = each target's first url).",
+  "canonical": "https://radmagelabs.com/ffxiv/",
+  "targets": {
+    "pages": {
+      "description": "The deployed build. GitHub Pages serves it at /ffxiv-timer/, and radmagelabs.com proxies /ffxiv/ to the same files.",
+      "outDir": "dist/pages",
+      "mount": "",
+      "urls": ["https://radmageirl.github.io/ffxiv-timer/", "https://radmagelabs.com/ffxiv/"]
+    },
+    "labs": {
+      "description": "Standalone copy for a host that serves the files under /ffxiv/ itself. Not deployed while radmagelabs.com proxies GitHub Pages.",
+      "outDir": "dist/labs",
+      "mount": "ffxiv",
+      "urls": ["https://radmagelabs.com/ffxiv/"]
+    }
+  }
+}

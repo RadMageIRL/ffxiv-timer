@@ -1,0 +1,29 @@
+FFXIV Timer
+Copyright (c) 2026 RadMageIRL. The code in this repository is MIT licensed (see LICENSE).
+
+The MIT license covers this project's code only. It does not cover the following.
+
+FINAL FANTASY XIV
+  FINAL FANTASY XIV (c) SQUARE ENIX. FINAL FANTASY and FINAL FANTASY XIV are trademarks of
+  Square Enix. FFXIV Timer is a free, non-commercial fan tool and is not affiliated with or
+  endorsed by Square Enix.
+
+Game data in js/weather-data.js
+  Zone names, weather names and weather percentages are facts and text from the
+  FINAL FANTASY XIV game client. They are used under the FINAL FANTASY XIV Materials Usage
+  Policy (https://support.na.square-enix.com/rule.php?id=5382&tag=authc), which requires the
+  notice above.
+  Source: the CSV export of the game tables in xivapi/ffxiv-datamining,
+  https://github.com/xivapi/ffxiv-datamining, commit 44948e4cda5846eab0baa9872122a888fcc4f1b1
+  (patch 7.57 hotfix 1). That repository publishes no license of its own; only the five tables
+  named in tools/lib/gamedata.mjs are read, and only the rows for supported zones are kept.
+  Checked against XIVAPI (https://v2.xivapi.com), whose capture is in
+  tests/fixtures/xivapi-weather.json.
+
+Test vectors in tests/fixtures/weather-vectors.json
+  Computed with ffxivweather 1.0.14 (https://github.com/karashiiro/ffxivweather-py, MIT) and
+  confirmed with eorzea-weather 3.2.0 (https://github.com/flowercartelet/eorzea-weather, MIT).
+  No code from either project is included here.
+
+Icons
+  The weather icons and the crystal mark are original to this project. No game images are used.

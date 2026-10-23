@@ -1,0 +1,45 @@
+# Builds the "pages" target and deploys it to GitHub Pages. Started by hand only (Actions tab >
+# Deploy to GitHub Pages > Run workflow), so a push never publishes by itself. Needs the repo's
+# Pages source set to "GitHub Actions". radmagelabs.com/ffxiv/ proxies these same files.
+name: Deploy to GitHub Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Unit tests
+        run: node tests/run.mjs
+      - name: Build
+        run: node tools/build.mjs pages
+      - name: Browser and base-path tests in Chrome
+        run: node tests/smoke.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
