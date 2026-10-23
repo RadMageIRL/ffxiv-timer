@@ -19,6 +19,11 @@
     {"base": 289}, {"base": 290}, {"base": 291}, {"base": 292}, {"base": 293}, {"base": 299}, {"base": 301}, {"base": 306},
     {"base": 308}, {"base": 318}, {"base": 320}, {"base": 321}, {"base": 323}, {"base": 324}, {"base": 325}, {"base": 326},
     {"base": 339}, {"base": 340}, {"base": 341}, {"base": 342}, {"base": 343}, {"base": 344}, {"base": 345}, {"base": 347},
-    {"base": 348}, {"base": 349}, {"base": 350}, {"base": 395}, {"base": 397}, {"base": 768}, {"base": 769}
+    {"base": 348}, {"base": 349}, {"base": 350}, {"base": 395}, {"base": 397}, {"base": 768}, {"base": 769}, {"base": 211},
+    {"base": 212}, {"base": 213}, {"base": 214}, {"base": 215}, {"base": 216}, {"base": 217}, {"base": 218}, {"base": 219},
+    {"base": 220}, {"base": 221}, {"base": 222}, {"base": 223}, {"base": 224}, {"base": 225}, {"base": 226}, {"base": 227},
+    {"base": 230}, {"base": 231}, {"base": 232}, {"base": 233}, {"base": 234}, {"base": 235}, {"base": 236}, {"base": 237},
+    {"base": 238}, {"base": 239}, {"base": 240}, {"base": 241}, {"base": 242}, {"base": 245}, {"base": 246}, {"base": 247},
+    {"base": 248}, {"base": 249}, {"base": 250}, {"base": 251}, {"base": 252}
   ]
 }

@@ -22,10 +22,13 @@ export const WIKI_EXCEPTIONS = [
   { item: 'Frost Cotton Boll', field: 'coords', reason: 'Game data (both extractions): node 345 in Twinpools at 22.4, 21.5. Lodestone comments (item 31dea53c55f) conflict: one says X 22.5, Y 21.1, two say (34, 15) at Falcon’s Nest; the wiki says 36.7, 13. First on the list to check in the game.' },
   { item: 'Violet Quartz', field: 'coords', reason: 'Game data: 37.3, 17.6 in Riversmeet. A player comment on the Lodestone database (item 4cc380ef016) says X 37, Y 19, 00:00 and 12:00. The wiki says 11, 23.' },
   { item: 'Lumythrite Ore', field: 'coords', reason: 'Game data: 9.6, 36.9 in Greensward. A player comment on the Lodestone database (item cdcbe877842) says (9.4, 38.5), 2 to 4. The wiki says 6.2, 20.3.' },
+  { item: 'Water Cluster', field: 'stars', reason: 'In the wiki’s A Realm Reborn table this row’s star belongs to Grade 3 Thanalan Topsoil, named in its Extra column. Game data: the topsoil has one star, the cluster none.' },
+  { item: 'Fire Cluster', field: 'stars', reason: 'In the wiki’s A Realm Reborn table this row’s star belongs to Grade 3 La Noscean Topsoil, named in its Extra column. Game data: the topsoil has one star, the cluster none.' },
   { item: 'Zeolite Ore', field: 'coords', reason: 'Game data: 16.6, 30.3. A player comment on the Lodestone database (item 82520b9c0f4) says x16, y31, 08:00 to 10:00 and 20:00 to 22:00. The wiki says 13, 31.' },
 ];
 
 const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+const isSubset = (a, b) => a.every((x) => b.includes(x));
 
 export function compareGatheringXivapi(capture, data) {
   const problems = [];
@@ -58,7 +61,7 @@ const sameZone = (a, b) => String(a).replace(/^The /i, '').toLowerCase() === Str
 const itemNamed = (n, name) => n.items.some((i) => i.name === name);
 
 export function compareGatheringWiki(capture, data, { tolerance = 1.5, exceptions = [] } = {}) {
-  const problems = [], named = new Set();
+  const problems = [], named = new Set(), covered = new Map();
   const excused = (item, field) => exceptions.some((e) => e.item === item && e.field === field);
   const starts = (n) => n.times.map(([s]) => s);
   for (const row of capture.rows) {
@@ -66,13 +69,17 @@ export function compareGatheringWiki(capture, data, { tolerance = 1.5, exception
     if (!data.nodes.some((n) => itemNamed(n, item))) item = item.replace(/\s+\([^)]*\)$/, '');
     let nodes = data.nodes.filter((n) => itemNamed(n, item));
     if (nodes.length > 1) nodes = nodes.filter((n) => sameZone(n.zone, row.zone));
-    if (nodes.length > 1) nodes = nodes.filter((n) => sameSet(row.starts || [], starts(n)));
+    if (nodes.length > 1) nodes = nodes.filter((n) => isSubset(row.starts || [], starts(n)));
     if (!nodes.length && excused(row.item, 'row')) continue;
     if (nodes.length !== 1) { problems.push(`wiki ${row.item} (${row.zone} ${row.starts}): ${nodes.length} supported nodes match`); continue; }
     const n = nodes[0], it = n.items.find((i) => i.name === item);
     named.add(n.id);
+    // A Realm Reborn rows give one window each ("1:00 AM"); newer rows give both ("12:00 AM/PM").
+    // Each row's windows must be the node's, and all of a node's windows must appear in some row.
+    if (!isSubset(row.starts || [null], starts(n))) problems.push(`wiki ${row.item}: starts ${row.starts} vs ${starts(n)}`);
+    const seen = covered.get(n.id) || covered.set(n.id, new Set()).get(n.id);
+    for (const s of row.starts || []) seen.add(s);
     if (!sameZone(row.zone, n.zone)) problems.push(`wiki ${row.item}: zone ${row.zone} vs ${n.zone}`);
-    if (!sameSet(row.starts, n.times.map(([s]) => s))) problems.push(`wiki ${row.item}: starts ${row.starts} vs ${n.times.map(([s]) => s)}`);
     if (row.coords && !excused(row.item, 'coords')) {
       // A node appears anywhere within its spawn radius; one layout unit is 41/2048 of a map unit.
       const allowed = tolerance + (n.radius || 0) * 41 / 2048;
@@ -84,6 +91,9 @@ export function compareGatheringWiki(capture, data, { tolerance = 1.5, exception
     if (row.kind && row.kind !== n.kind) problems.push(`wiki ${row.item}: listed as ${row.kind}, data says ${n.kind}`);
     if (row.tome && row.tome !== n.folklore) problems.push(`wiki ${row.item}: tome ${row.tome} vs ${n.folklore}`);
   }
-  for (const n of data.nodes) if (!named.has(n.id)) problems.push(`node ${n.id} (${n.items.map((i) => i.name).join(', ')}): no wiki row`);
+  for (const n of data.nodes) {
+    if (!named.has(n.id)) problems.push(`node ${n.id} (${n.items.map((i) => i.name).join(', ')}): no wiki row`);
+    else if (!sameSet([...covered.get(n.id)], starts(n))) problems.push(`node ${n.id}: wiki rows cover windows ${[...covered.get(n.id)]} of ${starts(n)}`);
+  }
   return problems;
 }

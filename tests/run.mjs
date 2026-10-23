@@ -373,7 +373,8 @@ test('every supported node is generated, timed and placed', () => {
     assert.equal(n.job, ['Mining', 'Quarrying'].includes(n.gathering) ? 'Miner' : 'Botanist', n.id);
     assert.ok(n.times.length >= 1 && n.times.every(([s, d]) => s >= 0 && s < 1440 && d > 0), n.id);
     assert.ok(n.items.length >= 1 && n.coords.every((c) => c >= 1 && c <= 42), n.id);
-    if (n.expansion !== 'A Realm Reborn') assert.ok(n.times.every(([, d]) => d === 120), `${n.id} lasts 2 bells`);
+    // The wiki: nodes from Heavensward on last 2 bells, A Realm Reborn nodes 3.
+    assert.ok(n.times.every(([, d]) => d === (n.expansion === 'A Realm Reborn' ? 180 : 120)), `${n.id} (${n.expansion}) duration`);
     if (n.zoneKey) assert.ok(DATA.zones.some((z) => z.key === n.zoneKey), n.zoneKey);
   }
 });
@@ -444,6 +445,20 @@ test('wiki naming differences are forgiven, real zone differences are not', () =
   assert.deepEqual(compareGatheringWiki(row('Azim Steppe', "Hawk's Eye (Material)").capture, data), []);
   assert.equal(compareGatheringWiki(row('The Ruby Sea', "Hawk's Eye").capture, data).length, 1);
   assert.equal(compareGatheringWiki(row('Azim Steppe', "Hawk's Feather").capture, data).length, 2, 'unknown item, and the node goes unnamed');
+});
+test('wiki coordinates may be off by 1.5 plus the node\'s spawn radius, and no more', () => {
+  const node = { id: 8, zone: 'Elpis', times: [[0, 120]], coords: [20, 20], radius: 100, kind: 'unspoiled', folklore: null, items: [{ name: 'Log', level: 90, stars: 0 }] };
+  const allowed = 1.5 + 100 * 41 / 2048; // 3.5
+  const at = (dx) => compareGatheringWiki({ rows: [{ item: 'Log', zone: 'Elpis', starts: [0], coords: [20 + dx, 20] }] }, { nodes: [node] }).length;
+  assert.deepEqual([at(allowed - 0.05), at(allowed + 0.05), at(-(allowed + 0.05))], [0, 1, 1]);
+  assert.equal(at(1.6), 0, 'a radius-100 node allows more than the bare 1.5');
+});
+test('wiki rows listing one window each must, together, cover every window of the node', () => {
+  const node = { id: 7, zone: 'Mor Dhona', times: [[60, 180], [300, 180], [540, 180]], coords: [32, 13], radius: 0, kind: 'unspoiled', folklore: null, items: [{ name: 'Fire Cluster', level: 50, stars: 0 }] };
+  const row = (s) => ({ item: 'Fire Cluster', zone: 'Mor Dhona', starts: [s], coords: [32, 13] });
+  assert.deepEqual(compareGatheringWiki({ rows: [row(60), row(300), row(540)] }, { nodes: [node] }), []);
+  assert.equal(compareGatheringWiki({ rows: [row(60), row(300)] }, { nodes: [node] }).length, 1, 'a missing window is reported');
+  assert.equal(compareGatheringWiki({ rows: [row(60), row(300), row(600)] }, { nodes: [node] }).length, 2, 'a wrong window, and the uncovered one');
 });
 test('js/gathering-data.js is exactly what the generator builds from the cached game tables', () => {
   const cache = join(ROOT, 'tools', '.cache', GDATA.source.commit);

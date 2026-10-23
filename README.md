@@ -29,7 +29,8 @@ The build is made to be served at two addresses, with the first as the canonical
   starred nodes show in Upcoming and can remind you when they appear or a few minutes before.
   Reminders only work while the page is open in a tab, and system notifications also need your
   browser's permission (without it, reminders show on the page only). Every timed node in
-  Heavensward through Dawntrail so far; A Realm Reborn is next.
+  Every timed unspoiled and legendary node from A Realm Reborn through Dawntrail (189); search also
+  matches the expansion.
 
 Zones without a verified weather table are named as not supported. They never get a guess.
 

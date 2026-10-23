@@ -66,6 +66,8 @@ export function buildGatheringData(t, supported, weatherZones = new Set()) {
 
     const terr = territory.get(first.TerritoryType);
     const zone = place.get(terr.PlaceName);
+    // TerritoryType 1 is a blank placeholder; a node with no named zone cannot be shown anywhere.
+    if (!zone) throw new Error(`node ${id}: territory ${first.TerritoryType} has no place name`);
     const m = map.get(terr.Map), e = exported.get(String(id));
     if (!m || !e) throw new Error(`node ${id}: no map or exported position`);
     const coords = [mapCoordinate(Number(e.X), Number(m.SizeFactor), Number(m.OffsetX)), mapCoordinate(Number(e.Y), Number(m.SizeFactor), Number(m.OffsetY))]

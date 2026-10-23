@@ -38,6 +38,12 @@
   wiki positions disagree with the game data; for four, a player's report on the Lodestone
   database matches the game data. For Frost Cotton Boll the reports conflict, so it stays as the
   game data has it and is first on the list to check in the game.
+- Timed gathering for A Realm Reborn: all 38 unspoiled nodes (3-bell windows, up to three a day),
+  189 in all. Six more timed nodes in the game data sit in the blank placeholder territory (no
+  zone at all) and are left out; the generator now refuses any node without a zone. The wiki
+  lists A Realm Reborn windows one row each, so the check now also makes sure every window of a
+  node appears in some row.
+- Gathering search also matches the expansion name.
 - README screenshot, taken by `node tools/screenshot.mjs` at a fixed moment.
 
 ## Milestone 1

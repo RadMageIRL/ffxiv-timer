@@ -221,7 +221,7 @@
 
   function nodeMatches(n, q) {
     if (!q) return true;
-    return `${nodeTitle(n)} ${n.zone} ${n.area} ${n.folklore || ''} ${n.gathering}`.toLowerCase().includes(q);
+    return `${nodeTitle(n)} ${n.zone} ${n.area} ${n.folklore || ''} ${n.gathering} ${n.expansion}`.toLowerCase().includes(q);
   }
   function renderGathering(now) {
     const f = state.nodeFilters, q = state.nodeSearch.trim().toLowerCase();
