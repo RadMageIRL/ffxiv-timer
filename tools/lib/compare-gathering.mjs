@@ -18,6 +18,11 @@ export const WIKI_EXCEPTIONS = [
   { item: "Hawk's Eye (Material)", field: 'coords', reason: 'Game data: 10.9, 22.6. A player comment on the Lodestone database (item cb2fa7480eb) says X10.8 Y22.1, 6 to 8 AM and PM. The wiki gives 23, 36, the same numbers as its Chromite Ore row.' },
   { item: 'Chromite Ore', field: 'coords', reason: 'Game data (both extractions): 15.9, 33.9, in Wightrock. The wiki gives 23, 36, which it also gives for Hawk’s Eye. No third report found. Worth an in-game look.' },
   { item: 'Raw Triphane', field: 'stars', reason: 'Game data: two stars. The official Lodestone database (item 7eb9aab7d78) shows Mining 60 with two stars; the wiki shows none.' },
+  { item: 'Dravanian Paprika', field: 'coords', reason: 'Game data: one node (345) in Twinpools at 22.4, 21.5 with Vanilla Beans and Frost Cotton Boll. A player comment on the Lodestone database (item c8866808ca2) says x22.5, y21.1, 6:00 to 7:55; another for Vanilla Beans says (23, 21). The wiki says 27, 33.' },
+  { item: 'Frost Cotton Boll', field: 'coords', reason: 'Game data (both extractions): node 345 in Twinpools at 22.4, 21.5. Lodestone comments (item 31dea53c55f) conflict: one says X 22.5, Y 21.1, two say (34, 15) at Falcon’s Nest; the wiki says 36.7, 13. First on the list to check in the game.' },
+  { item: 'Violet Quartz', field: 'coords', reason: 'Game data: 37.3, 17.6 in Riversmeet. A player comment on the Lodestone database (item 4cc380ef016) says X 37, Y 19, 00:00 and 12:00. The wiki says 11, 23.' },
+  { item: 'Lumythrite Ore', field: 'coords', reason: 'Game data: 9.6, 36.9 in Greensward. A player comment on the Lodestone database (item cdcbe877842) says (9.4, 38.5), 2 to 4. The wiki says 6.2, 20.3.' },
+  { item: 'Zeolite Ore', field: 'coords', reason: 'Game data: 16.6, 30.3. A player comment on the Lodestone database (item 82520b9c0f4) says x16, y31, 08:00 to 10:00 and 20:00 to 22:00. The wiki says 13, 31.' },
 ];
 
 const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());

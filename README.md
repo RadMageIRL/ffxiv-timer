@@ -29,8 +29,7 @@ The build is made to be served at two addresses, with the first as the canonical
   starred nodes show in Upcoming and can remind you when they appear or a few minutes before.
   Reminders only work while the page is open in a tab, and system notifications also need your
   browser's permission (without it, reminders show on the page only). Every timed node in
-  Dawntrail, Endwalker, Shadowbringers and Stormblood so far; older expansions are being added
-  one at a time.
+  Heavensward through Dawntrail so far; A Realm Reborn is next.
 
 Zones without a verified weather table are named as not supported. They never get a guess.
 

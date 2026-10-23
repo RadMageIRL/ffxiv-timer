@@ -34,6 +34,10 @@
   star rating, or a player's posted position and time that matches the game data), and one
   (Chromite Ore's position) is on the list to check in the game. The wiki's unspoiled Beech
   Branch has no timed node in the current game data and is left out.
+- Timed gathering for Heavensward: all 31 nodes (12 unspoiled, 19 legendary), 151 in all. Five
+  wiki positions disagree with the game data; for four, a player's report on the Lodestone
+  database matches the game data. For Frost Cotton Boll the reports conflict, so it stays as the
+  game data has it and is first on the list to check in the game.
 - README screenshot, taken by `node tools/screenshot.mjs` at a fixed moment.
 
 ## Milestone 1
