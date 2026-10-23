@@ -62,6 +62,9 @@ try {
       const scripts = await page.eval("[...document.scripts].filter(s => s.src).map(s => s.src)");
       assert.ok(scripts.length >= 9 && scripts.every((s) => /\?v=[0-9a-f]{10}$/.test(s) && new URL(s).pathname.startsWith(base)), JSON.stringify(scripts));
       assert.equal(await page.eval('document.title'), 'FFXIV Timer');
+      // The deployed copy is this checkout's: same zones and nodes.
+      assert.equal(await page.eval("document.querySelectorAll('#node-list .node-row').length"), NODES.length, 'deployed node count');
+      assert.equal(await page.eval("document.querySelectorAll('#forecast-zone option[value]:not([value=\"\"])').length"), WD.zones.length, 'deployed zone count');
     });
 
     await check(`${url}: ET clock, current weather and gathering status match the engines`, async () => {
