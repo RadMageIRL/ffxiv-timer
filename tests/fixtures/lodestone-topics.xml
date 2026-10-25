@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Trimmed copy of https://na.finalfantasyxiv.com/lodestone/news/topics.xml fetched 2026-10-25: the first 5 entries, summaries and content removed. -->
+<feed xmlns="http://www.w3.org/2005/Atom">
+	<title>Topics | FINAL FANTASY XIV, The Lodestone</title>
+	<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/" />
+	<link rel="self" type="application/atom+xml" href="https://na.finalfantasyxiv.com/lodestone/news/news.xml" />
+	<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/news/news.xml</id>
+	<updated>2026-10-23T17:00:00Z</updated>
+	<generator uri="https://www.finalfantasyxiv.com/">FINAL FANTAXY XIV</generator>
+	
+				<entry>
+			<title>Announcing the Fan Festival Group Pose Screenshot Campaign!</title>
+			<link rel="enclosure" href="https://img.finalfantasyxiv.com/t/378ff35cd6769fc2d8bb0c3dd1003f7b90c9811a.png?1792775210" type="" />
+			<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/topics/detail/378ff35cd6769fc2d8bb0c3dd1003f7b90c9811a" />
+			<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/lodestone/topics/detail/378ff35cd6769fc2d8bb0c3dd1003f7b90c9811a</id>
+
+			<published>2026-10-23T17:00:00Z</published>
+			<updated>2026-10-23T17:00:00Z</updated>
+
+			<summary></summary>
+			<author>
+				<name>FINAL FANTASY XIV, The Lodestone</name>
+			</author>
+			<content type="html" xml:lang="en-us" xml:base="https://na.finalfantasyxiv.com/lodestone/"></content>
+		</entry>
+		<entry>
+			<title>Fan Festival 2026 Commemorative Items Round 3 &amp; Sale!</title>
+			<link rel="enclosure" href="https://img.finalfantasyxiv.com/t/9d45b65902d8b2e08786a4468dadfdcdd8f7a23c.jpg?1792757726" type="" />
+			<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/topics/detail/9d45b65902d8b2e08786a4468dadfdcdd8f7a23c" />
+			<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/lodestone/topics/detail/9d45b65902d8b2e08786a4468dadfdcdd8f7a23c</id>
+
+			<published>2026-10-23T07:00:00Z</published>
+			<updated>2026-10-23T07:00:00Z</updated>
+
+			<summary></summary>
+			<author>
+				<name>FINAL FANTASY XIV, The Lodestone</name>
+			</author>
+			<content type="html" xml:lang="en-us" xml:base="https://na.finalfantasyxiv.com/lodestone/"></content>
+		</entry>
+		<entry>
+			<title>Watch the Latest Episode of Duty Commenced!</title>
+			<link rel="enclosure" href="https://img.finalfantasyxiv.com/t/3adbabfb1fc1940819c27180d8e445cf8c31312b.png?1792652158" type="" />
+			<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/topics/detail/3adbabfb1fc1940819c27180d8e445cf8c31312b" />
+			<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/lodestone/topics/detail/3adbabfb1fc1940819c27180d8e445cf8c31312b</id>
+
+			<published>2026-10-22T07:00:00Z</published>
+			<updated>2026-10-22T07:00:00Z</updated>
+
+			<summary></summary>
+			<author>
+				<name>FINAL FANTASY XIV, The Lodestone</name>
+			</author>
+			<content type="html" xml:lang="en-us" xml:base="https://na.finalfantasyxiv.com/lodestone/"></content>
+		</entry>
+		<entry>
+			<title>Keybound Brawler Arrives October 28!</title>
+			<link rel="enclosure" href="https://img.finalfantasyxiv.com/t/e658d27622943f03f2162bee068e01ecc9efc0fd.png?1792570050" type="" />
+			<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/topics/detail/e658d27622943f03f2162bee068e01ecc9efc0fd" />
+			<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/lodestone/topics/detail/e658d27622943f03f2162bee068e01ecc9efc0fd</id>
+
+			<published>2026-10-21T08:00:00Z</published>
+			<updated>2026-10-21T08:00:00Z</updated>
+
+			<summary></summary>
+			<author>
+				<name>FINAL FANTASY XIV, The Lodestone</name>
+			</author>
+			<content type="html" xml:lang="en-us" xml:base="https://na.finalfantasyxiv.com/lodestone/"></content>
+		</entry>
+		<entry>
+			<title>The BRIDGE CAST FINAL FANTASY XIV Edition Gaming Audio Mixer is Coming Soon!</title>
+			<link rel="enclosure" href="https://img.finalfantasyxiv.com/t/26f4d695cf5656904cd6267bddf483e7fca47b83.jpg?1792481125" type="" />
+			<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/topics/detail/26f4d695cf5656904cd6267bddf483e7fca47b83" />
+			<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/lodestone/topics/detail/26f4d695cf5656904cd6267bddf483e7fca47b83</id>
+
+			<published>2026-10-20T07:00:00Z</published>
+			<updated>2026-10-20T07:00:00Z</updated>
+
+			<summary></summary>
+			<author>
+				<name>FINAL FANTASY XIV, The Lodestone</name>
+			</author>
+			<content type="html" xml:lang="en-us" xml:base="https://na.finalfantasyxiv.com/lodestone/"></content>
+		</entry>
+</feed>

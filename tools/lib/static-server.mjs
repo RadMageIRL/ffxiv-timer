@@ -4,6 +4,8 @@
 // mounts: [{ prefix: '/ffxiv-timer/', dir, notFound: '404.html' }]
 // slash:  'redirect' answers "/ffxiv-timer" with a 301 to "/ffxiv-timer/" (GitHub Pages, and the
 //         radmagelabs.com redirect rule); 'none' serves the page at the bare path, the worst case.
+// routes: { '/ffxiv/news/topics.xml': { file } | { proxy: 'https://...' } } answers single paths
+//         before the mounts, the way the radmagelabs.com rewrites pass the Lodestone feeds through.
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
@@ -11,11 +13,12 @@ import { extname, join, resolve, sep } from 'node:path';
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.json': 'application/json', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain',
+  '.xml': 'text/xml; charset=utf-8',
 };
 
-export function serve({ mounts, slash = 'redirect', port = 0 }) {
+export function serve({ mounts, slash = 'redirect', port = 0, routes = {} }) {
   const requests = [];
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     const path = decodeURIComponent(url.pathname);
     const send = (status, body, type = 'text/plain', headers = {}) => {
@@ -23,6 +26,16 @@ export function serve({ mounts, slash = 'redirect', port = 0 }) {
       res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store', ...headers });
       res.end(body);
     };
+    const route = Object.hasOwn(routes, path) ? routes[path] : null;
+    if (route && route.file) return send(200, readFileSync(route.file), TYPES[extname(route.file)] || 'application/octet-stream');
+    if (route && route.proxy) {
+      try {
+        const up = await fetch(route.proxy, { signal: AbortSignal.timeout(10000) });
+        return send(up.status, Buffer.from(await up.arrayBuffer()), up.headers.get('content-type') || 'application/octet-stream');
+      } catch (e) {
+        return send(502, `proxy failed: ${e.message}`);
+      }
+    }
     const mount = mounts.find((m) => path.startsWith(m.prefix) || path === m.prefix.slice(0, -1));
     if (!mount) return send(404, 'outside every base path');
     if (path === mount.prefix.slice(0, -1)) {

@@ -8,7 +8,9 @@
 // on the app; storage is namespaced and survives a reload; the ET clock, current weather and
 // gathering status on screen equal what js/eorzea.js, js/weather.js and js/gathering.js compute
 // for the page's own clock; and a reminder for a starred node shows a toast and creates a system
-// notification once the browser grants permission. Then the radmagelabs.com homepage's FFXIV
+// notification once the browser grants permission; Latest news asks for nothing while closed,
+// and once opened lists Lodestone headlines at radmagelabs.com/ffxiv/ (which passes the feeds
+// through) or points there from any other address. Then the radmagelabs.com homepage's FFXIV
 // link is followed to make sure it opens the timer.
 //
 // This checks the deployed copy against the reference engines in this repo. It says nothing
@@ -23,6 +25,7 @@ import { ROOT, TARGETS } from './build.mjs';
 const require = createRequire(import.meta.url);
 const E = require('../js/eorzea.js'), W = require('../js/weather.js'), G = require('../js/gathering.js');
 const WD = require('../js/weather-data.js'), NODES = require('../js/gathering-data.js').nodes;
+const NEWS = require('../js/news.js');
 const URLS = TARGETS.targets.pages.urls;
 const LABS_HOME = 'https://radmagelabs.com/';
 // The deployed page carries this checkout's title.
@@ -138,6 +141,29 @@ try {
       assert.ok(shown.some(([t, body]) => t === 'Turali Alumen' && /Urqopacha/.test(body)), JSON.stringify(shown));
       assert.match(await p2.eval("document.getElementById('reminder-note').textContent"), /only work while this page is open.*Notifications are allowed/s);
       assert.deepEqual(p2.problems, []);
+    });
+
+    const feedsHere = url === NEWS.HOME;
+    await check(`${url}: Latest news asks for nothing while closed, then ${feedsHere ? 'lists Lodestone headlines' : `points to ${NEWS.HOME}`}`, async () => {
+      const p3 = await chrome.newPage();
+      await p3.viewport(1440, 1000);
+      await p3.goto(url);
+      await p3.waitFor(READY, 20000);
+      assert.equal(await p3.eval("document.getElementById('news').open"), false, 'closed on a first visit');
+      assert.deepEqual(p3.requests.filter((r) => r.includes('/news/')), [], 'nothing requested while closed');
+      await p3.eval("document.querySelector('#news summary').click()");
+      if (feedsHere) {
+        await p3.waitFor("document.querySelectorAll('#news [data-feed=\"topics\"] li').length > 0 && document.querySelectorAll('#news [data-feed=\"news\"] li').length > 0", 20000);
+        const links = await p3.eval("[...document.querySelectorAll('#news .news-list a')].map(a => a.href)");
+        assert.ok(links.every((h) => h.startsWith(NEWS.LODESTONE)), JSON.stringify(links));
+        console.log(`     newest topic: ${await p3.eval("document.querySelector('#news [data-feed=\"topics\"] li a').textContent")}`);
+        assert.deepEqual(p3.problems, []);
+      } else {
+        await p3.waitFor(`document.getElementById('news-note').textContent.includes(${JSON.stringify(new URL(NEWS.HOME).host + new URL(NEWS.HOME).pathname)})`, 20000);
+        assert.equal(await p3.eval("document.querySelectorAll('#news .news-list li').length"), 0);
+        assert.ok(p3.problems.every((x) => /404/.test(x)), JSON.stringify(p3.problems));
+      }
+      await p3.eval("localStorage.clear()");
     });
   }
 

@@ -6,7 +6,7 @@
   'use strict';
   const E = window.Eorzea, W = window.XivWeather, DATA = window.FFXIV_WEATHER_DATA;
   const G = window.XivGathering, NODES = window.FFXIV_GATHERING_DATA.nodes;
-  const Store = window.FfxivStore, Icons = window.FfxivIcons, Format = window.FfxivFormat;
+  const Store = window.FfxivStore, Icons = window.FfxivIcons, Format = window.FfxivFormat, News = window.FfxivNews;
 
   const ZONES = DATA.zones;
   const BY_KEY = new Map(ZONES.map((z) => [z.key, z]));
@@ -35,6 +35,7 @@
     nodeSearch: '',
     gather: loadGather(),
     remindLead: Store.read('remindLead', null),
+    newsOpen: Store.read('newsOpen', false) === true,
   };
   const NODE_BY_ID = new Map(NODES.map((n) => [n.id, n]));
 
@@ -431,12 +432,81 @@
       el('div', { class: 'tl-cd' }, m.start <= now ? el('span', { class: 'badge now' }, 'Now') : countdown(m.start)))));
   }
 
+  // ---- latest news ----
+  // The panel starts closed and asks for nothing until it is opened. Headlines are kept in this
+  // browser for 15 minutes and refreshed while the panel is open. Nothing here can stop the timers.
+  const news = { feeds: null, fetchedAt: null, checkedAt: -Infinity, status: 'idle', loading: false };
+  const lodestoneLink = (label) => el('a', { href: News.LODESTONE, target: '_blank', rel: 'noopener noreferrer' }, label);
+  function renderNews() {
+    try {
+      const now = Date.now(), when = news.fetchedAt ? localWhen(news.fetchedAt, now) : '';
+      const note = {
+        idle: ['Opening this loads the newest headlines from the Lodestone.'],
+        loading: ['Loading the newest headlines from the Lodestone.'],
+        ok: [`Headlines from the official Lodestone, checked ${when}. `, lodestoneLink('Open the Lodestone'), '.'],
+        stale: [`The Lodestone could not be reached just now; these headlines are from ${when}. `, lodestoneLink('Open the Lodestone'), '.'],
+        failed: ['News could not load right now. The timers are not affected. ', lodestoneLink('Read the news on the Lodestone'), '.'],
+        unavailable: ['Headlines load at ', el('a', { href: News.HOME }, 'radmagelabs.com/ffxiv/'), '. Here, ', lodestoneLink('read the news on the Lodestone'), '.'],
+      }[news.loading && !news.feeds ? 'loading' : news.status];
+      $('news-note').replaceChildren(...note);
+      const cols = !news.feeds || news.status === 'unavailable' ? [] : News.FEEDS.map((f) => {
+        const items = news.feeds[f.key];
+        return el('section', { class: 'news-col', 'data-feed': f.key },
+          el('h3', null, f.title),
+          !items ? el('p', { class: 'muted small' }, 'This list could not load just now.')
+            : !items.length ? el('p', { class: 'muted small' }, 'No headlines.')
+              : el('ul', { class: 'news-list' }, items.map((i) => el('li', null,
+                el('a', { href: i.link, target: '_blank', rel: 'noopener noreferrer' }, i.title),
+                el('span', { class: 'news-meta' },
+                  i.category ? el('span', { class: 'badge tag' }, i.category) : null,
+                  i.dateMs ? el('time', { datetime: new Date(i.dateMs).toISOString() }, fmt('day').format(i.dateMs)) : null)))));
+      });
+      $('news-cols').replaceChildren(...cols);
+    } catch (e) { /* the news panel never breaks the page */ }
+  }
+  // One feed. A 404 means this address does not pass the feeds through (GitHub Pages).
+  async function fetchFeed(feed) {
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), News.TIMEOUT_MS);
+    try {
+      const res = await fetch(feed.path, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal });
+      if (res.status === 404) return { missing: true };
+      return res.ok ? { items: News.parseFeed(await res.text()) } : {};
+    } catch (e) {
+      return {};
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  async function loadNews() {
+    if (news.loading) return;
+    const cache = News.sanitizeCache(Store.read('news', null));
+    if (cache) Object.assign(news, { feeds: cache.feeds, fetchedAt: cache.fetchedAt, checkedAt: cache.fetchedAt, status: 'ok' });
+    if (cache && News.isFresh(cache, Date.now())) { renderNews(); return; }
+    if (location.protocol === 'file:') { news.status = 'unavailable'; renderNews(); return; }
+    news.loading = true;
+    news.checkedAt = Date.now();
+    renderNews();
+    const results = await Promise.all(News.FEEDS.map(fetchFeed));
+    news.loading = false;
+    if (results.every((r) => r.missing)) {
+      news.status = 'unavailable';
+    } else if (results.some((r) => r.items && r.items.length)) {
+      const feeds = {};
+      News.FEEDS.forEach((f, i) => { feeds[f.key] = results[i].items || (news.feeds && news.feeds[f.key]) || null; });
+      Object.assign(news, { feeds, fetchedAt: Date.now(), status: 'ok' });
+      Store.write('news', { fetchedAt: news.fetchedAt, feeds });
+    } else {
+      news.status = news.feeds ? 'stale' : 'failed';
+    }
+    renderNews();
+  }
+
   // ---- about ----
   function renderAbout() {
     const src = DATA.source;
     const zonesByExpansion = EXPANSIONS.map((x) => `${x}: ${ZONES.filter((z) => z.expansion === x).map((z) => z.name).join(', ')}`);
     $('about-body').replaceChildren(
-      el('p', null, 'Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. Free, no account, nothing to install, and nothing leaves your browser.'),
+      el('p', null, 'Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. Free, no account and nothing to install. Your stars and settings stay in this browser; the only request beyond the page itself is Latest news, and only once you open it.'),
       el('h3', null, 'How the forecast works'),
       el('p', null, 'Weather in FFXIV is not random per player. Every eight bells (00:00, 08:00 and 16:00 ET, which is every 23 minutes 20 seconds) the game turns the current time into a number from 0 to 99 and looks it up in the zone\'s weather table. FFXIV Timer runs the same calculation on the same tables, so a forecast is the weather the game will choose, not an estimate.'),
       el('p', null, 'One bell (Eorzean hour) is 2 minutes 55 seconds and one sun (day) is 70 minutes. The game shows only the time; the date shown here counts suns and moons from the same starting point the weather uses.'),
@@ -456,6 +526,8 @@
       el('h3', null, 'Not yet checked in the game'),
       el('p', null, 'Forecasts and node times have not yet been compared with what the game itself shows (a Skywatcher, the weather on the minimap, a node appearing). They are computed from the game’s data, not observed. If you see a difference, ',
         el('a', { href: 'https://github.com/RadMageIRL/ffxiv-timer/issues', rel: 'noopener' }, 'please report it'), '.'),
+      el('h3', null, 'Latest news'),
+      el('p', null, 'The news bar starts closed and loads nothing until you open it. Opening it asks this site for the newest headlines from the official Lodestone (na.finalfantasyxiv.com); radmagelabs.com fetches them from the Lodestone, so your browser does not contact Square Enix. Only titles, dates and links are shown, every link goes to the Lodestone, and the headlines are kept in this browser for 15 minutes. At radmageirl.github.io the bar links to the Lodestone instead.'),
       el('h3', null, 'Credits'),
       el('p', null, 'FINAL FANTASY XIV © SQUARE ENIX. Zone and weather names are game text, used under the FINAL FANTASY XIV Materials Usage Policy. FFXIV Timer is a free fan tool and is not affiliated with or endorsed by Square Enix. Icons are original.'),
       el('p', null, 'Code is MIT licensed: ', el('a', { href: 'https://github.com/RadMageIRL/ffxiv-timer', rel: 'noopener' }, 'github.com/RadMageIRL/ffxiv-timer'), '.'));
@@ -481,6 +553,7 @@
     if (period !== lastPeriod) { lastPeriod = period; renderWeather(now); return; }
     if (now >= gatheringNext) renderGathering(now);
     if (now >= timelineNext) renderTimeline(now);
+    if (state.newsOpen && news.status !== 'unavailable' && now - news.checkedAt >= News.REFRESH_MS) loadNews();
     checkReminders(now);
     updateCountdowns(now);
   }
@@ -498,6 +571,16 @@
     setText($('hour-cycle'), usesHour12() ? '12h' : '24h');
     renderAbout();
     writeHash();
+
+    // Setting open fires toggle, which loads the headlines when the bar was left open last time.
+    const newsPanel = $('news');
+    newsPanel.addEventListener('toggle', () => {
+      state.newsOpen = newsPanel.open;
+      Store.write('newsOpen', state.newsOpen);
+      if (state.newsOpen) loadNews();
+    });
+    newsPanel.open = state.newsOpen;
+    renderNews();
 
     $('node-search').addEventListener('input', (e) => { state.nodeSearch = e.target.value; renderGathering(Date.now()); updateCountdowns(Date.now()); });
     wireGatheringFilters();
@@ -575,7 +658,7 @@
       Store.write('hour12', state.hour12);
       formats = null;
       e.currentTarget.textContent = state.hour12 ? '12h' : '24h';
-      lastPeriod = -1; tick();
+      lastPeriod = -1; tick(); renderNews();
     });
     for (const b of document.querySelectorAll('[data-jump]')) b.addEventListener('click', () => jump(b.dataset.jump));
     const about = $('about');

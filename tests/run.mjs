@@ -560,6 +560,62 @@ test('js/gathering-data.js is exactly what the generator builds from the cached 
   execFileSync(process.execPath, [join(ROOT, 'tools', 'build-gathering.mjs'), '--check', '--csv', cache], { stdio: 'pipe' });
 });
 
+// ---- latest news ----
+const N = require('../js/news.js');
+const feedFixture = (name) => readFileSync(join(ROOT, 'tests', 'fixtures', name), 'utf8');
+const entry = (inner) => `<feed xmlns="http://www.w3.org/2005/Atom"><entry>${inner}</entry></feed>`;
+const LINK = 'https://na.finalfantasyxiv.com/lodestone/topics/detail/abc';
+test('news: the Lodestone topics and news feeds parse to titles, links, dates and categories', () => {
+  const topics = N.parseFeed(feedFixture('lodestone-topics.xml'));
+  assert.equal(topics.length, 5);
+  assert.deepEqual(topics[0], {
+    title: 'Announcing the Fan Festival Group Pose Screenshot Campaign!',
+    link: 'https://na.finalfantasyxiv.com/lodestone/topics/detail/378ff35cd6769fc2d8bb0c3dd1003f7b90c9811a',
+    dateMs: Date.UTC(2026, 9, 23, 17, 0, 0), category: '',
+  });
+  assert.equal(topics[1].title, 'Fan Festival 2026 Commemorative Items Round 3 & Sale!', 'entities are decoded');
+  const news = N.parseFeed(feedFixture('lodestone-news.xml'));
+  assert.deepEqual(news.map((i) => i.category), ['Maintenance', 'Notices', 'Notices', 'Maintenance', 'Maintenance']);
+  for (const list of [topics, news]) {
+    for (let i = 1; i < list.length; i++) assert.ok(list[i - 1].dateMs >= list[i].dateMs, 'newest first');
+    assert.ok(list.every((i) => i.link.startsWith(N.LODESTONE) && !i.link.includes('lds-img')), 'the article link, never the image');
+  }
+  assert.equal(N.parseFeed(feedFixture('lodestone-news.xml'), 2).length, 2);
+  assert.equal(N.parseFeed(feedFixture('lodestone-news.xml')).length, N.PER_FEED);
+});
+test('news: only https links to the Lodestone are kept, without query or fragment', () => {
+  assert.equal(N.cleanLink(`${LINK}?utm_source=x#top`), LINK);
+  assert.equal(N.cleanLink(`${LINK}?a=1&amp;b=2`), LINK, 'entities in the feed are decoded');
+  for (const bad of ['javascript:alert(1)', 'http://na.finalfantasyxiv.com/lodestone/x', 'https://eu.finalfantasyxiv.com/lodestone/x',
+    'https://na.finalfantasyxiv.com.example.com/lodestone/x', 'https://user@na.finalfantasyxiv.com/lodestone/x',
+    'https://na.finalfantasyxiv.com:8443/lodestone/x', 'https://na.finalfantasyxiv.com/other/x', 'data:text/html,hi', '', 'not a url']) {
+    assert.equal(N.cleanLink(bad), null, bad);
+  }
+  const items = N.parseFeed(entry(`<title>Bad</title><link rel="alternate" href="javascript:alert(1)"/><published>2026-10-23T00:00:00Z</published>`)
+    + entry(`<title>Good</title><link href="${LINK}"/><published>2026-10-22T00:00:00Z</published>`));
+  assert.deepEqual(items.map((i) => i.title), ['Good'], 'an entry with a bad link is dropped; a link with no rel is the alternate');
+});
+test('news: titles are plain text, with plain hyphens and no markup or control characters', () => {
+  const [i] = N.parseFeed(entry(`<title>&lt;b&gt;Patch&lt;/b&gt; 7.6 &#8212; Notes &#x2013; Part&#7; 1 \u2014 <![CDATA[<i>Now</i>]]> &amp;amp;</title><link href="${LINK}"/>`));
+  assert.equal(i.title, 'Patch 7.6 - Notes - Part 1 - Now &');
+  assert.equal(i.dateMs, null, 'a missing date is null, not NaN');
+  const long = N.parseFeed(entry(`<title>${'x'.repeat(500)}</title><link href="${LINK}"/>`))[0];
+  assert.equal(long.title.length, 200);
+  assert.deepEqual(N.parseFeed(entry(`<title>  </title><link href="${LINK}"/>`)), [], 'an empty title is dropped');
+  assert.deepEqual(N.parseFeed('<html>not found</html>'), []);
+});
+test('news: a cached copy is fresh for 15 minutes and is checked again when read back', () => {
+  const items = N.parseFeed(feedFixture('lodestone-topics.xml'));
+  const cache = { fetchedAt: NOW, feeds: { topics: items, news: [] } };
+  assert.deepEqual(N.sanitizeCache(cache), cache);
+  assert.equal(N.isFresh(cache, NOW + 15 * MIN - 1), true);
+  assert.equal(N.isFresh(cache, NOW + 15 * MIN), false);
+  assert.equal(N.isFresh(cache, NOW - 1), false, 'a cache from the future is not trusted');
+  const tampered = { fetchedAt: NOW, feeds: { topics: [{ title: 'x', link: 'https://evil.example/' }, { title: 'y', link: LINK, dateMs: 'soon', category: 5 }, null], news: 'no' } };
+  assert.deepEqual(N.sanitizeCache(tampered), { fetchedAt: NOW, feeds: { topics: [{ title: 'y', link: LINK, dateMs: null, category: '' }], news: [] } });
+  for (const bad of [null, 'x', {}, { fetchedAt: 'now', feeds: {} }, { fetchedAt: NOW, feeds: { topics: [], news: [] } }]) assert.equal(N.sanitizeCache(bad), null);
+});
+
 // ---- base path and build ----
 test('every page script parses (app.js is only exercised by the browser tests)', () => {
   for (const f of readdirSync(join(ROOT, 'js'))) execFileSync(process.execPath, ['--check', join(ROOT, 'js', f)], { stdio: 'pipe' });
@@ -584,6 +640,15 @@ test('the page description counts the zones and nodes the site has', () => {
   const description = html.match(/<meta name="description" content="([^"]*)">/)[1];
   assert.match(description, new RegExp(`\\b${DATA.zones.length} zones\\b`));
   assert.match(description, new RegExp(`\\ball ${GDATA.nodes.length} unspoiled and legendary\\b`));
+});
+// The newest version heading in the changelog is the version everywhere else.
+test('the title, tagline, About and README all say the newest version in the changelog', () => {
+  const version = /^## v(\d+\.\d+(?:\.\d+)?) \(\d{4}-\d{2}-\d{2}\)$/m.exec(readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf8'))[1];
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  assert.ok(html.includes(`<title>FFXIV Timer v${version} - `), 'title');
+  assert.ok(html.includes(`<span class="tagline">v${version} · `), 'tagline');
+  assert.ok(html.includes(`<h2 id="about-title">FFXIV Timer v${version}</h2>`), 'About');
+  assert.ok(readFileSync(join(ROOT, 'README.md'), 'utf8').startsWith(`# FFXIV Timer v${version}\n`), 'README');
 });
 test('builds for GitHub Pages and RadMage Labs put the app at their base paths', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'ffxiv-timer-build-'));

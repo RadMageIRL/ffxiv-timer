@@ -1,7 +1,8 @@
-# FFXIV Timer
+# FFXIV Timer v0.9
 
 Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. It is a static
-page: no account, no backend, nothing to install, and nothing leaves your browser.
+page: no account, no backend and nothing to install. Your settings stay in your browser; the only
+request beyond the page itself is Latest news, and only once you open it.
 
 ![FFXIV Timer at ET 12:05 on the 17th Sun of the 4th Umbral Moon: rain in Middle La Noscea, snow in Urqopacha and blizzards in Eureka Pagos, with the next weather changes and sunset in the Upcoming timeline](screenshots/ffxiv-timer.png)
 
@@ -33,6 +34,12 @@ The build is made to be served at two addresses, with the first as the canonical
   are up) and can remind you when they appear or a few minutes before. Reminders only work while
   the page is open in a tab, and system notifications also need your browser's permission
   (without it, reminders show on the page only).
+
+- **Latest news.** A bar at the top, closed until you open it, with the five newest Topics and
+  the five newest Notices and maintenance headlines from the official Lodestone. Every link goes
+  to the Lodestone. Opening it asks radmagelabs.com, which passes the Lodestone's news feeds
+  through; at the GitHub Pages address the bar links to the Lodestone instead. Headlines are kept
+  in your browser for 15 minutes, and the bar remembers whether you left it open.
 
 Zones without a verified weather table are named as not supported. They never get a guess.
 
@@ -102,6 +109,9 @@ To see it the way each host serves it, run `node tools/serve.mjs` (Node 22 or la
 - http://127.0.0.1:8017/ffxiv-timer/ (the GitHub Pages build)
 - http://127.0.0.1:8017/ffxiv/ (the same build as radmagelabs.com serves it)
 
+Under `/ffxiv/` and `/dev/` the local server fetches the Lodestone news feeds the way the
+radmagelabs.com rewrites do; under `/ffxiv-timer/` they are missing, as on GitHub Pages.
+
 ## Tests
 
 ```
@@ -111,8 +121,8 @@ node tools/screenshot.mjs # retake screenshots/ffxiv-timer.png at a fixed moment
 ```
 
 Neither installs anything. The browser tests serve the built site under `/ffxiv-timer/`, through
-an imitation of the radmagelabs.com proxy under `/ffxiv/`, and from the source tree and `file://`,
-and fail on any request outside the base path.
+an imitation of the radmagelabs.com proxy under `/ffxiv/` (with saved copies of the Lodestone news
+feeds), and from the source tree and `file://`, and fail on any request outside the base path.
 
 ## Weather data
 
@@ -145,6 +155,11 @@ base path they came in on, and version stamps on every file.
 `.github/workflows/pages.yml` tests, builds and deploys the `pages` target on every push to
 `main`; a commit that fails the tests is not deployed.
 
+Latest news reads `news/topics.xml` and `news/news.xml` next to the page. The Lodestone's feeds
+(https://na.finalfantasyxiv.com/lodestone/news/topics.xml and `news.xml`) do not allow
+cross-origin reads, so radmagelabs.com rewrites those two paths under `/ffxiv/` to them. GitHub
+Pages cannot, so at `/ffxiv-timer/` the bar links to the Lodestone instead.
+
 Settings and starred zones are saved in the browser under keys starting with `ffxiv-timer:`. Each
 address is its own browser origin, so the two addresses keep separate settings.
 
@@ -161,6 +176,7 @@ js/gathering-data.js    generated gathering nodes
 js/format.js            countdown text and URL keys
 js/store.js             saved settings
 js/icons.js             weather icons
+js/news.js              Lodestone headlines: feed parsing and link checks
 js/app.js               the page logic
 data/                   which zones and nodes are supported
 deploy/targets.json     hosting targets and base paths

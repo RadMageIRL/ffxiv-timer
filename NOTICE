@@ -35,5 +35,12 @@ Test vectors in tests/fixtures/weather-vectors.json
   confirmed with eorzea-weather 3.2.0 (https://github.com/flowercartelet/eorzea-weather, MIT).
   No code from either project is included here.
 
+Lodestone headlines (Latest news)
+  Headline titles, dates and categories are read when the page runs from the official Lodestone
+  feeds, https://na.finalfantasyxiv.com/lodestone/news/topics.xml and news.xml, and link back to
+  the Lodestone. They are FINAL FANTASY XIV text (c) SQUARE ENIX. None is stored in this
+  repository except trimmed copies of the two feeds (five entries each, titles, dates and links,
+  no article text) in tests/fixtures/lodestone-topics.xml and lodestone-news.xml, for the tests.
+
 Icons
   The weather icons and the crystal mark are original to this project. No game images are used.

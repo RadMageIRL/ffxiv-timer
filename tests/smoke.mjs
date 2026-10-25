@@ -4,7 +4,8 @@
 // The deployed build is served the ways it is reached in public, each imitated by a local server
 // that refuses anything outside its base path:
 //   GitHub Pages        /ffxiv-timer/  (301 adds the trailing slash, missing files get 404.html)
-//   radmagelabs.com     /ffxiv/        the same files through the Labs proxy
+//   radmagelabs.com     /ffxiv/        the same files through the Labs proxy, which also passes the
+//                                      Lodestone news feeds through (here: saved copies)
 //   proxy, no redirect  /ffxiv/        a host that serves the bare /ffxiv; the page must fix it
 //   standalone labs     /ffxiv/        the labs build, for a host that serves the files itself
 //   development         /dev/deep/path/ and file://   the source tree, unbuilt
@@ -33,9 +34,10 @@ const PREFIX = 'ffxiv-timer:v1:';
 
 const tmp = mkdtempSync(join(tmpdir(), 'ffxiv-timer-smoke-'));
 const pages = build('pages', { outRoot: tmp }), labs = build('labs', { outRoot: tmp });
+const newsRoutes = (base) => Object.fromEntries(['topics', 'news'].map((f) => [`${base}news/${f}.xml`, { file: join(ROOT, 'tests', 'fixtures', `lodestone-${f}.xml`) }]));
 const servers = {
   github: await serve({ mounts: [{ prefix: '/ffxiv-timer/', dir: pages.appDir, notFound: '404.html' }] }),
-  proxy: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }] }),
+  proxy: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], routes: newsRoutes('/ffxiv/') }),
   bare: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], slash: 'none' }),
   labs: await serve({ mounts: [{ prefix: '/ffxiv/', dir: labs.appDir, notFound: '404.html' }] }),
   dev: await serve({ mounts: [{ prefix: '/dev/deep/path/', dir: ROOT }] }),
@@ -268,6 +270,56 @@ try {
     const count = JSON.parse(readFileSync(join(ROOT, 'data', 'supported-zones.json'), 'utf8')).zones.length;
     assert.ok(text.includes(`Zones with forecasts (${count})`), `About lists ${count} zones`);
     if (shots) await page.screenshot(join(shots, 'about.png'));
+  });
+
+  await test('Latest news: closed and silent until opened, then Lodestone headlines, remembered open or closed', async () => {
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    const fetched = () => servers.proxy.requests.filter((r) => r.path.includes('/news/')).length;
+    const items = "document.querySelectorAll('#news .news-list li').length";
+    await page.goto(`${servers.proxy.origin}/ffxiv/`);
+    await page.waitFor(READY);
+    assert.equal(await page.eval("document.getElementById('news').open"), false);
+    assert.equal(fetched(), 0, 'nothing is requested while the bar is closed');
+    await page.eval("document.querySelector('#news summary').click()");
+    await page.waitFor(`${items} === 10`);
+    assert.equal(fetched(), 2);
+    assert.deepEqual(await page.eval("[...document.querySelectorAll('#news .news-col h3')].map(h => h.textContent)"), ['Topics', 'Notices and maintenance']);
+    assert.match(await page.eval("document.querySelector('#news [data-feed=\"topics\"] li').textContent"), /^Announcing the Fan Festival Group Pose Screenshot Campaign!/);
+    assert.match(await page.eval("document.querySelector('#news [data-feed=\"news\"] li').textContent"), /^Companion App Emergency Maintenance \(Oct\. 21\): Follow-up 2Maintenance/);
+    const links = await page.eval("[...document.querySelectorAll('#news a')].map(a => [a.href, a.target, a.rel])");
+    assert.ok(links.length === 11 && links.every(([href, target, rel]) => href.startsWith('https://na.finalfantasyxiv.com/lodestone/') && target === '_blank' && rel.includes('noopener')), JSON.stringify(links));
+    assert.match(await page.eval("document.getElementById('news-note').textContent"), /^Headlines from the official Lodestone, checked /);
+    if (shots) await page.screenshot(join(shots, 'news.png'));
+    // Left open, it opens again on reload with the cached headlines, without asking again.
+    await page.reload();
+    await page.waitFor(READY);
+    await page.waitFor(`document.getElementById('news').open && ${items} === 10`);
+    assert.equal(fetched(), 2, 'the cached headlines are reused');
+    await page.viewport(390, 844, true);
+    await page.waitFor('innerWidth === 390');
+    assert.deepEqual(await page.eval("[...document.querySelectorAll('#news *')].filter(n => n.getBoundingClientRect().right > innerWidth + 1).map(n => n.tagName)"), [], 'news fits a phone');
+    if (shots) await page.screenshot(join(shots, 'news-phone.png'));
+    await page.eval("document.querySelector('#news summary').click()");
+    await page.waitFor(`localStorage.getItem('${PREFIX}newsOpen') === 'false'`);
+    await page.reload();
+    await page.waitFor(READY);
+    assert.equal(await page.eval("document.getElementById('news').open"), false);
+    assert.deepEqual(page.problems, []);
+  });
+
+  await test('Latest news on GitHub Pages: no feeds there, so it points to radmagelabs.com/ffxiv/ and the Lodestone', async () => {
+    const page = await chrome.newPage();
+    await page.goto(`${servers.github.origin}/ffxiv-timer/`);
+    await page.waitFor(READY);
+    await page.eval("document.querySelector('#news summary').click()");
+    await page.waitFor("document.getElementById('news-note').textContent.includes('radmagelabs.com/ffxiv/')");
+    assert.equal(await page.eval("document.querySelectorAll('#news .news-list li').length"), 0);
+    assert.deepEqual(await page.eval("[...document.querySelectorAll('#news a')].map(a => a.href)"), ['https://radmagelabs.com/ffxiv/', 'https://na.finalfantasyxiv.com/lodestone/']);
+    assert.ok(page.problems.length === 2 && page.problems.every((p) => /^HTTP 404 .*\/ffxiv-timer\/news\/(topics|news)\.xml$/.test(p)), JSON.stringify(page.problems));
+    assert.deepEqual(servers.github.outside(), []);
+    await page.eval("document.querySelector('#news summary').click()");
+    await page.waitFor(`localStorage.getItem('${PREFIX}newsOpen') === 'false'`);
   });
 } finally {
   await chrome.close();

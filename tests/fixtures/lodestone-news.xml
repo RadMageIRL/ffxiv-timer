@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Trimmed copy of https://na.finalfantasyxiv.com/lodestone/news/news.xml fetched 2026-10-25: the first 5 entries, summaries and content removed. -->
+<feed xmlns="http://www.w3.org/2005/Atom">
+	<title>News | FINAL FANTASY XIV, The Lodestone</title>
+	<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/" />
+	<link rel="self" type="application/atom+xml" href="https://na.finalfantasyxiv.com/lodestone/news/news.xml" />
+	<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/news/news.xml</id>
+	<updated>2026-10-23T10:12:33Z</updated>
+	<generator uri="https://www.finalfantasyxiv.com/">FINAL FANTAXY XIV</generator>
+	
+				<entry>
+			<title>Companion App Emergency Maintenance (Oct. 21): Follow-up 2</title>
+			<link rel="enclosure" href="https://lds-img.finalfantasyxiv.com/h/L/HkNRaE5rCnYnxc_V_LV6u6cc7A.png" type="image/png" />
+			<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/news/detail/05c15ca5d117e79c599784fe51a0eb2f59705529" />
+			<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/lodestone/news/detail/05c15ca5d117e79c599784fe51a0eb2f59705529</id>
+
+			<published>2026-10-23T10:12:33Z</published>
+			<updated>2026-10-23T10:12:33Z</updated>
+
+			<summary></summary>
+			<author>
+				<name>FINAL FANTASY XIV, The Lodestone</name>
+			</author>
+			<category term="Maintenance" />
+			<content type="html" xml:lang="en-us" xml:base="https://na.finalfantasyxiv.com/lodestone/"></content>
+		</entry>
+		<entry>
+			<title>Compensation for Game Time Due to the Unexpected Suspension of New Logins (Oct. 23)</title>
+			<link rel="enclosure" href="https://lds-img.finalfantasyxiv.com/h/L/HkNRaE5rCnYnxc_V_LV6u6cc7A.png" type="image/png" />
+			<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/news/detail/d2e6d8a0e5656208d12d80b97652b1b212e5af4c" />
+			<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/lodestone/news/detail/d2e6d8a0e5656208d12d80b97652b1b212e5af4c</id>
+
+			<published>2026-10-23T09:30:00Z</published>
+			<updated>2026-10-23T09:30:00Z</updated>
+
+			<summary></summary>
+			<author>
+				<name>FINAL FANTASY XIV, The Lodestone</name>
+			</author>
+			<category term="Notices" />
+			<content type="html" xml:lang="en-us" xml:base="https://na.finalfantasyxiv.com/lodestone/"></content>
+		</entry>
+		<entry>
+			<title>Recommencement of the Server Backup Feature for Save Data (Oct. 23)</title>
+			<link rel="enclosure" href="https://lds-img.finalfantasyxiv.com/h/L/HkNRaE5rCnYnxc_V_LV6u6cc7A.png" type="image/png" />
+			<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/news/detail/346807614466e327b18f085c5d10ac01427bdd32" />
+			<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/lodestone/news/detail/346807614466e327b18f085c5d10ac01427bdd32</id>
+
+			<published>2026-10-23T08:36:00Z</published>
+			<updated>2026-10-23T08:36:00Z</updated>
+
+			<summary></summary>
+			<author>
+				<name>FINAL FANTASY XIV, The Lodestone</name>
+			</author>
+			<category term="Notices" />
+			<content type="html" xml:lang="en-us" xml:base="https://na.finalfantasyxiv.com/lodestone/"></content>
+		</entry>
+		<entry>
+			<title>Forums Emergency Maintenance (Oct. 21): Follow-up</title>
+			<link rel="enclosure" href="https://lds-img.finalfantasyxiv.com/h/L/HkNRaE5rCnYnxc_V_LV6u6cc7A.png" type="image/png" />
+			<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/news/detail/d5c3ff17ea7ff767343963bfab874d51abad7c10" />
+			<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/lodestone/news/detail/d5c3ff17ea7ff767343963bfab874d51abad7c10</id>
+
+			<published>2026-10-23T05:00:00Z</published>
+			<updated>2026-10-23T05:00:00Z</updated>
+
+			<summary></summary>
+			<author>
+				<name>FINAL FANTASY XIV, The Lodestone</name>
+			</author>
+			<category term="Maintenance" />
+			<content type="html" xml:lang="en-us" xml:base="https://na.finalfantasyxiv.com/lodestone/"></content>
+		</entry>
+		<entry>
+			<title>Config Data Sharing Function Emergency Maintenance (Oct. 21-22): Completed</title>
+			<link rel="enclosure" href="https://lds-img.finalfantasyxiv.com/h/L/HkNRaE5rCnYnxc_V_LV6u6cc7A.png" type="image/png" />
+			<link rel="alternate" type="text/html" href="https://na.finalfantasyxiv.com/lodestone/news/detail/4eb5c9dd1faeec95e00b80c8a3402a848488dc3b" />
+			<id>tag:na.finalfantasyxiv.com,2023-04-01:/lodestone/lodestone/news/detail/4eb5c9dd1faeec95e00b80c8a3402a848488dc3b</id>
+
+			<published>2026-10-22T13:30:21Z</published>
+			<updated>2026-10-22T13:30:21Z</updated>
+
+			<summary></summary>
+			<author>
+				<name>FINAL FANTASY XIV, The Lodestone</name>
+			</author>
+			<category term="Maintenance" />
+			<content type="html" xml:lang="en-us" xml:base="https://na.finalfantasyxiv.com/lodestone/"></content>
+		</entry>
+</feed>

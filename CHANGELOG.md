@@ -1,20 +1,24 @@
 # Changelog
 
-## Unreleased
+Every version of FFXIV Timer and what changed in it, newest first. Dates are the day I released
+each one.
 
-- Gathering: the list shows the nodes up now, ending soonest first, then the nodes appearing
-  within the next 15 minutes, 30 minutes or hour of real time (the default), soonest first, under
-  sticky headings; All drops the time limit. The list scrolls inside the panel, so nothing is
-  paged away.
+## v0.9 (2026-10-25)
+
+The first numbered release. It covers everything since Milestone 1.
+
+Added
+- Latest news: a bar at the top, closed until you open it, with the newest Topics and Notices
+  and maintenance headlines from the official Lodestone, each linking to the Lodestone. It loads
+  nothing until opened, keeps headlines for 15 minutes and remembers whether it was left open.
+  radmagelabs.com/ffxiv/ passes the Lodestone feeds through; at radmageirl.github.io the bar
+  links to the Lodestone instead.
+- The version, in the page title, under the FFXIV Timer name and in About.
 - Gathering filters for expansion (ARR, HW, SB, ShB, EW, DT) and level range, and your own Miner
   and Botanist levels with Hide higher, which holds each job's nodes to that job's level. All
   gathering filters and the view are remembered on this device.
 - Starred nodes that are up appear at the top of Upcoming, marked Up now, with the time left.
-- On phones the gathering chips are smaller and wrap, so the filters take less room.
-- README: the duplicated gathering sentence is gone.
 - A RadMage Labs link in the tagline under the FFXIV Timer name, back to radmagelabs.com.
-- Search results and link previews: the page title and description now name the weather
-  forecasts and timed gathering, and shared links show a preview image.
 - Weather forecasts for 25 more zones, finishing A Realm Reborn and Heavensward: Ul'dah (both
   steps), Gridania (old and new), the five Thanalan and four Black Shroud field zones, Coerthas
   Central Highlands, Mor Dhona, Wolves' Den Pier, Ishgard (Foundation and The Pillars),
@@ -23,9 +27,6 @@
   the Doman Enclave and the six Stormblood field zones; the Crystarium, Eulmore and the six
   Norvrandt field zones; Old Sharlayan, Radz-at-Han and the six Endwalker field zones. 70 zones
   in all: every city and field zone from A Realm Reborn through Dawntrail, plus Eureka.
-- Weather now keeps starred zones on top and groups the rest by expansion in sections that open
-  and close (and stay that way). The area filter, the zone pickers and the About list are grouped
-  by expansion too.
 - About explains that story versions of a zone can have their own weather.
 - Timed gathering: all 26 timed nodes in Dawntrail (8 unspoiled, 18 legendary) with items,
   levels, stars, job, place, map coordinates, folklore tome and spawn times; live up-now and
@@ -41,7 +42,6 @@
   Four wiki rows disagree with the game data (Rarefied Kelp's level and star, and the positions
   of Wattle Petribark and the Rarefied Raw Petalite node); each is a reviewed exception with its
   evidence, and each is on the list to check in the game.
-- The data checks retry dropped connections.
 - Timed gathering for Stormblood: all 31 nodes (19 unspoiled, 12 legendary), 120 in all. Six wiki
   rows disagree with the game data; for five, the official Lodestone database settles it (its
   star rating, or a player's posted position and time that matches the game data), and one
@@ -56,8 +56,23 @@
   zone at all) and are left out; the generator now refuses any node without a zone. The wiki
   lists A Realm Reborn windows one row each, so the check now also makes sure every window of a
   node appears in some row.
-- Gathering search also matches the expansion name.
 - README screenshot, taken by `node tools/screenshot.mjs` at a fixed moment.
+
+Changed
+- Gathering: the list shows the nodes up now, ending soonest first, then the nodes appearing
+  within the next 15 minutes, 30 minutes or hour of real time (the default), soonest first, under
+  sticky headings; All drops the time limit. The list scrolls inside the panel, so nothing is
+  paged away.
+- Gathering search also matches the expansion name.
+- On phones the gathering chips are smaller and wrap, so the filters take less room.
+- Weather now keeps starred zones on top and groups the rest by expansion in sections that open
+  and close (and stay that way). The area filter, the zone pickers and the About list are grouped
+  by expansion too.
+- Search results and link previews: the page title and description now name the weather
+  forecasts and timed gathering, and shared links show a preview image.
+- About and the README say what leaves the browser: only Latest news, once you open it.
+- The data checks retry dropped connections.
+- README: the duplicated gathering sentence is gone.
 
 ## Milestone 1
 
