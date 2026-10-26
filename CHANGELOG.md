@@ -3,6 +3,19 @@
 Every version of FFXIV Timer and what changed in it, newest first. Dates are the day I released
 each one.
 
+## v0.9.1 (2026-10-25)
+
+Changed
+- Latest news keeps the last headlines it loaded. If a refresh fails, they stay on screen with no
+  error, and it tries again in 5 seconds, then 15 seconds, a minute, and every 5 minutes after.
+  With nothing loaded yet it says it is loading, and says it could not load only after two
+  failed tries in a row.
+
+Fixed
+- A missing news feed at radmagelabs.com/ffxiv/ (a brief hiccup there) is retried like any other
+  failed try. It used to hide the headlines and point to radmagelabs.com/ffxiv/ from that same
+  page, without trying again.
+
 ## v0.9 (2026-10-25)
 
 The first numbered release. It covers everything since Milestone 1.

@@ -434,26 +434,29 @@
 
   // ---- latest news ----
   // The panel starts closed and asks for nothing until it is opened. Headlines are kept in this
-  // browser for 15 minutes and refreshed while the panel is open. Nothing here can stop the timers.
-  const news = { feeds: null, fetchedAt: null, checkedAt: -Infinity, status: 'idle', loading: false };
+  // browser and refreshed every 15 minutes while the panel is open. A failed refresh leaves the
+  // last good headlines on screen and tries again soon (News.RETRY_MS), so a blip never shows an
+  // error. Nothing here can stop the timers.
+  const news = { feeds: null, fetchedAt: null, nextAt: -Infinity, failures: 0, unavailable: false, loading: false };
   const lodestoneLink = (label) => el('a', { href: News.LODESTONE, target: '_blank', rel: 'noopener noreferrer' }, label);
   function renderNews() {
     try {
       const now = Date.now(), when = news.fetchedAt ? localWhen(news.fetchedAt, now) : '';
+      const failing = news.failures >= News.QUIET_FAILURES;
+      const view = news.feeds ? 'ok' : news.unavailable ? 'unavailable' : failing ? 'failed' : news.loading || news.failures ? 'loading' : 'idle';
       const note = {
         idle: ['Opening this loads the newest headlines from the Lodestone.'],
         loading: ['Loading the newest headlines from the Lodestone.'],
         ok: [`Headlines from the official Lodestone, checked ${when}. `, lodestoneLink('Open the Lodestone'), '.'],
-        stale: [`The Lodestone could not be reached just now; these headlines are from ${when}. `, lodestoneLink('Open the Lodestone'), '.'],
-        failed: ['News could not load right now. The timers are not affected. ', lodestoneLink('Read the news on the Lodestone'), '.'],
+        failed: ['News could not load just now and will try again shortly. The timers are not affected. ', lodestoneLink('Read the news on the Lodestone'), '.'],
         unavailable: ['Headlines load at ', el('a', { href: News.HOME }, 'radmagelabs.com/ffxiv/'), '. Here, ', lodestoneLink('read the news on the Lodestone'), '.'],
-      }[news.loading && !news.feeds ? 'loading' : news.status];
+      }[view];
       $('news-note').replaceChildren(...note);
-      const cols = !news.feeds || news.status === 'unavailable' ? [] : News.FEEDS.map((f) => {
+      const cols = !news.feeds ? [] : News.FEEDS.map((f) => {
         const items = news.feeds[f.key];
         return el('section', { class: 'news-col', 'data-feed': f.key },
           el('h3', null, f.title),
-          !items ? el('p', { class: 'muted small' }, 'This list could not load just now.')
+          !items ? el('p', { class: 'muted small' }, failing ? 'This list could not load just now; trying again shortly.' : 'Loading.')
             : !items.length ? el('p', { class: 'muted small' }, 'No headlines.')
               : el('ul', { class: 'news-list' }, items.map((i) => el('li', null,
                 el('a', { href: i.link, target: '_blank', rel: 'noopener noreferrer' }, i.title),
@@ -464,7 +467,7 @@
       $('news-cols').replaceChildren(...cols);
     } catch (e) { /* the news panel never breaks the page */ }
   }
-  // One feed. A 404 means this address does not pass the feeds through (GitHub Pages).
+  // One feed: { items }, { missing: true } for a 404, or {} for any other failure.
   async function fetchFeed(feed) {
     const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), News.TIMEOUT_MS);
     try {
@@ -479,25 +482,31 @@
   }
   async function loadNews() {
     if (news.loading) return;
+    // The saved headlines, unless this tab already has newer ones.
     const cache = News.sanitizeCache(Store.read('news', null));
-    if (cache) Object.assign(news, { feeds: cache.feeds, fetchedAt: cache.fetchedAt, checkedAt: cache.fetchedAt, status: 'ok' });
-    if (cache && News.isFresh(cache, Date.now())) { renderNews(); return; }
-    if (location.protocol === 'file:') { news.status = 'unavailable'; renderNews(); return; }
+    if (cache && (news.fetchedAt == null || cache.fetchedAt > news.fetchedAt)) Object.assign(news, { feeds: cache.feeds, fetchedAt: cache.fetchedAt });
+    const complete = cache && News.FEEDS.every((f) => cache.feeds[f.key].length);
+    if (complete && !news.failures && News.isFresh(cache, Date.now())) {
+      news.nextAt = cache.fetchedAt + News.REFRESH_MS;
+      renderNews();
+      return;
+    }
+    if (location.protocol === 'file:') { Object.assign(news, { unavailable: true, nextAt: Infinity }); renderNews(); return; }
     news.loading = true;
-    news.checkedAt = Date.now();
     renderNews();
     const results = await Promise.all(News.FEEDS.map(fetchFeed));
     news.loading = false;
-    if (results.every((r) => r.missing)) {
-      news.status = 'unavailable';
-    } else if (results.some((r) => r.items && r.items.length)) {
+    const outcome = News.roundOutcome(results, location.href.startsWith(News.HOME));
+    if (outcome === 'ok' || outcome === 'partial') {
+      // A list that failed this time keeps its last good headlines.
       const feeds = {};
-      News.FEEDS.forEach((f, i) => { feeds[f.key] = results[i].items || (news.feeds && news.feeds[f.key]) || null; });
-      Object.assign(news, { feeds, fetchedAt: Date.now(), status: 'ok' });
+      News.FEEDS.forEach((f, i) => { const r = results[i]; feeds[f.key] = r.items && r.items.length ? r.items : (news.feeds && news.feeds[f.key]) || null; });
+      Object.assign(news, { feeds, fetchedAt: Date.now() });
       Store.write('news', { fetchedAt: news.fetchedAt, feeds });
-    } else {
-      news.status = news.feeds ? 'stale' : 'failed';
     }
+    if (outcome === 'ok') Object.assign(news, { failures: 0, nextAt: Date.now() + News.REFRESH_MS });
+    else if (outcome === 'unavailable' && !news.feeds) Object.assign(news, { unavailable: true, nextAt: Infinity });
+    else { news.failures += 1; news.nextAt = Date.now() + News.retryDelay(news.failures); }
     renderNews();
   }
 
@@ -527,7 +536,7 @@
       el('p', null, 'Forecasts and node times have not yet been compared with what the game itself shows (a Skywatcher, the weather on the minimap, a node appearing). They are computed from the game’s data, not observed. If you see a difference, ',
         el('a', { href: 'https://github.com/RadMageIRL/ffxiv-timer/issues', rel: 'noopener' }, 'please report it'), '.'),
       el('h3', null, 'Latest news'),
-      el('p', null, 'The news bar starts closed and loads nothing until you open it. Opening it asks this site for the newest headlines from the official Lodestone (na.finalfantasyxiv.com); radmagelabs.com fetches them from the Lodestone, so your browser does not contact Square Enix. Only titles, dates and links are shown, every link goes to the Lodestone, and the headlines are kept in this browser for 15 minutes. At radmageirl.github.io the bar links to the Lodestone instead.'),
+      el('p', null, 'The news bar starts closed and loads nothing until you open it. Opening it asks this site for the newest headlines from the official Lodestone (na.finalfantasyxiv.com); radmagelabs.com fetches them from the Lodestone, so your browser does not contact Square Enix. Only titles, dates and links are shown, and every link goes to the Lodestone. Headlines are refreshed every 15 minutes while the bar is open; if a refresh fails, the last ones stay up and it tries again shortly. At radmageirl.github.io the bar links to the Lodestone instead.'),
       el('h3', null, 'Credits'),
       el('p', null, 'FINAL FANTASY XIV © SQUARE ENIX. Zone and weather names are game text, used under the FINAL FANTASY XIV Materials Usage Policy. FFXIV Timer is a free fan tool and is not affiliated with or endorsed by Square Enix. Icons are original.'),
       el('p', null, 'Code is MIT licensed: ', el('a', { href: 'https://github.com/RadMageIRL/ffxiv-timer', rel: 'noopener' }, 'github.com/RadMageIRL/ffxiv-timer'), '.'));
@@ -553,7 +562,7 @@
     if (period !== lastPeriod) { lastPeriod = period; renderWeather(now); return; }
     if (now >= gatheringNext) renderGathering(now);
     if (now >= timelineNext) renderTimeline(now);
-    if (state.newsOpen && news.status !== 'unavailable' && now - news.checkedAt >= News.REFRESH_MS) loadNews();
+    if (state.newsOpen && !news.loading && now >= news.nextAt) loadNews();
     checkReminders(now);
     updateCountdowns(now);
   }

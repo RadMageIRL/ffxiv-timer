@@ -1,9 +1,11 @@
 // Latest news from the official Lodestone (na.finalfantasyxiv.com). Its feeds do not allow
 // cross-origin reads, so the page asks its own site for them: radmagelabs.com passes
 // news/topics.xml and news/news.xml through to the Lodestone. Where nothing answers there (GitHub
-// Pages, a file opened from disk) the panel links to the Lodestone instead. Only titles, links,
-// dates and categories are used, always as plain text, and only links back to the Lodestone are
-// kept. Parsing is pure, so the Node tests can check it.
+// Pages, a file opened from disk) the panel links to the Lodestone instead. The last good
+// headlines are kept, so a failed fetch shows them and tries again soon instead of showing an
+// error. Only titles, links, dates and categories are used, always as plain text, and only links
+// back to the Lodestone are kept. Parsing and the retry rules are pure, so the Node tests can
+// check them.
 (function (root) {
   'use strict';
 
@@ -17,6 +19,10 @@
   const PER_FEED = 5;
   const REFRESH_MS = 15 * 60000;
   const TIMEOUT_MS = 8000;
+  // After a failed round: try again in 5 s, then 15 s, then 1 minute, then every 5 minutes.
+  const RETRY_MS = [5000, 15000, 60000, 300000];
+  // With nothing to show yet, the panel says it is loading until this many rounds in a row fail.
+  const QUIET_FAILURES = 2;
 
   const NAMED = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', hellip: '...', ndash: '-', mdash: '-', rsquo: "'", lsquo: "'", rdquo: '"', ldquo: '"' };
   // Dashes become plain hyphens; control characters are dropped.
@@ -66,6 +72,22 @@
     return items.slice(0, max || PER_FEED);
   }
 
+  /** How long to wait after the nth failed round in a row (n from 1). */
+  const retryDelay = (failures) => RETRY_MS[Math.min(Math.max(1, failures), RETRY_MS.length) - 1];
+
+  /**
+   * What one round of fetches means. Each result is { items } (parsed), { missing: true } (404)
+   * or {} (any other failure). 'ok': every feed has headlines. 'partial': some do. 'unavailable':
+   * every feed is missing at an address that does not pass the feeds through. 'failed': anything
+   * else, including a 404 at radmagelabs.com, which passes them through and so only blipped.
+   */
+  function roundOutcome(results, passesFeeds) {
+    const good = results.filter((r) => r.items && r.items.length).length;
+    if (good) return good === results.length ? 'ok' : 'partial';
+    if (!passesFeeds && results.every((r) => r.missing)) return 'unavailable';
+    return 'failed';
+  }
+
   /** A cached copy is used as is while it is younger than REFRESH_MS. */
   const isFresh = (cache, nowMs) => Boolean(cache && Number.isFinite(cache.fetchedAt) && nowMs >= cache.fetchedAt && nowMs - cache.fetchedAt < REFRESH_MS);
 
@@ -83,7 +105,7 @@
     return FEEDS.some((f) => feeds[f.key].length) ? { fetchedAt: raw.fetchedAt, feeds } : null;
   }
 
-  const News = { FEEDS, HOST, LODESTONE, HOME, PER_FEED, REFRESH_MS, TIMEOUT_MS, parseFeed, cleanLink, isFresh, sanitizeCache };
+  const News = { FEEDS, HOST, LODESTONE, HOME, PER_FEED, REFRESH_MS, TIMEOUT_MS, RETRY_MS, QUIET_FAILURES, parseFeed, cleanLink, isFresh, sanitizeCache, retryDelay, roundOutcome };
   if (typeof module === 'object' && module.exports) module.exports = News;
   else root.FfxivNews = News;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

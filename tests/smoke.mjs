@@ -34,12 +34,21 @@ const PREFIX = 'ffxiv-timer:v1:';
 
 const tmp = mkdtempSync(join(tmpdir(), 'ffxiv-timer-smoke-'));
 const pages = build('pages', { outRoot: tmp }), labs = build('labs', { outRoot: tmp });
-const newsRoutes = (base) => Object.fromEntries(['topics', 'news'].map((f) => [`${base}news/${f}.xml`, { file: join(ROOT, 'tests', 'fixtures', `lodestone-${f}.xml`) }]));
+const newsRoutes = (base, fail) => Object.fromEntries(['topics', 'news'].map((f) => [`${base}news/${f}.xml`, { file: join(ROOT, 'tests', 'fixtures', `lodestone-${f}.xml`), fail }]));
+// The flaky server answers the next `blips` news requests with 503, then the saved feeds.
+let blips = 0;
+const blip = () => (blips > 0 ? (blips--, true) : false);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function until(fn, timeout = 8000) {
+  const end = Date.now() + timeout;
+  while (!fn()) { if (Date.now() > end) throw new Error(`timed out waiting for ${fn}`); await sleep(50); }
+}
 const servers = {
   github: await serve({ mounts: [{ prefix: '/ffxiv-timer/', dir: pages.appDir, notFound: '404.html' }] }),
   proxy: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], routes: newsRoutes('/ffxiv/') }),
   bare: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], slash: 'none' }),
   labs: await serve({ mounts: [{ prefix: '/ffxiv/', dir: labs.appDir, notFound: '404.html' }] }),
+  flaky: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], routes: newsRoutes('/ffxiv/', blip) }),
   dev: await serve({ mounts: [{ prefix: '/dev/deep/path/', dir: ROOT }] }),
 };
 const sites = [
@@ -320,6 +329,54 @@ try {
     assert.deepEqual(servers.github.outside(), []);
     await page.eval("document.querySelector('#news summary').click()");
     await page.waitFor(`localStorage.getItem('${PREFIX}newsOpen') === 'false'`);
+  });
+
+  await test('Latest news: a failed fetch is invisible; the last good headlines stay and it tries again soon', async () => {
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    const hits = () => servers.flaky.requests.filter((r) => r.path.includes('/news/'));
+    const items = "document.querySelectorAll('#news .news-list li').length";
+    const note = "document.getElementById('news-note').textContent";
+    const firstTopic = "document.querySelector('#news [data-feed=\"topics\"] li a').textContent";
+    // Nothing saved and the first round fails: it says it is loading, and the retry 5 s later fills it in.
+    blips = 2;
+    await page.goto(`${servers.flaky.origin}/ffxiv/`);
+    await page.waitFor(READY);
+    await page.eval("document.querySelector('#news summary').click()");
+    await until(() => hits().length === 2);
+    await sleep(300);
+    assert.equal(await page.eval(items), 0);
+    assert.match(await page.eval(note), /^Loading the newest headlines/, 'no error after one failed round');
+    await page.waitFor(`${items} === 10`, 10000);
+    assert.deepEqual(hits().map((r) => r.status), [503, 503, 200, 200]);
+    assert.match(await page.eval(note), /^Headlines from the official Lodestone, checked /);
+    // Saved headlines older than 15 minutes and the refresh fails: they stay, with no error, until the retry replaces them.
+    await page.eval(`{ const k = '${PREFIX}news', c = JSON.parse(localStorage.getItem(k)); c.fetchedAt -= 20 * 60000; c.feeds.topics[0].title = 'Saved headline'; localStorage.setItem(k, JSON.stringify(c)); }`);
+    blips = 2;
+    await page.reload();
+    await page.waitFor(`document.getElementById('news').open && ${items} === 10`);
+    await until(() => hits().length === 6);
+    await sleep(300);
+    assert.equal(await page.eval(items), 10);
+    assert.equal(await page.eval(firstTopic), 'Saved headline', 'the saved headlines stay up');
+    assert.match(await page.eval(note), /^Headlines from the official Lodestone, checked /, 'and no error is shown');
+    await page.waitFor(`${firstTopic} === 'Announcing the Fan Festival Group Pose Screenshot Campaign!'`, 10000);
+    assert.equal(hits().length, 8);
+    // Nothing saved and it keeps failing: after two failed rounds it says so, and keeps trying.
+    await page.eval('localStorage.clear()');
+    blips = 100;
+    await page.reload();
+    await page.waitFor(READY);
+    await page.eval("document.querySelector('#news summary').click()");
+    await page.waitFor(`${note}.startsWith('News could not load just now and will try again shortly.')`, 10000);
+    assert.equal(hits().length, 12, 'two failed rounds');
+    assert.equal(await page.eval(items), 0);
+    blips = 0;
+    // The only problems are the eight 503s and Chrome's console line for each.
+    const http = page.problems.filter((p) => p.startsWith('HTTP '));
+    assert.ok(http.length === 8 && http.every((p) => /^HTTP 503 .*\/ffxiv\/news\/(topics|news)\.xml$/.test(p)), JSON.stringify(http));
+    assert.ok(page.problems.filter((p) => !p.startsWith('HTTP ')).every((p) => /^log: Failed to load resource: .*status of 503/.test(p)), JSON.stringify(page.problems));
+    await page.eval("document.querySelector('#news summary').click()");
   });
 } finally {
   await chrome.close();

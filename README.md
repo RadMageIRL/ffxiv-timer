@@ -1,4 +1,4 @@
-# FFXIV Timer v0.9
+# FFXIV Timer v0.9.1
 
 Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. It is a static
 page: no account, no backend and nothing to install. Your settings stay in your browser; the only
@@ -38,8 +38,9 @@ The build is made to be served at two addresses, with the first as the canonical
 - **Latest news.** A bar at the top, closed until you open it, with the five newest Topics and
   the five newest Notices and maintenance headlines from the official Lodestone. Every link goes
   to the Lodestone. Opening it asks radmagelabs.com, which passes the Lodestone's news feeds
-  through; at the GitHub Pages address the bar links to the Lodestone instead. Headlines are kept
-  in your browser for 15 minutes, and the bar remembers whether you left it open.
+  through; at the GitHub Pages address the bar links to the Lodestone instead. Headlines are
+  refreshed every 15 minutes while the bar is open, and the bar remembers whether you left it
+  open. If a refresh fails, the last headlines stay up and it tries again shortly.
 
 Zones without a verified weather table are named as not supported. They never get a guess.
 

@@ -616,6 +616,26 @@ test('news: a cached copy is fresh for 15 minutes and is checked again when read
   for (const bad of [null, 'x', {}, { fetchedAt: 'now', feeds: {} }, { fetchedAt: NOW, feeds: { topics: [], news: [] } }]) assert.equal(N.sanitizeCache(bad), null);
 });
 
+test('news: after a failed round it tries again in 5 s, 15 s, 1 minute, then every 5 minutes', () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 9].map(N.retryDelay), [5 * SEC, 15 * SEC, MIN, 5 * MIN, 5 * MIN, 5 * MIN]);
+  assert.equal(N.retryDelay(0), 5 * SEC);
+  assert.ok(N.RETRY_MS.every((ms) => ms < N.REFRESH_MS), 'every retry comes sooner than the normal refresh');
+  assert.equal(N.QUIET_FAILURES, 2);
+});
+test('news: a round is ok, partial, unavailable (no feeds at this address) or failed', () => {
+  const got = { items: [{ title: 'x', link: LINK }] }, missing = { missing: true }, broke = {}, empty = { items: [] };
+  for (const passes of [true, false]) {
+    assert.equal(N.roundOutcome([got, got], passes), 'ok');
+    assert.equal(N.roundOutcome([got, broke], passes), 'partial');
+    assert.equal(N.roundOutcome([missing, got], passes), 'partial');
+    assert.equal(N.roundOutcome([broke, broke], passes), 'failed');
+    assert.equal(N.roundOutcome([missing, broke], passes), 'failed');
+    assert.equal(N.roundOutcome([empty, empty], passes), 'failed', 'a page with no entries (a maintenance page) is a failure');
+  }
+  assert.equal(N.roundOutcome([missing, missing], false), 'unavailable', 'GitHub Pages: no feeds there');
+  assert.equal(N.roundOutcome([missing, missing], true), 'failed', 'radmagelabs.com passes them through, so a 404 there is a blip');
+});
+
 // ---- base path and build ----
 test('every page script parses (app.js is only exercised by the browser tests)', () => {
   for (const f of readdirSync(join(ROOT, 'js'))) execFileSync(process.execPath, ['--check', join(ROOT, 'js', f)], { stdio: 'pipe' });

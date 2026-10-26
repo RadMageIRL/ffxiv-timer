@@ -6,6 +6,7 @@
 //         radmagelabs.com redirect rule); 'none' serves the page at the bare path, the worst case.
 // routes: { '/ffxiv/news/topics.xml': { file } | { proxy: 'https://...' } } answers single paths
 //         before the mounts, the way the radmagelabs.com rewrites pass the Lodestone feeds through.
+//         A route with fail: () => true answers 503 instead, for as long as fail() says so.
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
@@ -27,6 +28,7 @@ export function serve({ mounts, slash = 'redirect', port = 0, routes = {} }) {
       res.end(body);
     };
     const route = Object.hasOwn(routes, path) ? routes[path] : null;
+    if (route && route.fail && route.fail()) return send(503, 'unavailable');
     if (route && route.file) return send(200, readFileSync(route.file), TYPES[extname(route.file)] || 'application/octet-stream');
     if (route && route.proxy) {
       try {
