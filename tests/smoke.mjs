@@ -429,7 +429,11 @@ try {
       assert.equal(f.events, entries(v.summary));
       assert.equal(f.text.split('TRIGGER:-PT10M').length - 1, f.events, 'every entry has the 10-minute alarm');
       await close();
-      assert.equal(await page.eval("document.activeElement.dataset.cal"), 'upcoming', 'focus returns to the button');
+      // The page puts focus back in the dialog's close event, which runs as a task after the dialog has
+      // closed, so the test waits for it (up to 5 s) instead of reading the focus at once.
+      await page.waitFor("document.activeElement === document.querySelector('[data-cal=\"upcoming\"]')", 5000).catch(async () => {
+        assert.fail(`focus did not return to the Upcoming Calendar button within 5 s of the dialog closing; it is on ${await page.eval('document.activeElement.outerHTML.slice(0, 120)')}`);
+      });
 
       // Timed gathering: with no stars, the filtered nodes come first; the warning above 200 and the refusal above 500.
       await open('[data-cal="nodes"]');
