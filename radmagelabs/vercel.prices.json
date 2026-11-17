@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/ffxiv-prices.mjs": { "maxDuration": 20 }
+  },
+  "rewrites": [
+    { "source": "/ffxiv/prices/:path*", "destination": "/api/ffxiv-prices" }
+  ]
+}

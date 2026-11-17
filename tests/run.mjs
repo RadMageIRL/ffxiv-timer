@@ -909,6 +909,15 @@ test('market groundwork: tests/market.mjs passes', () => {
   assert.ok(m && Number(m[1]) > 0, r.stdout);
 });
 
+// ---- the radmagelabs.com price function ----
+// Its own test file too (privacy, cache headers, failures, rate limits), which also runs alone.
+test('price function: tests/prices-function.mjs passes', () => {
+  const r = spawnSync(process.execPath, [join(ROOT, 'tests', 'prices-function.mjs')], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const m = /(\d+) passed, 0 failed/.exec(r.stdout);
+  assert.ok(m && Number(m[1]) > 0, r.stdout);
+});
+
 // ---- saved settings ----
 // Every key the page may keep in localStorage, under ffxiv-timer:v1:. Existing keys are never renamed or
 // reshaped (an older page must still read what a newer one saved); a new key is added here on purpose.
