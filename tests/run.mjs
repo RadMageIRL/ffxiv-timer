@@ -900,6 +900,25 @@ for (const tz of ['America/Chicago', 'Europe/London', 'Asia/Kolkata', 'Australia
   });
 }
 
+// ---- saved settings ----
+// Every key the page may keep in localStorage, under ffxiv-timer:v1:. Existing keys are never renamed or
+// reshaped (an older page must still read what a newer one saved); a new key is added here on purpose.
+const STORAGE_KEYS = ['favorites', 'finder', 'forecastZone', 'gathering', 'hour12', 'news', 'newsOpen', 'nodeFavorites', 'openGroups', 'remindLead', 'resets'];
+const STORAGE_RESERVED = ['market', 'theme']; // v0.11.0: market scope, favorites, sort and filters; the light/dark choice
+test('storage: the page keeps only the pinned keys, every one through store.js with a literal name', () => {
+  const used = new Set();
+  for (const f of readdirSync(join(ROOT, 'js'))) {
+    const src = readFileSync(join(ROOT, 'js', f), 'utf8');
+    for (const m of src.matchAll(/Store\.(?:read|write)\(\s*'([^']+)'/g)) used.add(m[1]);
+    assert.doesNotMatch(src, /Store\.(?:read|write)\(\s*[^'\s]/, `${f}: a key that is not a literal cannot be checked`);
+    const code = src.replace(/^\s*\/\/.*$/gm, '');
+    if (f !== 'store.js') assert.doesNotMatch(code, /localStorage|sessionStorage|indexedDB|document\.cookie/, `${f} goes around store.js`);
+  }
+  for (const k of STORAGE_KEYS) assert.ok(used.has(k), `${k} is no longer used: keep reading it, or say why here`);
+  for (const k of used) assert.ok(STORAGE_KEYS.includes(k) || STORAGE_RESERVED.includes(k), `${k} is not an allowed key`);
+  assert.match(readFileSync(join(ROOT, 'js', 'store.js'), 'utf8'), /const PREFIX = 'ffxiv-timer:v1:';/);
+});
+
 // ---- generated data is current ----
 test('js/weather-data.js is exactly what the generator builds from the cached game tables', () => {
   const cache = join(ROOT, 'tools', '.cache', DATA.source.commit);
