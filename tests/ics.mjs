@@ -17,6 +17,7 @@ const Ics = require('../js/ics.js');
 const E = require('../js/eorzea.js');
 const W = require('../js/weather.js');
 const G = require('../js/gathering.js');
+const R = require('../js/resets.js');
 const F = require('../js/format.js');
 const D = require('../js/weather-data.js');
 const GD = require('../js/gathering-data.js');
@@ -95,8 +96,17 @@ function read(file) {
     assert.ok(e.props.SUMMARY.startsWith('FFXIV: '), e.props.SUMMARY);
     if ('URL' in e.props) assert.match(e.props.URL, /^https:\/\/radmagelabs\.com\/ffxiv\/(#[\x21-\x7e]*)?$/);
     e.start = parseStamp(e.props.DTSTART); e.end = parseStamp(e.props.DTEND); e.stamp = parseStamp(e.props.DTSTAMP);
+    e.uidStart = parseStamp(e.props.UID.replace(/@.*$/, '').slice(-16));
     assert.ok(e.end > e.start, 'ends after it starts');
-    assert.equal(e.props.UID.replace(/@.*$/, '').slice(-16), Ics.utc(e.start), 'the UID carries the start');
+    assert.ok(e.start >= e.stamp, 'nothing starts before the file was made');
+    e.underWay = e.props.DESCRIPTION.startsWith('Already under way when this file was made');
+    if (e.underWay) {
+      // Begun before the file was made: the UID keeps its real start, the entry starts when the file was made
+      // (DTSTAMP, or the next whole second) and has no alarm.
+      assert.ok(e.uidStart < e.start, 'an entry under way began before its start');
+      assert.ok(e.start - e.stamp === 0 || e.start - e.stamp === 1000, 'an entry under way starts when the file was made');
+      assert.equal(e.alarms.length, 0, 'an entry under way has no alarm');
+    } else assert.equal(e.uidStart, e.start, 'the UID carries the start');
     assert.ok(!('RRULE' in e.props) && !('RDATE' in e.props) && !('EXDATE' in e.props) && !('TZID' in e.props), 'explicit occurrences only');
     for (const a of e.alarms) {
       assert.deepEqual(Object.keys(a).sort(), ['ACTION', 'DESCRIPTION', 'TRIGGER']);
@@ -121,11 +131,18 @@ function weatherTruth(z, now, range) {
   for (const c of out) c.end = W.periods(z, c.start, 1000).find((p) => p.weather !== c.to)?.start ?? c.start + W.PERIOD;
   return out;
 }
-/** A node's windows after now, from XivGathering.windows: the next one, or those starting within the range. */
+/** The next whole second at or after now: where an entry already under way starts. */
+const fromOf = (now) => Math.ceil(now / 1000) * 1000;
+/** A window as the file holds it: one already under way starts at fromOf(now). */
+const clip = (w, now) => (w.start < fromOf(now) && w.start <= now ? { start: fromOf(now), end: w.end, opened: w.start } : w);
+/**
+ * A node's windows from XivGathering.windows: the next one to start after now, or, for a range, every window
+ * up at some moment from now to the range's end (one already up starts at now).
+ */
 function nodeTruth(n, now, range) {
   if (range === 'next') return G.upcoming(n, now, 1);
   const span = Ics.RANGES.node[range];
-  return G.windows(n, now, now + span + 1).filter((w) => w.start > now && w.start <= now + span);
+  return G.windows(n, now, now + span + 1).filter((w) => w.start <= now + span && w.end > fromOf(now)).map((w) => clip(w, now));
 }
 
 // Instants with a reason each: exact boundaries, and the days before every daylight-saving change.
@@ -259,13 +276,14 @@ const SEARCHES = D.zones.filter((z, i) => i % 5 === 0 && new Set(z.rates.map((r)
 });
 const find = (z, s, now) => W.findTransitions(z, { from: now, ...s, limit: 10, horizon: 30 * DAY }).matches;
 
-test('transitions, for many searches and nine instants: "shown" holds the finder\'s matches after now, "next" the first, each one weather period', () => {
+test('transitions, for many searches and nine instants: "shown" holds the finder\'s matches (one under way from now), "next" the next to start, each one weather period', () => {
   for (const [what, iso] of INSTANTS) {
     const now = utc(iso);
     for (const { z, s } of SEARCHES) {
-      const matches = find(z, s, now), after = matches.filter((m) => m.start > now);
+      const matches = find(z, s, now);
       for (const range of ['shown', 'next']) {
-        const want = range === 'next' ? after.slice(0, 1) : after;
+        const want = range === 'next' ? matches.filter((m) => m.start > now).slice(0, 1)
+          : matches.filter((m) => m.end > fromOf(now)).map((m) => Object.assign({}, m, clip(m, now)));
         const r = build({ source: 'transition', range, now, zone: z, search: s, matches });
         if (!matches.length) { assert.equal(r.reason, 'empty'); continue; }
         if (!want.length) { assert.equal(r.reason, 'none'); continue; }
@@ -274,7 +292,8 @@ test('transitions, for many searches and nine instants: "shown" holds the finder
         assert.ok(evs.length <= 10 && evs.every((x) => x.start < now + 30 * DAY + W.PERIOD), 'within the finder\'s 10 matches and 30 days');
         for (const [i, x] of evs.entries()) {
           const m = want[i];
-          assert.equal(x.end - x.start, W.PERIOD);
+          assert.equal(x.underWay, m.opened !== undefined, 'only a match under way says so');
+          assert.equal(x.end - x.uidStart, W.PERIOD);
           assert.equal(x.props.SUMMARY, `FFXIV: ${z.name}, ${D.weathers[m.previous]} then ${D.weathers[m.weather]}${s.bells.length ? ` at ${String(m.bell).padStart(2, '0')}:00 ET` : ''}`);
           if (s.bells.length) assert.ok(s.bells.includes(m.bell));
         }
@@ -324,10 +343,12 @@ test('nodes, for every node, every range and nine instants: exactly the windows 
         assert.ok(r.ok, `${what} ${range} ${n.id}: ${r.reason}`);
         const evs = read(r.text).events;
         assert.deepEqual(evs.map((x) => [x.start, x.end]), want.map((w) => [w.start, w.end]), `${what} ${range} ${n.id}`);
-        for (const x of evs) {
+        assert.ok(evs.every((x) => x.start >= now), 'nothing starts before now');
+        for (const [i, x] of evs.entries()) {
           assert.equal(keyOf(x), `node-${n.id}`);
+          assert.equal(x.underWay, want[i].opened !== undefined, 'only a window under way says so');
           // The ET times written are one of the node's own [start, duration] pairs, read independently of the module.
-          const startMin = E.clock(x.start).bell * 60 + E.clock(x.start).minute;
+          const startMin = E.clock(x.uidStart).bell * 60 + E.clock(x.uidStart).minute;
           const pair = n.times.find(([s]) => s === startMin);
           assert.ok(pair, `${n.id}: ${startMin} is one of its times`);
           assert.ok(x.props.DESCRIPTION.includes(`up from ${fmt(pair[0])} to ${fmt(pair[0] + pair[1])}`), x.props.DESCRIPTION);
@@ -373,20 +394,87 @@ test('Upcoming entries are the same entries their own sources make, in time orde
   assert.deepEqual(evs.map((x) => x.props), want.map((x) => x.props));
 });
 
-// ---- Resets: the resets engine's starts (the Resets panel brings the engine; a stand-in is used here) ----
+// ---- Already under way (owner, 2026-11-16): a window that has begun is kept for its remaining time; nothing starts in the past ----
 
-const RESETS = [
-  { id: 'daily', name: 'Daily reset', about: 'Daily duties and allowances reset.', source: 'community sources', certainty: 'unverified' },
-  { id: 'weekly', name: 'Weekly reset', about: 'Weekly duties and allowances reset.', source: 'community sources', certainty: 'unverified' },
-  { id: 'jumbo-cactpot-aether', name: 'Jumbo Cactpot drawing (Aether)', about: 'The Jumbo Cactpot drawing for the Aether data center.', source: 'the official Gold Saucer guide', certainty: 'official' },
-];
-/** A stand-in with the engine's shape: fixed UTC starts every `every` ms from `first`. */
-const standIn = (plans) => ({
-  nextStart: (r, now) => { const p = plans[r.id]; return p.first + Math.max(0, Math.floor((now - p.first) / p.every) + 1) * p.every; },
-  upcoming: (rs, now, span) => rs.flatMap((r) => { const out = []; for (let t = standIn(plans).nextStart(r, now); t <= now + span; t += plans[r.id].every) out.push({ reset: r, start: t }); return out; }),
+/** A node that is up at t, with the window it is in. */
+function upAt(t) {
+  for (const n of GD.nodes) { const s = G.status(n, t); if (s.up) return { n, w: { start: s.start, end: s.end } }; }
+  throw new Error('no node up');
+}
+
+test('a node already up: a range file starts its window at now (to the next whole second), keeps its UID, says so and has no alarm', () => {
+  const t0 = utc('2026-11-17T01:00:00Z'), { n, w } = upAt(t0), now = w.start + 30500; // 30.5 s into the window
+  const r = build({ source: 'node', range: '2h', now, nodes: [n], alarmMin: 10 }), evs = read(r.text).events;
+  const first = evs[0];
+  assert.deepEqual([first.start, first.end, first.uidStart], [fromOf(now), w.end, w.start]);
+  assert.ok(first.start >= now && first.start - now < 1000, 'starts at now, never before');
+  assert.equal(first.props.UID, `node-${n.id}-${Ics.utc(w.start)}@${Ics.UID_HOST}`, 'the same UID as the window itself');
+  const et = (t) => `${E.formatEt(E.clock(t).bell, E.clock(t).minute)} ET`;
+  assert.ok(first.props.DESCRIPTION.startsWith(`Already under way when this file was made (it began at ${et(w.start)}), so this entry starts then and covers the rest, until ${et(w.end)}.\n`), first.props.DESCRIPTION);
+  assert.deepEqual(first.alarms, [], 'no alarm for something already under way');
+  assert.ok(evs.slice(1).length > 0 && evs.slice(1).every((x) => !x.underWay && x.alarms.length === 1), 'later windows are whole, with their alarm');
+  // A file made later in the same window keeps the UID; "next" is the next spawn, not the window it is in.
+  const later = read(build({ source: 'node', range: '6h', now: now + 2 * MIN, nodes: [n] }).text).events[0];
+  assert.equal(later.props.UID, first.props.UID);
+  const next = read(build({ source: 'node', range: 'next', now, nodes: [n] }).text).events;
+  assert.ok(next.length === 1 && next[0].start > w.start && !next[0].underWay);
 });
-const PLANS = { daily: { first: utc('2026-01-01T15:00:00Z'), every: DAY }, weekly: { first: utc('2026-01-06T08:00:00Z'), every: 7 * DAY }, 'jumbo-cactpot-aether': { first: utc('2026-01-04T02:00:00Z'), every: 7 * DAY } };
-const resetBuild = (o) => build({ source: 'reset', engines: { resets: standIn(PLANS) }, resets: RESETS, ...o });
+
+test('a window that ends within the second it is exported, or one starting exactly now, is not marked under way', () => {
+  const { n, w } = upAt(utc('2026-11-17T01:00:00Z'));
+  const ending = read(build({ source: 'node', range: '2h', now: w.end - 300, nodes: [n] }).text).events;
+  assert.ok(ending.every((x) => x.uidStart !== w.start), 'a window with less than a second left is not written');
+  const exact = read(build({ source: 'node', range: '2h', now: w.start, nodes: [n] }).text).events[0];
+  assert.deepEqual([exact.start, exact.underWay, exact.uidStart], [w.start, false, w.start], 'a window that starts at the moment the file is made is whole');
+});
+
+test('a transition match under way is written from now; "next" is the next match to start', () => {
+  const z = zone('eureka-anemos'), s = { prev: [], to: [], bells: [] }, t0 = utc('2026-11-17T01:00:00Z');
+  s.to = [W.weatherAt(z, t0)]; // the weather now, so the period in progress matches
+  const now = E.periodStart(t0) + 61500, matches = find(z, s, now);
+  assert.ok(matches[0].start < now, 'the finder lists the period in progress');
+  const shown = read(build({ source: 'transition', range: 'shown', now, zone: z, search: s, matches }).text).events;
+  assert.deepEqual([shown[0].start, shown[0].end, shown[0].uidStart, shown[0].underWay], [fromOf(now), matches[0].end, matches[0].start, true]);
+  const next = read(build({ source: 'transition', range: 'next', now, zone: z, search: s, matches }).text).events;
+  assert.deepEqual(next.map((x) => [x.start, x.underWay]), [[matches[1].start, false]]);
+});
+
+test('an instant that has passed is never written: a weather change or a reset at or before now', () => {
+  const z = zone('middle-la-noscea'), c = W.nextChange(z, utc('2026-11-17T01:00:00Z'));
+  for (const now of [c.at, c.at + 1, c.at + 999]) {
+    const evs = read(build({ source: 'weather', range: '2h', now, zones: [z] }).text).events;
+    assert.ok(evs.every((x) => x.start > now && !x.underWay), 'no weather entry starts at or before now');
+    const up = build({ source: 'upcoming', range: 'listed', now, items: [{ zone: z, change: c }] });
+    assert.equal(up.reason, 'none', 'an Upcoming weather change that has happened is dropped');
+  }
+  const at15 = utc('2026-11-17T15:00:00Z');
+  for (const now of [at15, at15 + 1, at15 + 5 * MIN]) {
+    const evs = read(build({ source: 'reset', range: 'next', now, resets: [R.byId('daily')], engines: { resets: R } }).text).events;
+    assert.deepEqual(evs.map((x) => x.start), [at15 + DAY], 'the next daily reset is tomorrow\'s, not a block already begun');
+  }
+});
+
+test('Upcoming: a starred node it shows as up now is written from now, the same entry the node range writes', () => {
+  const t0 = utc('2026-11-17T01:00:00Z'), { n, w } = upAt(t0), now = w.start + 90000;
+  const up = read(build({ source: 'upcoming', range: 'listed', now, items: [{ node: n, window: w }] }).text).events;
+  const alone = read(build({ source: 'node', range: '2h', now, nodes: [n] }).text).events[0];
+  assert.deepEqual(up.map((x) => x.props), [alone.props]);
+  assert.ok(up[0].underWay && up[0].start === fromOf(now));
+});
+
+test('Upcoming: a starred reset it lists is the same entry the reset source writes; one that has happened is left out', () => {
+  const now = utc('2026-11-17T14:20:00Z'), daily = R.byId('daily'), start = R.nextStart(daily, now);
+  const up = read(build({ source: 'upcoming', range: 'listed', now, items: [{ reset: daily, start }] }).text).events;
+  const alone = read(build({ source: 'reset', range: 'next', now, resets: [daily], engines: { resets: R } }).text).events;
+  assert.deepEqual(up.map((x) => x.props), alone.map((x) => x.props));
+  assert.equal(up[0].start, utc('2026-11-17T15:00:00Z'));
+  assert.equal(build({ source: 'upcoming', range: 'listed', now: start, items: [{ reset: daily, start }] }).reason, 'none');
+});
+
+// ---- Resets: XivResets (js/resets.js), the engine the Resets panel uses ----
+
+const RESETS = ['daily', 'weekly', 'jumbo-cactpot-aether'].map((id) => { const r = R.byId(id); assert.ok(r, id); return r; });
+const resetBuild = (o) => build({ source: 'reset', engines: { resets: R }, resets: RESETS, ...o });
 
 test('resets: each range holds the engine\'s starts; community-only times say "time unverified" and are tentative, official ones are not', () => {
   const now = utc('2027-03-10T00:00:00Z');
@@ -397,18 +485,21 @@ test('resets: each range holds the engine\'s starts; community-only times say "t
     for (const x of cal.events) {
       const id = keyOf(x).replace(/^reset-/, ''), rs = RESETS.find((y) => y.id === id);
       assert.equal(x.end - x.start, 15 * MIN, 'an instant is a 15-minute block');
+      assert.ok(x.props.DESCRIPTION.startsWith(`${rs.about}\nSource: ${rs.source}.`), x.props.DESCRIPTION);
       if (rs.certainty === 'unverified') {
         assert.equal(x.props.SUMMARY, `FFXIV: ${rs.name} (time unverified)`);
         assert.equal(x.props.STATUS, 'TENTATIVE');
         assert.ok(x.props.DESCRIPTION.includes('Unverified: this time comes from community sources and has not yet been checked in game.'));
       } else {
         assert.equal(x.props.SUMMARY, `FFXIV: ${rs.name}`);
-        assert.ok(!('STATUS' in x.props));
-        assert.ok(x.props.DESCRIPTION.includes('Source: the official Gold Saucer guide.'));
+        assert.ok(!('STATUS' in x.props) && !/unverified/i.test(x.props.DESCRIPTION));
+        assert.match(rs.source, /^the official /);
       }
     }
-    assert.deepEqual(r.uncertain.map((u) => u.key), ['reset-daily', 'reset-weekly'].filter((k) => cal.events.some((x) => keyOf(x) === k)), `${range}: each marked reset named once`);
+    assert.deepEqual(r.uncertain.map((u) => u.key), RESETS.filter((x) => x.certainty === 'unverified').map((x) => `reset-${x.id}`).filter((k) => cal.events.some((x) => keyOf(x) === k)), `${range}: each marked reset named once`);
   }
+  // The daily reset rests on community sources only; the weekly reset and the Cactpot have official ones.
+  assert.deepEqual(RESETS.map((x) => x.certainty), ['unverified', 'official', 'official']);
   // 30 days from 2027-03-10 cross both daylight-saving changes; every daily start stays at 15:00 UTC.
   const daily = read(resetBuild({ now, range: '30d', resets: [RESETS[0]] }).text).events;
   assert.ok(daily.every((x) => new Date(x.start).getUTCHours() === 15 && new Date(x.start).getUTCMinutes() === 0));

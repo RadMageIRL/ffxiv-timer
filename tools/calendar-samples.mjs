@@ -5,10 +5,9 @@
 //   node tools/calendar-samples.mjs [outDir]     default: local/calendar-samples (kept out of Git)
 //
 // Next to the files it writes manifest.json: for each file, the entries a reader should find in it (UID,
-// start, end, title, location, description, link, status, alarm). Every time comes from the engines the page
-// uses; the reset file uses a stand-in with the resets engine's shape (nextStart, upcoming), because that
-// engine arrives with the Resets panel in v0.10.0. Nothing here is fetched; the same checkout always writes
-// the same bytes.
+// start, end, title, location, description, link, status, alarm), and for the Jumbo Cactpot entries the
+// Pacific time the Lodestone states. Every time comes from the engines the page uses (js/resets.js for
+// resets). Nothing here is fetched; the same checkout always writes the same bytes.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
@@ -17,8 +16,10 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const Ics = require('../js/ics.js');
+const E = require('../js/eorzea.js');
 const W = require('../js/weather.js');
 const G = require('../js/gathering.js');
+const R = require('../js/resets.js');
 const D = require('../js/weather-data.js');
 const GD = require('../js/gathering-data.js');
 
@@ -27,22 +28,15 @@ const at = (iso) => Date.parse(iso);
 const zone = (key) => D.zones.find((z) => z.key === key);
 const node = (id) => GD.nodes.find((n) => n.id === id);
 const wid = (name) => Number(Object.keys(D.weathers).find((id) => D.weathers[id] === name));
-const base = { data: { weather: D, gathering: GD }, engines: { weather: W, gathering: G } };
+const base = { data: { weather: D, gathering: GD }, engines: { weather: W, gathering: G, resets: R } };
 const STARRED = ['middle-la-noscea', 'urqopacha', 'eureka-pagos'].map(zone);
 const NODES = [346, 400, 463, 1022, GD.nodes.find((n) => n.job === 'Botanist' && n.kind === 'unspoiled').id].map(node);
 const UNVERIFIED = 'Unverified: this time comes from community sources and has not yet been checked in game.';
-
-// The resets stand-in: fixed UTC starts every `every` ms from `first` (daily 15:00, weekly Tuesday 08:00 and the
-// Aether Jumbo Cactpot drawing Sunday 02:00 UTC, as the roadmap lists them; the first two are community-sourced).
-const RESETS = [
-  { id: 'daily', name: 'Daily reset', about: 'Daily duties and allowances reset.', source: 'community sources', certainty: 'unverified', first: at('2026-01-01T15:00:00Z'), every: DAY },
-  { id: 'weekly', name: 'Weekly reset', about: 'Weekly duties and allowances reset.', source: 'community sources', certainty: 'unverified', first: at('2026-01-06T08:00:00Z'), every: 7 * DAY },
-  { id: 'jumbo-cactpot-aether', name: 'Jumbo Cactpot drawing (Aether)', about: 'The Jumbo Cactpot drawing for the Aether data center.', source: 'the official Gold Saucer guide', certainty: 'official', first: at('2026-01-04T02:00:00Z'), every: 7 * DAY },
-];
-const resetEngine = {
-  nextStart: (r, now) => r.first + Math.max(0, Math.floor((now - r.first) / r.every) + 1) * r.every,
-  upcoming: (rs, now, span) => rs.flatMap((r) => { const out = []; for (let t = resetEngine.nextStart(r, now); t <= now + span; t += r.every) out.push({ reset: r, start: t }); return out; }),
-};
+// A node up at the sample instant, 41.5 s into its window, so its entry is already under way.
+const UP = (() => { const t = at('2026-11-17T01:00:00Z'); for (const n of GD.nodes) { const s = G.status(n, t); if (s.up) return { n, now: s.start + 41500 }; } return null; })();
+// A transition search whose first match is the weather period in progress, 95.25 s into it.
+const anemos = zone('eureka-anemos'), underWayNow = E.periodStart(at('2026-11-17T01:00:00Z')) + 95250;
+const underWaySearch = { prev: [], to: [W.weatherAt(anemos, underWayNow)], bells: [] };
 
 /** What Upcoming would list at `now`: weather changes in the zones and spawns of the nodes within 2 hours, at most 16. */
 function upcomingItems(now, zones, nodes) {
@@ -72,12 +66,21 @@ const SAMPLES = [
     { source: 'weather', range: '6h', now: nov, zones: STARRED }],
   ['6-upcoming-2-hours.ics', 'Upcoming: what it lists over 2 hours (weather changes in the default starred zones and spawns of four nodes, at most 16); 10-minute alarm',
     { source: 'upcoming', range: 'listed', now: nov, items: upcomingItems(nov, STARRED, NODES.slice(0, 4)), alarmMin: 10 }],
-  ['7-resets-30-days-across-us-and-eu-dst.ics', 'Resets (stand-in engine): daily and weekly (community-sourced, marked unverified and tentative) and the Aether Jumbo Cactpot (official) for 30 days from 2027-03-10, across both daylight-saving changes; 10-minute alarm',
-    { source: 'reset', range: '30d', now: at('2027-03-10T00:00:00Z'), resets: RESETS, engines: { resets: resetEngine }, alarmMin: 10 }],
+  ['7-resets-30-days-across-us-and-eu-dst.ics', 'Resets (js/resets.js): every reset the panel lists with Aether chosen, for 30 days from 2027-03-10, across both daylight-saving changes. Community-only times (daily, Grand Company, leves, housing lottery) are marked unverified and tentative; the weekly reset, the Mini Cactpot and the Jumbo Cactpot are official; 10-minute alarm',
+    { source: 'reset', range: '30d', now: at('2027-03-10T00:00:00Z'), resets: R.listed('aether'), alarmMin: 10 }],
   ['8-over-the-warning-200-entries.ics', `Timed gathering: the first ${warnNodes ? warnNodes.length : '?'} nodes for 6 hours, enough to pass the 200-entry warning but stay under the 500 limit; no alarm`,
     { source: 'node', range: '6h', now: nov, nodes: warnNodes }],
   ['9-odd-characters.ics', 'Weather: the next change in a renamed copy of Middle La Noscea whose name has commas, a semicolon, a backslash, an accent, a star, an emoji and a line break; 10-minute alarm',
     { source: 'weather', range: 'next', now: nov, zones: [odd], alarmMin: 10 }],
+  ['10-node-already-up-next-6-hours.ics', `Timed gathering: node ${UP.n.id}, up when the file is made (41.5 s into its window), for 6 hours: the first entry starts at the next whole second after the moment the file is made, keeps its window's UID, says it was already under way and has no alarm; the later windows are whole with a 15-minute alarm`,
+    { source: 'node', range: '6h', now: UP.now, nodes: [UP.n], alarmMin: 15 }],
+  ['11-transition-match-under-way.ics', 'Weather transitions: "any weather, then the weather now" in Eureka Anemos, made 95.25 s into the matching period: the first match starts when the file is made and covers the rest of its period; 5-minute alarm on the others',
+    { source: 'transition', range: 'shown', now: underWayNow, zone: anemos, search: underWaySearch, matches: W.findTransitions(anemos, { from: underWayNow, ...underWaySearch, limit: 10, horizon: 30 * DAY }).matches, alarmMin: 5 }],
+  ['12-jumbo-cactpot-every-data-center-across-us-dst.ics', 'Resets: the Jumbo Cactpot drawing of all 11 data centers for 30 days from 2027-02-27, across the US change on 2027-03-14 (the Lodestone gives each in PST and PDT); no alarm',
+    { source: 'reset', range: '30d', now: at('2027-02-27T00:00:00Z'), resets: R.RESETS.filter((r) => r.dataCenter) }],
+  ['13-upcoming-with-a-starred-reset.ics', 'Upcoming at 2026-10-24 14:20 UTC with the daily reset starred: the weather changes in the default starred zones over 2 hours (at most 16) and the daily reset (time unverified) at 15:00 UTC, the same moment as three of the changes; 10-minute alarm',
+    { source: 'upcoming', range: 'listed', now: at('2026-10-24T14:20:00Z'), alarmMin: 10,
+      items: [...upcomingItems(at('2026-10-24T14:20:00Z'), STARRED, []), { at: R.nextStart(R.byId('daily'), at('2026-10-24T14:20:00Z')), reset: R.byId('daily'), start: R.nextStart(R.byId('daily'), at('2026-10-24T14:20:00Z')) }] }],
 ];
 
 /** The entry as a reader should see it after unfolding and unescaping. */
@@ -91,7 +94,11 @@ function expected(e, alarmMin) {
     description: [...e.about, ...(e.certainty === 'unverified' ? [UNVERIFIED] : []), ...(e.url ? [`Details: ${e.url}`] : [])].join('\n'),
     url: e.url || null,
     status: n ? 'TENTATIVE' : null,
-    alarm: alarmMin ? { minutes: alarmMin, description: `FFXIV: ${e.alarm} in ${alarmMin} minutes` } : null,
+    // An entry already under way has no alarm.
+    alarm: alarmMin && e.opened === undefined ? { minutes: alarmMin, description: `FFXIV: ${e.alarm} in ${alarmMin} minutes` } : null,
+    ...(e.opened !== undefined ? { underWaySince: new Date(e.opened).toISOString() } : {}),
+    // For a Jumbo Cactpot drawing: what the Lodestone's Cactpot guide says, for a reader to compare in Pacific time.
+    ...(/^reset-jumbo-cactpot-/.test(e.uid) ? { lodestone: R.JUMBO.find((j) => j.dataCenters.includes(e.uid.replace(/^reset-jumbo-cactpot-|-\d{8}T\d{6}Z$/g, ''))).lodestone } : {}),
   };
 }
 

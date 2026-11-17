@@ -109,6 +109,7 @@
       <section class="panel" id="timeline" aria-labelledby="timeline-title">
         <div class="panel-head">
           <h2 id="timeline-title">Upcoming</h2>
+          <button type="button" class="ghost small" data-cal="upcoming" aria-haspopup="dialog" title="These entries, or the weather in starred zones, as a calendar file">Calendar</button>
           <p class="hint">Weather changes in starred zones, starred gathering nodes appearing, starred resets, and sunrise and sunset, over the next two hours.</p>
         </div>
         <ol id="timeline-list" class="timeline"></ol>
@@ -117,6 +118,7 @@
       <section class="panel" id="resets" aria-labelledby="resets-title">
         <div class="panel-head">
           <h2 id="resets-title">Resets</h2>
+          <button type="button" class="ghost small" data-cal="resets" aria-haspopup="dialog" title="These resets as a calendar file">Calendar</button>
           <p class="hint" id="resets-zone">Shown in your time zone.</p>
           <p class="hint">Star a reset to follow it in Upcoming and get reminders.</p>
         </div>
@@ -172,6 +174,7 @@
               <button type="button" class="toggle" data-node-view="hour" aria-pressed="true" aria-label="Within the next hour">1 hour</button>
               <button type="button" class="toggle" data-node-view="all" aria-pressed="false" aria-label="All nodes">All</button>
             </div>
+            <button type="button" class="ghost small" data-cal="nodes" aria-haspopup="dialog" title="Starred nodes, or the nodes these filters match, as a calendar file">Calendar</button>
           </div>
           <div class="filter-row chips" role="group" aria-label="Job, kind and status">
             <button type="button" class="toggle" data-node-filter="Miner" aria-pressed="false">Miner</button>
@@ -238,7 +241,10 @@
         </div>
         <div class="finder-results-head">
           <p id="finder-summary" class="summary" aria-live="polite"></p>
-          <button type="button" id="finder-copy" class="ghost small">Copy link</button>
+          <span class="head-actions">
+            <button type="button" class="ghost small" data-cal="finder" aria-haspopup="dialog" title="These matches as a calendar file">Add to calendar</button>
+            <button type="button" id="finder-copy" class="ghost small">Copy link</button>
+          </span>
         </div>
         <ol id="finder-results" class="results"></ol>
       </section>
@@ -258,9 +264,48 @@
     <div id="about-body"></div>
   </dialog>
 
+  <!-- A calendar file (.ics) of the times chosen here, written in this browser by js/ics.js. Filled in by
+       app.js and opened from Upcoming, Resets, Timed gathering and Weather transitions. Nothing here is saved. -->
+  <dialog id="calendar" class="cal-dialog" aria-labelledby="calendar-title" aria-describedby="calendar-intro">
+    <form method="dialog" class="dialog-close"><button class="ghost" aria-label="Close">&times;</button></form>
+    <h2 id="calendar-title">Add to calendar</h2>
+    <p id="calendar-intro">A calendar file (.ics, the standard iCalendar format) with the times you choose. This page makes the file itself: nothing is sent anywhere, and nothing you choose here is saved.</p>
+    <fieldset class="cal-group">
+      <legend>What</legend>
+      <div id="calendar-choices"></div>
+    </fieldset>
+    <div class="cal-fields">
+      <label class="inline-select"><span>Times</span><select id="calendar-range"></select></label>
+      <label class="inline-select"><span>Calendar alarm</span>
+        <select id="calendar-alarm">
+          <option value="0">None</option>
+          <option value="5">5 minutes before</option>
+          <option value="10">10 minutes before</option>
+          <option value="15">15 minutes before</option>
+        </select>
+      </label>
+    </div>
+    <p class="cal-summary" id="calendar-summary" role="status"></p>
+    <p class="cal-warn" id="calendar-warn" hidden></p>
+    <p class="cal-uncertain" id="calendar-uncertain" hidden></p>
+    <p class="cal-actions"><button type="button" class="cal-download" id="calendar-download">Download calendar file</button></p>
+    <p class="cal-done" id="calendar-done" role="status"></p>
+    <h3>Good to know</h3>
+    <ul class="about-list">
+      <li>Each time is its own entry, written in UTC, so your calendar shows it in your time zone, before and after a daylight-saving change.</li>
+      <li>A weather entry lasts until the weather changes again, a transition covers its one weather period, a node covers its window, and a reset is a 15-minute block at the moment it happens.</li>
+      <li>Something already under way, such as a node that is up now, starts at the moment you make the file and covers the rest. Nothing starts in the past, and a weather change or reset that has already happened is left out.</li>
+      <li>Weather and node times are calculated from the game's data and not yet compared with the game itself; each entry says so. A reset time that rests on community sources only says "time unverified" in its title.</li>
+      <li>The file does not update itself. After a patch, download a new one; entries you imported before stay in your calendar until you delete them. Importing a file again may add a second copy, depending on your calendar app.</li>
+      <li>Whether a file's alarm is used depends on your calendar app; some use their own reminder instead. An entry already under way has no alarm.</li>
+      <li>A file holds at most 500 entries. Above 200, this dialog asks you to check the count first.</li>
+    </ul>
+  </dialog>
+
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <symbol id="i-crystal" viewBox="0 0 32 32"><path d="M16 2 25 13 16 30 7 13Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 13h18M16 2v28" stroke="currentColor" stroke-width="1.2" opacity=".55"/></symbol>
     <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4M12 12.4v5.2M9.4 15h5.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
   </svg>
 
   <script src="js/eorzea.js"></script>
@@ -273,6 +318,8 @@
   <script src="js/icons.js"></script>
   <script src="js/news.js"></script>
   <script src="js/resets.js"></script>
+  <!-- Loaded only when a calendar is first asked for; the build versions its address like the others. -->
+  <template id="lazy-scripts"><script src="js/ics.js" data-lazy="ics"></script></template>
   <script src="js/app.js"></script>
 </body>
 </html>

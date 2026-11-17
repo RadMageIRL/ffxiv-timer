@@ -73,11 +73,18 @@ export async function launchChrome() {
   const ws = new WebSocket(`ws://127.0.0.1:${lines[0]}${lines[1]}`);
   await new Promise((ok, fail) => { ws.addEventListener('open', ok, { once: true }); ws.addEventListener('error', fail, { once: true }); });
   const conn = new Connection(ws);
+  // No test may save a file into the user's own Downloads folder: downloads are refused unless a test
+  // sends them to a folder of its own with downloadsTo().
+  await conn.send('Browser.setDownloadBehavior', { behavior: 'deny' });
 
   return {
     // Lets pages from `origin` show notifications without a prompt.
     async grantNotifications(origin) {
       await conn.send('Browser.grantPermissions', { origin, permissions: ['notifications'] });
+    },
+    // Saves every later download, under its own file name, into `dir`.
+    async downloadsTo(dir) {
+      await conn.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: dir });
     },
     async newPage() {
       const { targetId } = await conn.send('Target.createTarget', { url: 'about:blank' });

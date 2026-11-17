@@ -7,9 +7,10 @@
 // timetable; FFXIV's run on Eorzea's cycles, so, as on FFXI Timer, the game engines find the windows
 // and this module only turns them into entries and writes them. Transition matches come from
 // XivWeather.findTransitions (the finder's own search), weather changes from XivWeather.nextChange,
-// node windows from XivGathering.upcoming and starredEvents, and resets from the resets engine the
-// Resets panel will bring (the same nextStart/upcoming shape as GW2's schedule engine). The only time
-// arithmetic here is the edge of a range: now plus its length.
+// node windows from XivGathering.upcoming and starredEvents, and resets from XivResets (js/resets.js,
+// the same nextStart/upcoming shape as GW2's schedule engine). The only time arithmetic here is the
+// edge of a range (now plus its length) and the start of a window already under way (now, to the
+// next whole second).
 //
 // Every entry is one start, written in UTC with a "Z". There are no recurrence rules and no time
 // zones: a calendar shows each start in its own local time, a daylight-saving change cannot move one,
@@ -121,8 +122,11 @@
   }
 
   // ---- Entries from the engines ----
-  // Each entry: { uid, start, end, summary, location?, about: [lines], url?, alarm, certainty }. The uid is
-  // a key for the thing plus its UTC start; build() adds the host.
+  // Each entry: { uid, start, end, summary, location?, about: [lines], url?, alarm, certainty, window? }. The
+  // uid is a key for the thing plus its UTC start; build() adds the host. window: true marks a span that is
+  // still worth an entry once it has begun (a node that is up, a matching weather period); plan() then starts
+  // it at now and keeps its uid. Everything else is an instant (a weather change, a reset) and is left out
+  // once it has passed.
 
   function transitionEntry(o, m) {
     const d = o.data.weather, zone = o.zone, s = o.search, wx = (id) => d.weathers[id];
@@ -140,6 +144,7 @@
       url: finderLink(zone, s, d),
       alarm: `${zone.name}: ${wx(m.weather)} after ${wx(m.previous)}`,
       certainty: 'computed',
+      window: true,
     };
   }
 
@@ -177,14 +182,16 @@
       url: HOME,
       alarm: `${items} appears in ${n.zone}`,
       certainty: 'computed',
+      window: true,
     };
   }
 
+  /** A reset is an instant: its entry is a 15-minute block, as D4 Tracker marks a spawn of unknown length. */
+  const RESET_BLOCK = 15 * MIN;
   function resetEntry(r, start) {
     return {
       uid: `reset-${r.id}-${utc(start)}`,
-      // A reset is an instant: the entry is a short block, as D4 Tracker marks a spawn of unknown length.
-      start, end: start + (r.lengthMin || 15) * MIN,
+      start, end: start + RESET_BLOCK,
       summary: r.name,
       about: [r.about, r.source ? `Source: ${r.source}.` : null].filter(Boolean),
       url: HOME,
@@ -209,21 +216,24 @@
         return out;
       }),
     },
-    // XivGathering.upcoming for the next spawn; otherwise the spawns Upcoming itself uses (starredEvents).
+    // XivGathering.upcoming for the next spawn; otherwise what Upcoming itself uses (starredEvents): the
+    // windows up now, then the spawns within the range.
     node: {
       chosen: (o) => o.nodes,
       entries(o) {
         const G = o.engines.gathering;
         if (o.range === 'next') return o.nodes.flatMap((n) => G.upcoming(n, o.now, 1).map((w) => nodeEntry(o, n, w)));
-        return G.starredEvents(o.nodes, new Set(o.nodes.map((n) => n.id)), o.now, RANGES.node[o.range]).spawns.map((s) => nodeEntry(o, s.node, { start: s.at, end: s.end }));
+        const ev = G.starredEvents(o.nodes, new Set(o.nodes.map((n) => n.id)), o.now, RANGES.node[o.range]);
+        return ev.up.map((u) => nodeEntry(o, u.node, { start: u.start, end: u.end })).concat(ev.spawns.map((s) => nodeEntry(o, s.node, { start: s.at, end: s.end })));
       },
     },
-    // What Upcoming lists: weather changes ({ zone, change: { at, from, to } }) and node spawns ({ node, window: { start, end } }).
+    // What Upcoming lists: weather changes ({ zone, change: { at, from, to } }), node windows ({ node, window: { start, end } }),
+    // including the starred nodes it shows as up now, and starred resets ({ reset, start }).
     upcoming: {
       chosen: (o) => o.items,
-      entries: (o) => o.items.map((it) => (it.node ? nodeEntry(o, it.node, it.window) : weatherEntry(o, it.zone, it.change))),
+      entries: (o) => o.items.map((it) => (it.node ? nodeEntry(o, it.node, it.window) : it.reset ? resetEntry(it.reset, it.start) : weatherEntry(o, it.zone, it.change))),
     },
-    // The resets engine: nextStart(reset, now) and upcoming(resets, now, spanMs) -> [{ reset, start }].
+    // The resets engine (XivResets): nextStart(reset, now) and upcoming(resets, now, spanMs) -> [{ reset, start }].
     reset: {
       chosen: (o) => o.resets,
       entries(o) {
@@ -238,12 +248,18 @@
   const usable = (e) => Boolean(e) && typeof e.uid === 'string' && UID.test(e.uid) && Number.isFinite(e.start) && Number.isFinite(e.end) && e.end > e.start
     && typeof e.summary === 'string' && e.summary.trim() !== '' && typeof e.alarm === 'string' && e.alarm.trim() !== ''
     && CERTAINTY.includes(e.certainty) && Array.isArray(e.about) && e.about.every((l) => typeof l === 'string')
-    && (e.location === undefined || typeof e.location === 'string') && (e.url === undefined || (typeof e.url === 'string' && URL_OK.test(e.url)));
+    && (e.location === undefined || typeof e.location === 'string') && (e.url === undefined || (typeof e.url === 'string' && URL_OK.test(e.url)))
+    && (e.window === undefined || typeof e.window === 'boolean');
+
+  /** The first line of an entry that was already under way when its file was made. */
+  const UNDER_WAY = (e) => `Already under way when this file was made (it began at ${etTime(e.opened)}), so this entry starts then and covers the rest, until ${etTime(e.end)}.`;
 
   /**
    * The entries a file would hold: { ok, reason, count, warn, entries }, in time order (ties by uid). The same
-   * entry given twice counts once; entries that start at or before now are left out. reason: 'source' or
-   * 'range' (unknown), 'entry' (bad input, or an entry without a safe uid, window, title or certainty), 'empty'
+   * entry given twice counts once. Nothing starts before now: an instant at or before now is left out, and a
+   * window already under way (e.window) starts at now, to the next whole second, and covers the rest; it keeps
+   * its uid and gains `opened` (its real start) and a first line saying so. reason: 'source' or 'range'
+   * (unknown), 'entry' (bad input, or an entry without a safe uid, window, title or certainty), 'empty'
    * (nothing chosen), 'none' (nothing after now in the range), 'too-many' (over MAX_ENTRIES; count says how
    * many it would be). warn is true above WARN_ENTRIES.
    */
@@ -262,12 +278,20 @@
     } catch (e) {
       return fail('entry');
     }
-    const seen = new Set(), entries = [];
+    const seen = new Set(), entries = [], from = Math.ceil(o.now / 1000) * 1000;
     for (const e of found) {
       if (!usable(e)) return fail('entry');
-      if (e.start <= o.now || seen.has(e.uid)) continue;
+      if (seen.has(e.uid)) continue;
+      let entry = e;
+      if (e.start <= o.now) {
+        if (!e.window || e.end <= from) continue;
+        if (e.start < from) {
+          const opened = Object.assign({}, e, { opened: e.start });
+          entry = Object.assign(opened, { start: from, about: [UNDER_WAY(opened), ...e.about] });
+        }
+      }
       seen.add(e.uid);
-      entries.push(e);
+      entries.push(entry);
     }
     entries.sort((a, b) => a.start - b.start || (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0));
     if (!entries.length) return fail('none');
@@ -290,7 +314,8 @@
       ...(e.url ? [`URL:${e.url}`] : []),
       ...(n ? ['STATUS:TENTATIVE'] : []),
       'TRANSP:TRANSPARENT',
-      ...(alarmMin ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${text(`FFXIV: ${e.alarm} in ${alarmMin} minutes`)}`, `TRIGGER:-PT${alarmMin}M`, 'END:VALARM'] : []),
+      // An entry already under way gets no alarm: its start is the moment the file was made.
+      ...(alarmMin && e.opened === undefined ? ['BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${text(`FFXIV: ${e.alarm} in ${alarmMin} minutes`)}`, `TRIGGER:-PT${alarmMin}M`, 'END:VALARM'] : []),
       'END:VEVENT',
     ];
   }
@@ -335,7 +360,7 @@
     return `ffxiv-timer-${name}.ics`;
   }
 
-  const Ics = { RANGES, ALARMS, WARN_ENTRIES, MAX_ENTRIES, PRODID, UID_HOST, HOME, utc, text, fold, note, realSpan, searchTag, finderLink, plan, build, filename };
+  const Ics = { RANGES, ALARMS, WARN_ENTRIES, MAX_ENTRIES, RESET_BLOCK, PRODID, UID_HOST, HOME, utc, text, fold, note, realSpan, searchTag, finderLink, plan, build, filename };
   if (typeof module === 'object' && module.exports) module.exports = Ics;
   else root.XivIcs = Ics;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

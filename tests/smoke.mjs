@@ -10,7 +10,7 @@
 //   standalone labs     /ffxiv/        the labs build, for a host that serves the files itself
 //   development         /dev/deep/path/ and file://   the source tree, unbuilt
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
@@ -31,12 +31,17 @@ async function test(name, fn) {
 
 const READY = "/^\\d\\d:\\d\\d$/.test(document.getElementById('et-time').textContent) && document.querySelectorAll('#zone-list .zone-row').length > 0 && document.querySelectorAll('#forecast-body tbody tr').length >= 12";
 const PREFIX = 'ffxiv-timer:v1:';
+// The calendar dialog is open and ready: js/ics.js has loaded (on first use) and the summary is worked out.
+const CAL_READY = "document.getElementById('calendar').open && typeof XivIcs === 'object' && document.getElementById('calendar-summary').textContent !== 'Loading the calendar tool.'";
+
 const tmp = mkdtempSync(join(tmpdir(), 'ffxiv-timer-smoke-'));
 const pages = build('pages', { outRoot: tmp }), labs = build('labs', { outRoot: tmp });
 const newsRoutes = (base, fail) => Object.fromEntries(['topics', 'news'].map((f) => [`${base}news/${f}.xml`, { file: join(ROOT, 'tests', 'fixtures', `lodestone-${f}.xml`), fail }]));
-// The flaky server answers the next `blips` news requests with 503, then the saved feeds.
-let blips = 0;
+// The flaky server answers the next `blips` news requests with 503, then the saved feeds, and the next
+// `icsBlips` requests for js/ics.js (the calendar tool, loaded on first use) the same way.
+let blips = 0, icsBlips = 0;
 const blip = () => (blips > 0 ? (blips--, true) : false);
+const icsBlip = () => (icsBlips > 0 ? (icsBlips--, true) : false);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function until(fn, timeout = 8000) {
   const end = Date.now() + timeout;
@@ -47,7 +52,7 @@ const servers = {
   proxy: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], routes: newsRoutes('/ffxiv/') }),
   bare: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], slash: 'none' }),
   labs: await serve({ mounts: [{ prefix: '/ffxiv/', dir: labs.appDir, notFound: '404.html' }] }),
-  flaky: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], routes: newsRoutes('/ffxiv/', blip) }),
+  flaky: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], routes: { ...newsRoutes('/ffxiv/', blip), '/ffxiv/js/ics.js': { file: join(pages.appDir, 'js', 'ics.js'), fail: icsBlip } } }),
   dev: await serve({ mounts: [{ prefix: '/dev/deep/path/', dir: ROOT }] }),
 };
 const sites = [
@@ -76,6 +81,21 @@ try {
       assert.ok(assets.length >= 8, `assets requested: ${assets.length}`);
       assert.match(await page.eval("document.getElementById('et-date').textContent"), /^\d+(st|nd|rd|th) Sun of the \d(st|nd|rd|th) (Astral|Umbral) Moon$/);
       assert.equal(await page.eval("document.getElementById('data-patch').textContent"), '7.58');
+      assert.deepEqual(site.server.requests.filter((r) => r.path.endsWith('/ics.js')), [], 'the calendar tool is not part of the first load');
+    });
+
+    await test(`${site.name}: the calendar tool loads from inside the base path the first time a calendar is asked for, once`, async () => {
+      const icsAsked = () => site.server.requests.filter((r) => r.path === `${site.base}js/ics.js`);
+      const before = icsAsked().length;
+      for (let i = 0; i < 2; i++) {
+        await page.eval("document.querySelector('[data-cal=\"resets\"]').click()");
+        await page.waitFor("document.getElementById('calendar').open && !document.getElementById('calendar-download').disabled");
+        assert.match(await page.eval("document.getElementById('calendar-summary').textContent"), /^\d+ entries, from /);
+        await page.eval("document.getElementById('calendar').close()");
+      }
+      assert.deepEqual(icsAsked().slice(before).map((r) => r.status), [200], 'one request for js/ics.js, from this site');
+      if (site.server !== servers.dev) assert.match(await page.eval("[...document.scripts].map(s => s.src).find(s => s.includes('/js/ics.js'))"), /\/js\/ics\.js\?v=[0-9a-f]{10}$/, 'with the build\'s version stamp');
+      clean();
     });
 
     await test(`${site.name}: a shared link restores the forecast and transition search, also after reload`, async () => {
@@ -145,7 +165,28 @@ try {
     await page.goto(pathToFileURL(join(ROOT, 'index.html')).href + '#zone=yak-tel');
     await page.waitFor(READY);
     assert.equal(await page.eval("document.getElementById('forecast-zone').value"), 'yak-tel');
+    // The calendar tool loads from disk too.
+    await page.eval("document.querySelector('[data-cal=\"resets\"]').click()");
+    await page.waitFor("document.getElementById('calendar').open && !document.getElementById('calendar-download').disabled");
+    assert.equal(await page.eval('typeof XivIcs'), 'object');
     assert.deepEqual(page.problems, []);
+  });
+
+  await test('Add to calendar: if the calendar tool cannot load, the dialog says so, offers no file, and the next try loads it', async () => {
+    const page = await chrome.newPage();
+    await page.goto(`${servers.flaky.origin}/ffxiv/`);
+    await page.waitFor(READY);
+    icsBlips = 1;
+    await page.eval("document.querySelector('[data-cal=\"resets\"]').click()");
+    await page.waitFor("document.getElementById('calendar-summary').textContent.startsWith('The calendar tool could not load.')");
+    assert.equal(await page.eval("document.getElementById('calendar-download').disabled"), true);
+    await page.eval("document.getElementById('calendar').close()");
+    await page.eval("document.querySelector('[data-cal=\"resets\"]').click()");
+    await page.waitFor("!document.getElementById('calendar-download').disabled");
+    assert.match(await page.eval("document.getElementById('calendar-summary').textContent"), /^\d+ entries, from /);
+    assert.deepEqual(servers.flaky.requests.filter((r) => r.path === '/ffxiv/js/ics.js').map((r) => r.status), [503, 200]);
+    assert.ok(page.problems.every((p) => /503/.test(p)), JSON.stringify(page.problems));
+    await page.eval("document.getElementById('calendar').close()");
   });
 
   await test('phone width (390 px): no sideways scrolling', async () => {
@@ -163,6 +204,16 @@ try {
       mkdirSync(shots, { recursive: true });
       await page.screenshot(join(shots, 'phone.png'), true);
     }
+    // The calendar dialog fits too, with its longest choice and range labels.
+    for (const key of ['upcoming', 'resets', 'reset:housing', 'finder']) {
+      await page.eval(`document.querySelector('[data-cal="${key}"]').click()`);
+      await page.waitFor(CAL_READY);
+      const past = await page.eval("[...document.querySelectorAll('#calendar *')].filter(n => n.getBoundingClientRect().right > innerWidth + 1).map(n => n.tagName + '.' + n.className).slice(0, 5)");
+      assert.deepEqual(past, [], `dialog from ${key}: elements past the right edge`);
+      if (shots && key === 'resets') await page.screenshot(join(shots, 'phone-calendar.png'));
+      await page.eval("document.getElementById('calendar').close()");
+    }
+    assert.deepEqual(page.problems, []);
   });
 
   await test('expansion groups start closed and remember being opened', async () => {
@@ -321,6 +372,153 @@ try {
     assert.deepEqual(page.problems, []);
   });
 
+  await test('Add to calendar: every panel opens the dialog; the files hold what it says; no request, saved setting or address changes', async () => {
+    const dl = mkdtempSync(join(tmpdir(), 'ffxiv-timer-downloads-'));
+    try {
+      await chrome.downloadsTo(dl);
+      const page = await chrome.newPage();
+      await page.viewport(1440, 1000);
+      await page.emulate({ timezone: 'America/Chicago', locale: 'en-US' });
+      // The clock stands still in this test, so a summary and the file made a moment later describe the same
+      // instant: a range such as the next 2 hours gains entries whenever a window crosses its far edge, and
+      // several nodes can cross at one bell.
+      await page.beforeLoad(`(() => { Date.now = () => ${T0}; })();`);
+      await page.goto(`${servers.github.origin}/ffxiv-timer/#zone=middle-la-noscea&fz=eureka-anemos&to=gales&bells=8`);
+      await page.waitFor(READY);
+      await page.waitFor("document.querySelectorAll('#finder-results .result').length > 0");
+      const href = await page.eval('location.href'), asked = (site) => site.requests.length;
+      let saved = await storage(page);
+      const before = asked(servers.github);
+      // The first opening also loads the calendar tool; the dialog is ready once its summary is worked out.
+      const open = async (sel) => { await page.eval(`document.querySelector(${JSON.stringify(sel)}).click()`); await page.waitFor(CAL_READY); };
+      const set = (id, value) => page.eval(`{ const s = document.getElementById('${id}'); s.value = '${value}'; s.dispatchEvent(new Event('change', { bubbles: true })); }`);
+      const pick = (value) => page.eval(`{ const r = document.querySelector('[name="calendar-choice"][value="${value}"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }`);
+      const view = () => page.eval("({ choices: [...document.querySelectorAll('#calendar-choices label')].map(l => l.textContent), ranges: [...document.querySelectorAll('#calendar-range option')].map(o => o.value), summary: document.getElementById('calendar-summary').textContent, warn: document.getElementById('calendar-warn').hidden ? '' : document.getElementById('calendar-warn').textContent, unsure: document.getElementById('calendar-uncertain').hidden ? '' : document.getElementById('calendar-uncertain').textContent, disabled: document.getElementById('calendar-download').disabled })");
+      const close = async () => { await page.eval("document.querySelector('#calendar .dialog-close button').click()"); await page.waitFor("!document.getElementById('calendar').open"); };
+      async function download(name) {
+        await page.eval("document.getElementById('calendar-download').click()");
+        await until(() => readdirSync(dl).includes(name) && !readdirSync(dl).some((f) => f.endsWith('.crdownload')), 20000);
+        const text = readFileSync(join(dl, name), 'utf8');
+        rmSync(join(dl, name));
+        const done = new RegExp(`^Downloading ${name.replace(/\./g, '\\.')} \\((\\d+) entr`).exec(await page.eval("document.getElementById('calendar-done').textContent"));
+        assert.ok(done, 'the dialog says what it downloaded');
+        assert.ok(text.startsWith('BEGIN:VCALENDAR\r\n') && text.endsWith('END:VCALENDAR\r\n') && !/(?<!\r)\n/.test(text), `${name} is a CRLF calendar file`);
+        // Long lines are folded at 75 octets; the checks below read the unfolded lines.
+        const lines = text.replace(/\r\n /g, '');
+        const events = lines.split('BEGIN:VEVENT').length - 1;
+        assert.equal(events, Number(done[1]), 'the file holds what the dialog says it downloaded');
+        return { text: lines, events };
+      }
+      const entries = (s) => Number((/^(\d+) entr/.exec(s) || [])[1]);
+
+      // Upcoming: what it lists, then the weather in the starred zones.
+      await open('[data-cal="upcoming"]');
+      let v = await view();
+      assert.match(v.choices[0], /^Everything Upcoming lists \(\d+; not sunrise and sunset\)$/);
+      assert.equal(v.choices[1], 'Weather changes in starred zones (3)');
+      assert.deepEqual(v.ranges, ['listed']);
+      let f = await download('ffxiv-timer-upcoming.ics');
+      assert.equal(f.events, entries(v.summary), v.summary);
+      assert.ok(!f.text.includes('Sunrise') && !f.text.includes('Sunset'));
+      await pick('starred-weather');
+      assert.deepEqual((await view()).ranges, ['next', '2h', '6h']);
+      await set('calendar-range', '6h');
+      await set('calendar-alarm', '10');
+      v = await view();
+      f = await download('ffxiv-timer-starred-weather-zones-next-6-hours.ics');
+      assert.equal(f.events, entries(v.summary));
+      assert.equal(f.text.split('TRIGGER:-PT10M').length - 1, f.events, 'every entry has the 10-minute alarm');
+      await close();
+      assert.equal(await page.eval("document.activeElement.dataset.cal"), 'upcoming', 'focus returns to the button');
+
+      // Timed gathering: with no stars, the filtered nodes come first; the warning above 200 and the refusal above 500.
+      await open('[data-cal="nodes"]');
+      v = await view();
+      assert.deepEqual(v.choices, ['Nodes the gathering filters match (189 of 189)', 'Starred nodes (0)']);
+      assert.ok(v.summary.startsWith('189 entries, from ') && !v.warn && !v.disabled, v.summary);
+      await set('calendar-range', '6h');
+      v = await view();
+      assert.match(v.summary, /^That would be \d+ entries, more than the 500 one file can hold\./);
+      assert.equal(v.disabled, true);
+      await pick('starred-nodes');
+      v = await view();
+      assert.deepEqual([v.summary, v.disabled], ['No nodes are starred yet. Star one in Timed gathering, or choose another option here.', true]);
+      await close();
+      // The Miner filter is saved by the gathering panel itself (as in v0.9.1), so storage is compared around it.
+      assert.equal(await storage(page), saved, 'the dialog saved nothing');
+      await page.eval("document.querySelector('[data-node-filter=\"Miner\"]').click()");
+      await open('[data-cal="nodes"]');
+      await set('calendar-range', '2h');
+      v = await view();
+      assert.ok(entries(v.summary) > 200 && entries(v.summary) <= 500, v.summary);
+      assert.match(v.warn, /^That is more than 200 entries\./);
+      assert.equal(v.disabled, false, 'over the warning a file can still be made');
+      const miners = await page.eval("FFXIV_GATHERING_DATA.nodes.filter(n => n.job === 'Miner').length");
+      f = await download(`ffxiv-timer-${miners}-nodes-next-2-hours.ics`);
+      assert.equal(f.events, entries(v.summary));
+      await close();
+      await page.eval("document.querySelector('[data-node-filter=\"Miner\"]').click()");
+      saved = await storage(page);
+
+      // One node from its row: its next spawn, named for the node. (The dialog keeps the last range chosen
+      // for nodes while the page is open, so it is set here.)
+      const id = await page.eval("document.querySelector('#node-list .node-row').dataset.id");
+      await open(`[data-cal="node:${id}"]`);
+      assert.equal((await view()).ranges.length, 3);
+      assert.equal(await page.eval("document.getElementById('calendar-range').value"), '2h', 'the range chosen last for nodes');
+      await set('calendar-range', 'next');
+      v = await view();
+      assert.ok(v.choices[0].startsWith('This node: ') && v.summary.startsWith('1 entry: '), JSON.stringify(v));
+      f = await download(`ffxiv-timer-node-${id}-next.ics`);
+      assert.equal(f.events, 1);
+      await close();
+
+      // Weather transitions: the next match, the matches shown, and one match from its row.
+      await open('[data-cal="finder"]');
+      v = await view();
+      assert.deepEqual(v.ranges, ['next', 'shown']);
+      assert.ok(v.choices[0].startsWith('Matches of this search in Eureka Anemos ('));
+      await set('calendar-range', 'shown');
+      f = await download('ffxiv-timer-transitions-eureka-anemos-matches.ics');
+      const shown = await page.eval("document.querySelectorAll('#finder-results .result').length");
+      assert.equal(f.events, shown, 'the matches the finder lists');
+      assert.ok(f.text.includes('URL:https://radmagelabs.com/ffxiv/#zone=eureka-anemos&fz=eureka-anemos&to=gales&bells=8\r\n'), 'each links to its search');
+      await close();
+      const second = await page.eval("document.querySelectorAll('#finder-results [data-cal]')[1].dataset.cal");
+      await open(`[data-cal="${second}"]`);
+      v = await view();
+      assert.ok(v.choices[0].startsWith('This match: ') && v.summary.startsWith('1 entry: '), JSON.stringify(v));
+      await close();
+
+      // Resets: one row, then every reset listed, with the community-only ones named.
+      await open('[data-cal="reset:daily"]');
+      v = await view();
+      assert.deepEqual(v.choices, ['This reset: Daily reset', 'All resets listed (7)']);
+      await set('calendar-range', '7d');
+      v = await view();
+      assert.ok(v.summary.startsWith('7 entries, from today at 09:00 AM to '), v.summary);
+      assert.equal(v.unsure, 'Marked "time unverified" in their titles (community sources only): Daily reset.');
+      f = await download('ffxiv-timer-reset-daily-next-7-days.ics');
+      assert.equal(f.text.split('SUMMARY:FFXIV: Daily reset (time unverified)').length - 1, 7);
+      assert.equal(f.text.split('STATUS:TENTATIVE').length - 1, 7);
+      await pick('resets');
+      await set('calendar-range', '30d');
+      f = await download('ffxiv-timer-resets-next-30-days.ics');
+      assert.equal(f.events, entries((await view()).summary));
+      assert.ok(!f.text.includes('SUMMARY:FFXIV: Weekly reset (') && f.text.includes('SUMMARY:FFXIV: Weekly reset\r\n'), 'the weekly reset has an official source and no mark');
+      await close();
+
+      // The only request was the calendar tool itself, once; nothing was saved or put in the address.
+      assert.deepEqual(servers.github.requests.slice(before).map((r) => r.path), ['/ffxiv-timer/js/ics.js'], 'one request: js/ics.js');
+      assert.equal(await storage(page), saved, 'no saved setting changed');
+      assert.equal(await page.eval('location.href'), href, 'the address is unchanged');
+      assert.deepEqual(page.problems, []);
+    } finally {
+      await chrome.downloadsTo(tmpdir()).catch(() => {});
+      rmSync(dl, { recursive: true, force: true });
+    }
+  });
+
   await test('Resets in Upcoming: nothing changes until one is starred; a starred reset joins in time order without moving the rest, and reminds', async () => {
     const page = await chrome.newPage();
     await page.viewport(1440, 1000);
@@ -349,6 +547,12 @@ try {
     await page.waitFor("document.getElementById('toasts').textContent.includes('Daily reset')", 20000);
     assert.match(await page.eval("document.getElementById('toasts').textContent"), /Daily resetIn (5:00|4:\d\d), at Today 09:00 AM CST \(15:00 UTC\)\. Time unverified: from community sources only\./);
     assert.equal(await page.eval(`localStorage.getItem('${PREFIX}resets')`), '{"dataCenter":null,"starred":["daily"],"remindLead":5}');
+    // Its Upcoming row adds just that entry to a calendar.
+    await page.eval("document.querySelector('#timeline-list .tl-reset [data-cal]').click()");
+    await page.waitFor(CAL_READY);
+    assert.deepEqual(await page.eval("[document.querySelector('#calendar-choices label').textContent, document.getElementById('calendar-summary').textContent]"),
+      ['This entry: Daily reset', '1 entry: Daily reset, today at 09:00 AM, your time (America/Chicago).']);
+    await page.eval("document.getElementById('calendar').close()");
     // Saved across a reload, and unstarring brings Upcoming back as it was.
     await page.reload();
     await page.waitFor(READY);
@@ -402,6 +606,36 @@ try {
     assert.equal(rows.length, 16, 'the list is full');
     assert.ok(!rows.some(([kind]) => kind === 'reset'), 'the reset is not shown past the last event, leaving a gap before it');
     await page.eval('localStorage.clear()');
+    assert.deepEqual(page.problems, []);
+  });
+
+  await test('Add to calendar: a starred node that is up now starts at the moment the file is made', async () => {
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    await page.startClockAt(T0);
+    await page.goto(`${servers.github.origin}/ffxiv-timer/`);
+    await page.waitFor(READY);
+    const id = await page.eval("document.querySelector('#node-list .node-row[data-up=\"true\"]').dataset.id");
+    await page.eval(`document.querySelector('[data-node-star="${id}"]').click()`);
+    await page.waitFor(`document.querySelector('#timeline-list .tl-up[data-node="${id}"] [data-cal]')`);
+    await page.eval(`document.querySelector('#timeline-list .tl-up[data-node="${id}"] [data-cal]').click()`);
+    await page.waitFor(CAL_READY);
+    const text = await page.eval("document.getElementById('calendar-summary').textContent");
+    assert.match(text, /^1 entry: .*, now, your time \(.+\)\. One is already under way, so it starts now and covers the rest\.$/);
+    // Left open, the summary is worked out again as time passes (every 15 s), but the controls are not
+    // redrawn under someone choosing: the same option elements stay.
+    await page.eval("document.querySelector('#calendar-range option').dataset.mark = 'kept'; document.querySelector('[name=\"calendar-choice\"]').dataset.mark = 'kept'; document.getElementById('calendar-summary').textContent = 'stale'");
+    await sleep(16000);
+    assert.equal(await page.eval("document.querySelector('#calendar-range option').dataset.mark + document.querySelector('[name=\"calendar-choice\"]').dataset.mark"), 'keptkept');
+    assert.match(await page.eval("document.getElementById('calendar-summary').textContent"), /^1 entry: /, 'the summary was worked out again');
+    // What the page would write, read back here: no start before now, the real start kept in the UID.
+    const file = await page.eval("(() => { const n = FFXIV_GATHERING_DATA.nodes.find(x => x.id === " + id + "), now = Date.now(); const s = XivGathering.status(n, now); return { now, start: s.start, text: XivIcs.build({ data: { weather: FFXIV_WEATHER_DATA, gathering: FFXIV_GATHERING_DATA }, engines: { weather: XivWeather, gathering: XivGathering }, source: 'upcoming', range: 'listed', now, alarmMin: 10, items: [{ node: n, window: { start: s.start, end: s.end } }] }).text }; })()");
+    const start = /DTSTART:(\d{8}T\d{6}Z)/.exec(file.text)[1], uid = /UID:node-\d+-(\d{8}T\d{6}Z)@/.exec(file.text)[1];
+    const ms = (s) => Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(9, 11), +s.slice(11, 13), +s.slice(13, 15));
+    assert.ok(ms(start) >= file.now && ms(start) - file.now < 1000, 'starts now');
+    assert.equal(ms(uid), file.start, 'the UID keeps the window\'s own start');
+    assert.ok(file.text.includes('DESCRIPTION:Already under way when this file was made') && !file.text.includes('VALARM'), 'says so, with no alarm');
+    await page.eval(`document.querySelector('[data-node-star="${id}"]').click()`);
     assert.deepEqual(page.problems, []);
   });
 

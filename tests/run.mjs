@@ -654,8 +654,14 @@ test('index.html loads files that exist, engines before the page script', () => 
   const order = refs.filter((r) => r.endsWith('.js'));
   assert.ok(order.indexOf('js/eorzea.js') < order.indexOf('js/weather.js') && order.indexOf('js/weather.js') < order.indexOf('js/app.js'));
   assert.equal(order[order.length - 1], 'js/app.js');
-  // app.js reads XivResets as it loads.
+  // app.js reads XivResets as it loads. js/ics.js is not loaded with the page: it waits, inert, in the
+  // lazy-scripts template (so the build versions it like the rest) until a calendar is first asked for; it
+  // reads Eorzea and FfxivFormat, which the page has loaded by then.
   assert.ok(order.indexOf('js/resets.js') >= 0 && order.indexOf('js/resets.js') < order.indexOf('js/app.js'));
+  const lazy = /<template id="lazy-scripts">([\s\S]*?)<\/template>/.exec(html);
+  assert.ok(lazy && /<script src="js\/ics\.js" data-lazy="ics"><\/script>/.test(lazy[1]), 'js/ics.js waits in the lazy-scripts template');
+  const loaded = [...html.replace(lazy[0], '').matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(!loaded.includes('js/ics.js') && loaded.includes('js/eorzea.js') && loaded.includes('js/format.js'), JSON.stringify(loaded));
 });
 test('the page description counts the zones and nodes the site has', () => {
   const html = readFileSync(join(ROOT, 'index.html'), 'utf8');

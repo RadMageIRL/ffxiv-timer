@@ -8,6 +8,7 @@
   const G = window.XivGathering, NODES = window.FFXIV_GATHERING_DATA.nodes;
   const Store = window.FfxivStore, Icons = window.FfxivIcons, Format = window.FfxivFormat, News = window.FfxivNews;
   const R = window.XivResets;
+  let Ics = window.XivIcs || null; // js/ics.js, loaded the first time a calendar is asked for (loadIcs)
 
   const ZONES = DATA.zones;
   const BY_KEY = new Map(ZONES.map((z) => [z.key, z]));
@@ -91,6 +92,12 @@
   }
   const countdown = (until) => el('span', { class: 'cd', 'data-until': String(until) });
   const etLabel = (t) => { const c = E.clock(t); return `${E.formatEt(c.bell, c.minute)} ET`; };
+  // A row's Add to calendar button; `key` says what it adds (see calendarFor).
+  const calButton = (key, label) => el('button', {
+    type: 'button', class: 'cal-add', 'data-cal': key, 'aria-haspopup': 'dialog', 'aria-label': `Add to calendar: ${label}`, title: 'Add to calendar',
+    html: '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cal"/></svg>',
+  });
+
   // ---- time formatting (the only place the viewer's time zone is used) ----
   let formats = null;
   function fmt(kind) {
@@ -256,6 +263,15 @@
       first: Math.min(events.length ? events[0].at : Infinity, resets.length ? resets[0].at : Infinity),
     };
   }
+  // The same, as calendar entries can take them (sunrise and sunset are not exported).
+  function upcomingItems(now) {
+    const t = timelineEvents(now);
+    return t.up.map((u) => ({ key: u.key, node: u.node, window: { start: u.start, end: u.end } }))
+      .concat(t.events.filter((ev) => ev.bell == null).map((ev) => (ev.node
+        ? { key: ev.key, node: ev.node, window: { start: ev.at, end: ev.end } }
+        : ev.reset ? { key: ev.key, reset: ev.reset, start: ev.at }
+          : { key: ev.key, zone: ev.zone, change: { at: ev.at, from: ev.p.previous, to: ev.p.weather } })));
+  }
   function renderTimeline(now) {
     const t = timelineEvents(now);
     // Redraw when the next event happens or a starred node that is up now goes down.
@@ -265,7 +281,7 @@
       el('div', { class: 'tl-when' }, el('span', null, el('span', { class: 'badge now' }, 'Up now')), el('span', { class: 'muted' }, `until ${etLabel(u.end)}`)),
       el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, nodeTitle(u.node)),
         el('span', { class: 'muted' }, `${KIND_LABEL[u.node.kind]} ${u.node.job.toLowerCase()} node · ${u.node.zone} ${fmtCoords(u.node.coords)}`)),
-      el('div', { class: 'tl-cd' }, el('span', { class: 'muted small' }, 'ends in '), countdown(u.end))));
+      el('div', { class: 'tl-cd' }, el('span', { class: 'muted small' }, 'ends in '), countdown(u.end), calButton(`up:${u.key}`, nodeTitle(u.node)))));
     const items = upNow.concat(t.events.map((ev) => (ev.reset ? timelineReset(ev, now) : el('li', { class: `tl-item${ev.bell != null ? ' tl-sun' : ''}${ev.node ? ' tl-node' : ''}`, 'data-at': String(ev.at) },
       el('div', { class: 'tl-when' }, el('span', null, localWhen(ev.at, now)), el('span', { class: 'muted' }, etLabel(ev.at))),
       ev.bell != null
@@ -275,7 +291,8 @@
             el('span', { class: 'muted' }, `${KIND_LABEL[ev.node.kind]} ${ev.node.job.toLowerCase()} node appears · ${ev.node.zone}`))
           : el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, ev.zone.name),
           el('span', { class: 'tl-change' }, chip(ev.p.previous, true), el('span', { class: 'arrow', 'aria-label': 'to' }, '→'), chip(ev.p.weather, true))),
-      el('div', { class: 'tl-cd' }, countdown(ev.at))))));
+      el('div', { class: 'tl-cd' }, countdown(ev.at), ev.bell != null ? null
+        : calButton(`up:${ev.key}`, ev.node ? nodeTitle(ev.node) : `${ev.zone.name}, ${wxName(ev.p.previous)} to ${wxName(ev.p.weather)}`))))));
     if (!state.favorites.size && !state.nodeFavorites.size && !state.resetStars.size) items.unshift(el('li', { class: 'tl-item tl-note muted' }, 'Star zones in Weather now, nodes in Timed gathering or resets in Resets to see them here.'));
     $('timeline-list').replaceChildren(...items);
   }
@@ -347,7 +364,7 @@
           `, ${n.area} ${fmtCoords(n.coords)}`),
         n.folklore ? el('p', { class: 'node-meta muted' }, `Needs ${n.folklore}`) : null),
       el('div', { class: 'node-when' },
-        el('span', { class: 'node-times' }, `${times} ET`, el('span', { class: 'muted' }, ` for ${hours} bell${hours === 1 ? '' : 's'}`)),
+        el('span', { class: 'node-times' }, `${times} ET`, el('span', { class: 'muted' }, ` for ${hours} bell${hours === 1 ? '' : 's'}`), calButton(`node:${n.id}`, nodeTitle(n))),
         s.up
           ? el('span', { class: 'node-status' }, el('span', { class: 'badge now' }, 'Up'), ' ends in ', countdown(s.end))
           : el('span', { class: 'node-status' }, `${localWhen(s.start, now)} · in `, countdown(s.start))));
@@ -491,7 +508,8 @@
     results.replaceChildren(...found.matches.map((m) => el('li', { class: 'result' },
       el('div', { class: 'tl-when' }, el('span', null, localWhen(m.start, now)), el('span', { class: 'muted' }, `${E.formatEt(m.bell, 0)} ET`)),
       el('span', { class: 'tl-change' }, chip(m.previous, true), el('span', { class: 'arrow', 'aria-label': 'then' }, '→'), chip(m.weather, true)),
-      el('div', { class: 'tl-cd' }, m.start <= now ? el('span', { class: 'badge now' }, 'Now') : countdown(m.start)))));
+      el('div', { class: 'tl-cd' }, m.start <= now ? el('span', { class: 'badge now' }, 'Now') : countdown(m.start),
+        calButton(`match:${m.start}`, `${wxName(m.previous)} then ${wxName(m.weather)}, ${localWhen(m.start, now)}`)))));
   }
 
   // ---- resets ----
@@ -534,14 +552,14 @@
       resetStar(starKey(r), r.name),
       el('div', { class: 'reset-what' }, el('span', { class: 'reset-name' }, r.name, unverifiedBadge(r)), el('span', { class: 'muted small' }, r.short || r.about)),
       el('div', { class: 'reset-when' }, el('span', { class: 'reset-local' }, resetLocal(t, now)), el('span', { class: 'muted small reset-utc' }, utcRule(r.rule))),
-      el('div', { class: 'tl-cd' }, countdown(t)));
+      el('div', { class: 'tl-cd' }, countdown(t), calButton(`reset:${r.id}`, r.name)));
   }
   /** A starred reset in Upcoming: its local time, its UTC time where the others show ET, and a countdown. */
   function timelineReset(ev, now) {
     return el('li', { class: 'tl-item tl-reset', 'data-reset': ev.reset.id, 'data-at': String(ev.at) },
       el('div', { class: 'tl-when' }, el('span', null, localWhen(ev.at, now)), el('span', { class: 'muted' }, utcClock(ev.at))),
       el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, ev.reset.name, unverifiedBadge(ev.reset)), el('span', { class: 'muted' }, 'Starred in Resets')),
-      el('div', { class: 'tl-cd' }, countdown(ev.at)));
+      el('div', { class: 'tl-cd' }, countdown(ev.at), calButton(`up:${ev.key}`, ev.reset.name)));
   }
   function renderResets(now) {
     const listed = R.listed(state.resetsDc);
@@ -558,7 +576,7 @@
           el('div', { class: 'reset-what' }, el('span', { class: 'reset-name' }, entry ? 'Entry period now' : 'Results period now', unverifiedBadge(r)),
             el('span', { class: 'muted small' }, entry ? 'Entries are open on every World. The 4-day results period follows.' : 'Winners can finalize their purchase. The next 5-day entry period follows.')),
           el('div', { class: 'reset-when' }, el('span', { class: 'reset-local' }, `until ${resetLocal(p.end, now)}`), el('span', { class: 'muted small reset-utc' }, utcRule(r.rule))),
-          el('div', { class: 'tl-cd' }, countdown(p.end))));
+          el('div', { class: 'tl-cd' }, countdown(p.end), calButton('reset:housing', 'Housing lottery'))));
         continue;
       }
       for (const r of listed.filter((x) => x.group === group)) items.push(resetRow(r, now));
@@ -570,6 +588,245 @@
       }
     }
     $('resets-list').replaceChildren(...items);
+  }
+
+  // ---- add to calendar ----
+  // One dialog for every panel: a calendar file (.ics) written in this browser by js/ics.js. Each button
+  // offers choices (this node, starred nodes, ...); a choice names its source, its ranges, and how to gather
+  // what it covers at the moment the file is made, so a file is never stale. Nothing here is saved or sent:
+  // the choices last while the page is open, and the file leaves the page only as a download.
+  const ICS_BASE = { data: { weather: DATA, gathering: window.FFXIV_GATHERING_DATA }, engines: { weather: W, gathering: G, resets: R } };
+  const RANGE_TEXT = { '2h': 'Next 2 hours', '6h': 'Next 6 hours', '1d': 'Next 24 hours', '3d': 'Next 3 days', '7d': 'Next 7 days', '30d': 'Next 30 days' };
+  const NEXT_TEXT = { transition: 'Next match', node: 'Next spawn', weather: 'Next change', reset: 'Next one of each' };
+  const cal = { choices: [], choice: null, range: {}, alarm: 0, opener: null, refreshAt: Infinity, loadFailed: false };
+  const calDialog = () => $('calendar');
+
+  // The finder's search and its matches from now, as the finder lists them, or null when nothing is asked.
+  function finderNow(now) {
+    const f = state.finder, z = BY_KEY.get(f.zone);
+    if (!z || (!f.prev.length && !f.to.length)) return null;
+    const found = W.findTransitions(z, { from: now, previous: f.prev, to: f.to, bells: f.bells, limit: FINDER_LIMIT, horizon: FINDER_HORIZON });
+    return { zone: z, search: { prev: [...f.prev], to: [...f.to], bells: [...f.bells] }, matches: found.possible ? found.matches : [] };
+  }
+  const starredNodes = () => NODES.filter((n) => state.nodeFavorites.has(n.id));
+  const filteredNodes = () => NODES.filter((n) => G.matches(n, gatherFilters()));
+  const starredZones = () => [...state.favorites].map((k) => BY_KEY.get(k)).filter(Boolean);
+
+  // Choices. gather(now) gives what plan() needs besides source, range and now; file(g) the file name's parts.
+  const CHOICE = {
+    transitions: () => {
+      const f = finderNow(Date.now());
+      return {
+        id: 'transitions', source: 'transition', ranges: ['next', 'shown'],
+        label: f ? `Matches of this search in ${f.zone.name} (${f.matches.length})` : 'Matches of the Weather transitions search',
+        rangeText: { shown: 'The matches shown (up to 10, within 30 days)' },
+        gather: (now) => finderNow(now) || { matches: [] },
+        file: () => ({ key: state.finder.zone }),
+        empty: 'Choose a weather, a weather before it, or both, in Weather transitions, to have matches to add.',
+      };
+    },
+    match: (start) => ({
+      id: 'match', source: 'transition', ranges: ['shown'], label: `This match: ${localWhen(start, Date.now())}`, rangeText: { shown: 'This match' },
+      gather: (now) => { const f = finderNow(now); return f ? Object.assign(f, { matches: f.matches.filter((m) => m.start === start) }) : { matches: [] }; },
+      file: () => ({ key: state.finder.zone }),
+      empty: 'That match has passed.',
+    }),
+    node: (n) => ({
+      id: 'node', source: 'node', ranges: ['next', '2h', '6h'], label: `This node: ${nodeTitle(n)} (${n.zone})`,
+      gather: () => ({ nodes: [n] }), file: () => ({ scope: 'one', key: String(n.id) }), empty: '',
+    }),
+    starredNodes: () => ({
+      id: 'starred-nodes', source: 'node', ranges: ['next', '2h', '6h'], label: `Starred nodes (${state.nodeFavorites.size})`,
+      gather: () => ({ nodes: starredNodes() }), file: () => ({ scope: 'starred' }),
+      empty: 'No nodes are starred yet. Star one in Timed gathering, or choose another option here.',
+    }),
+    filteredNodes: () => ({
+      id: 'filtered-nodes', source: 'node', ranges: ['next', '2h', '6h'], label: `Nodes the gathering filters match (${filteredNodes().length} of ${NODES.length})`,
+      gather: () => ({ nodes: filteredNodes() }), file: (g) => ({ scope: 'choose', count: g.nodes.length }),
+      empty: 'No node matches the gathering filters.',
+    }),
+    starredWeather: () => ({
+      id: 'starred-weather', source: 'weather', ranges: ['next', '2h', '6h'], label: `Weather changes in starred zones (${state.favorites.size})`,
+      gather: () => ({ zones: starredZones() }), file: () => ({ scope: 'starred' }),
+      empty: 'No zones are starred yet. Star a zone in Weather now.',
+    }),
+    upcoming: () => ({
+      id: 'upcoming', source: 'upcoming', ranges: ['listed'], label: `Everything Upcoming lists (${upcomingItems(Date.now()).length}; not sunrise and sunset)`,
+      rangeText: { listed: 'As Upcoming lists them: the next 2 hours, at most 16' },
+      gather: (now) => ({ items: upcomingItems(now) }), file: () => ({}),
+      empty: 'Upcoming lists nothing to add. Star zones in Weather now or nodes in Timed gathering.',
+    }),
+    upcomingOne: (key, label) => ({
+      id: 'upcoming-one', source: 'upcoming', ranges: ['listed'], label: `This entry: ${label}`, rangeText: { listed: 'This entry' },
+      gather: (now) => ({ items: upcomingItems(now).filter((it) => it.key === key) }), file: () => ({}),
+      empty: 'That entry has passed.',
+    }),
+    reset: (rowId, name) => ({
+      id: 'reset', source: 'reset', ranges: ['next', '1d', '3d', '7d', '30d'], label: `This reset: ${name}`,
+      rangeText: rowId === 'housing' ? {} : { next: 'Next one' },
+      gather: () => ({ resets: rowResets(rowId) }), file: () => ({ scope: 'one', key: rowId }), empty: '',
+    }),
+    resets: () => ({
+      id: 'resets', source: 'reset', ranges: ['next', '1d', '3d', '7d', '30d'], label: `All resets listed (${R.listed(state.resetsDc).length})`,
+      gather: () => ({ resets: R.listed(state.resetsDc) }), file: () => ({}), empty: '',
+    }),
+  };
+
+  /** The choices a button offers, first the one it stands for. */
+  function calendarFor(key) {
+    const [kind, ...rest] = key.split(':'), arg = rest.join(':');
+    if (kind === 'upcoming') return [CHOICE.upcoming(), CHOICE.starredWeather()];
+    if (kind === 'up') {
+      const it = upcomingItems(Date.now()).find((x) => x.key === arg);
+      const label = !it ? 'this entry' : it.node ? nodeTitle(it.node) : it.reset ? it.reset.name : `${it.zone.name}, ${wxName(it.change.from)} to ${wxName(it.change.to)}`;
+      return [CHOICE.upcomingOne(arg, label), CHOICE.upcoming(), CHOICE.starredWeather()];
+    }
+    if (kind === 'nodes') return state.nodeFavorites.size ? [CHOICE.starredNodes(), CHOICE.filteredNodes()] : [CHOICE.filteredNodes(), CHOICE.starredNodes()];
+    if (kind === 'node' && NODE_BY_ID.has(Number(arg))) return [CHOICE.node(NODE_BY_ID.get(Number(arg))), CHOICE.starredNodes(), CHOICE.filteredNodes()];
+    if (kind === 'finder') return [CHOICE.transitions()];
+    if (kind === 'match' && Number.isFinite(Number(arg))) return [CHOICE.match(Number(arg)), CHOICE.transitions()];
+    if (kind === 'resets') return [CHOICE.resets()];
+    if (kind === 'reset') {
+      const rs = rowResets(arg);
+      return rs.length ? [CHOICE.reset(arg, arg === 'housing' ? 'Housing lottery entry and results periods' : rs[0].name), CHOICE.resets()] : [CHOICE.resets()];
+    }
+    return [];
+  }
+
+  const rangeOf = (c) => (c.ranges.includes(cal.range[c.source]) ? cal.range[c.source] : c.ranges[0]);
+  const rangeLabel = (c, r) => (c.rangeText && c.rangeText[r]) || (r === 'next' ? NEXT_TEXT[c.source] : RANGE_TEXT[r]) || r;
+  /** "today at 9:00 AM", "tomorrow at ...", "Sat at ...", "Tue, Nov 24 at ...": in the viewer's time. */
+  function calWhen(t, now) { const w = dayWord(t, now); return `${w === 'Today' || w === 'Tomorrow' ? w.toLowerCase() : w} at ${fmt('time').format(t)}`; }
+
+  function calSummary(p, c, now) {
+    if (!p.ok) {
+      if (p.reason === 'empty') return c.empty || 'There is nothing to add.';
+      if (p.reason === 'none') return 'Nothing starts in that time. Choose a longer one.';
+      if (p.reason === 'too-many') return `That would be ${p.count} entries, more than the ${Ics.MAX_ENTRIES} one file can hold. Choose fewer, or a shorter time.`;
+      return 'No file can be made from these choices.';
+    }
+    const first = p.entries[0], last = p.entries[p.entries.length - 1], under = p.entries.filter((e) => e.opened !== undefined).length;
+    const when = (e) => (e.opened !== undefined ? 'now' : calWhen(e.start, now));
+    const tail = !under ? '' : under === 1 ? ' One is already under way, so it starts now and covers the rest.' : ` ${under} are already under way, so they start now and cover the rest.`;
+    if (p.count === 1) return `1 entry: ${first.summary}, ${when(first)}, your time (${zoneName() || zoneAbbr(now) || 'local'}).${tail}`;
+    return `${p.count} entries, from ${when(first)} to ${when(last)}, your time (${zoneName() || zoneAbbr(now) || 'local'}).${tail}`;
+  }
+
+  /** The dialog's controls for the current choice: drawn when it opens and when the choice changes, never by the clock. */
+  function syncControls() {
+    const c = cal.choice, select = $('calendar-range');
+    for (const b of document.querySelectorAll('[name="calendar-choice"]')) b.checked = b.value === c.id;
+    select.replaceChildren(...c.ranges.map((r) => el('option', { value: r }, rangeLabel(c, r))));
+    select.value = rangeOf(c);
+    select.disabled = c.ranges.length < 2;
+    $('calendar-alarm').value = String(cal.alarm);
+  }
+  /**
+   * js/ics.js, loaded once, the first time a calendar is asked for: a script from this same site, whose
+   * address (with the build's version stamp) waits in index.html's lazy-scripts template. The file is
+   * still made entirely in this browser. A failed load is tried again on the next request.
+   */
+  let icsLoad = null;
+  function loadIcs() {
+    if (Ics) return Promise.resolve(Ics);
+    if (!icsLoad) {
+      icsLoad = new Promise((ok, fail) => {
+        const src = $('lazy-scripts').content.querySelector('[data-lazy="ics"]').getAttribute('src');
+        const s = el('script', { src, onload: () => (window.XivIcs ? ok(window.XivIcs) : fail(new Error('js/ics.js did not load'))), onerror: () => fail(new Error('js/ics.js did not load')) });
+        document.head.append(s);
+      }).then((m) => { Ics = m; return m; }, (e) => { icsLoad = null; throw e; });
+    }
+    return icsLoad;
+  }
+
+  /** The summary for the current choices, worked out at this moment; redone as time passes while the dialog is open. */
+  function syncCalendar() {
+    if (!Ics) {
+      // Until js/ics.js is here, the dialog says so and offers no file.
+      setText($('calendar-summary'), cal.loadFailed ? 'The calendar tool could not load. Check your connection, then close this and try again.' : 'Loading the calendar tool.');
+      for (const id of ['calendar-warn', 'calendar-uncertain']) $(id).hidden = true;
+      $('calendar-download').disabled = true;
+      cal.refreshAt = Infinity;
+      return;
+    }
+    const c = cal.choice, now = Date.now(), range = rangeOf(c);
+    const p = Ics.plan(Object.assign({}, ICS_BASE, c.gather(now), { source: c.source, range, now }));
+    setText($('calendar-summary'), calSummary(p, c, now));
+    const warn = $('calendar-warn');
+    warn.hidden = !p.warn;
+    setText(warn, p.warn ? `That is more than ${Ics.WARN_ENTRIES} entries. Check that you want this many in your calendar before you download.` : '');
+    const marked = p.ok ? [...new Map(p.entries.filter((e) => Ics.note(e)).map((e) => [e.uid.replace(/-\d{8}T\d{6}Z$/, ''), e.summary])).values()] : [];
+    const unsure = $('calendar-uncertain');
+    unsure.hidden = !marked.length;
+    setText(unsure, marked.length ? `Marked "time unverified" in their titles (community sources only): ${marked.join(', ')}.` : '');
+    $('calendar-download').disabled = !p.ok;
+    // Redone when the first entry starts (it then drops out or is under way) and every 15 s, as ranges move with now.
+    const firstStart = p.ok ? Math.min(...p.entries.filter((e) => e.opened === undefined).map((e) => e.start), ...p.entries.map((e) => e.end)) : Infinity;
+    cal.refreshAt = Math.min(now + 15000, firstStart);
+  }
+
+  function openCalendar(key, opener) {
+    const choices = calendarFor(key);
+    if (!choices.length) return;
+    cal.choices = choices;
+    cal.choice = choices[0];
+    cal.opener = { key, el: opener };
+    $('calendar-choices').replaceChildren(...choices.map((c) => el('label', { class: 'cal-option' },
+      el('input', { type: 'radio', name: 'calendar-choice', value: c.id }), el('span', null, c.label))));
+    setText($('calendar-done'), '');
+    cal.loadFailed = false;
+    syncControls();
+    syncCalendar();
+    calDialog().showModal();
+    if (!Ics) {
+      loadIcs().then(() => { if (calDialog().open) syncCalendar(); }, () => { cal.loadFailed = true; if (calDialog().open) syncCalendar(); });
+    }
+  }
+
+  function downloadCalendar() {
+    if (!Ics) return;
+    const c = cal.choice, now = Date.now(), range = rangeOf(c), g = c.gather(now);
+    const r = Ics.build(Object.assign({}, ICS_BASE, g, { source: c.source, range, now, alarmMin: cal.alarm }));
+    if (!r.ok) { syncCalendar(); return; }
+    const name = Ics.filename(Object.assign({ source: c.source, range }, c.file(g)));
+    try {
+      const url = URL.createObjectURL(new Blob([r.text], { type: 'text/calendar;charset=utf-8' }));
+      const a = el('a', { href: url, download: name, hidden: true });
+      calDialog().append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setText($('calendar-done'), `Downloading ${name} (${r.count} ${r.count === 1 ? 'entry' : 'entries'}). Open it with your calendar app, or import it on your calendar's website.`);
+    } catch (e) {
+      setText($('calendar-done'), 'This browser could not save the file.');
+    }
+  }
+
+  function wireCalendar() {
+    const dialog = calDialog();
+    // Every Add to calendar button, including the ones inside lists that are redrawn, carries data-cal.
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('[data-cal]');
+      if (b && !dialog.contains(b)) openCalendar(b.dataset.cal, b);
+    });
+    dialog.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t.name === 'calendar-choice' && t.checked) { cal.choice = cal.choices.find((c) => c.id === t.value) || cal.choice; syncControls(); }
+      else if (t.id === 'calendar-range' && cal.choice.ranges.includes(t.value)) cal.range[cal.choice.source] = t.value;
+      else if (t.id === 'calendar-alarm' && [...t.options].some((o) => o.value === t.value)) cal.alarm = Number(t.value);
+      else return;
+      setText($('calendar-done'), '');
+      syncCalendar();
+    });
+    $('calendar-download').addEventListener('click', downloadCalendar);
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+    // Focus goes back to the button that opened the dialog, or to the same button drawn again since.
+    dialog.addEventListener('close', () => {
+      const from = cal.opener;
+      cal.opener = null; cal.refreshAt = Infinity;
+      const back = from && (from.el && from.el.isConnected ? from.el : document.querySelector(`[data-cal="${CSS.escape(from.key)}"]`));
+      if (back) back.focus();
+    });
   }
 
   // ---- latest news ----
@@ -667,6 +924,8 @@
       el('p', null, `Unspoiled and legendary nodes from ${[...new Set(NODES.map((n) => n.expansion))].join(', ')}. Times, items, levels, places and folklore tomes come from the game data; more expansions are added the same way.`),
       el('h3', null, 'Resets'),
       el('p', null, 'Daily and weekly resets, the Mini and Jumbo Cactpot and the housing lottery, shown in your time zone with UTC beside each. The weekly reset, the Mini Cactpot and every data center\'s Jumbo Cactpot drawing are times Square Enix states on the Lodestone (its Cactpot guide and the patch 7.5 notes). The daily reset, Grand Company missions and leve allowances come from community sources only and are marked "time unverified" until they are checked in the game. The housing lottery\'s 9-day cycle (5 days of entry, 4 of results, turning at 15:00 UTC) is from the Lodestone; the dates of the current cycle come from community sources, so it is marked as well. Star a reset to follow it in Upcoming and, if you choose, to be reminded of it while this page is open.'),
+      el('h3', null, 'Add to calendar'),
+      el('p', null, 'The calendar buttons in Upcoming, Resets, Timed gathering and Weather transitions make a calendar file (.ics) of the times you choose, with an alarm if you want one. The calendar tool loads from this site the first time you use it; the file itself is made in your browser, nothing is sent anywhere and nothing about it is saved. Each entry is written in UTC, so your calendar shows it in your own time zone. The file does not update itself: download a new one after a patch.'),
       el('h3', null, 'Where the data comes from'),
       el('p', null, `Weather tables and gathering nodes come from the game's own data tables for patch ${src.patch}, as exported by the ${src.dataset} project (commit ${src.commit.slice(0, 10)}). Calculations are deterministic: the same moment always gives the same answer.`),
       el('h3', null, 'Checked against reference data'),
@@ -706,6 +965,7 @@
     if (now >= gatheringNext) renderGathering(now);
     if (now >= timelineNext) renderTimeline(now);
     if (now >= resetsNext || new Date(now).toDateString() !== resetsDay) renderResets(now);
+    if (now >= cal.refreshAt && calDialog().open) syncCalendar();
     if (state.newsOpen && !news.loading && now >= news.nextAt) loadNews();
     checkReminders(now);
     updateCountdowns(now);
@@ -737,6 +997,7 @@
 
     $('node-search').addEventListener('input', (e) => { state.nodeSearch = e.target.value; renderGathering(Date.now()); updateCountdowns(Date.now()); });
     wireGatheringFilters();
+    wireCalendar();
     // The data center for the Jumbo Cactpot, grouped by region; saved once one is chosen.
     const dc = $('resets-dc'), regions = [...new Set(R.DATA_CENTERS.map((d) => d.region))];
     dc.replaceChildren(el('option', { value: '' }, 'Choose'), ...regions.map((g) => el('optgroup', { label: g },

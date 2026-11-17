@@ -13,7 +13,8 @@
 // through) or points there from any other address. Then the radmagelabs.com homepage's FFXIV
 // link is followed to make sure it opens the timer.
 //
-// The Resets panel's next times are compared with js/resets.js.
+// The Resets panel's next times are compared with js/resets.js, and its Add to calendar dialog may load
+// only its own js/ics.js from the site.
 //
 // This checks the deployed copy against the reference engines in this repo. It says nothing
 // about whether the game agrees; that is in-game validation, which is separate.
@@ -95,13 +96,24 @@ try {
       }
     });
 
-    await check(`${url}: every reset's next time matches js/resets.js`, async () => {
+    await check(`${url}: every reset's next time matches js/resets.js; Add to calendar loads only its own tool, from inside ${base}`, async () => {
       let now;
       // Away from any reset (or lottery period) changing, so the page and the engine are asked about the same one.
       for (;;) { now = await page.eval('Date.now()'); if (R.RESETS.every((r) => R.nextStart(r, now) - now > 4000)) break; await sleep(4000); }
       const rows = await page.eval("[...document.querySelectorAll('#resets-list .reset-row[data-at]')].map(r => [r.dataset.reset, Number(r.dataset.at)])");
       assert.ok(rows.length >= 6, JSON.stringify(rows));
       for (const [id, at] of rows) assert.equal(at, id === 'housing' ? R.lotteryPhase(now).end : R.nextStart(R.byId(id), now), id);
+      const asked = page.requests.length;
+      await page.eval("document.querySelector('[data-cal=\"resets\"]').click()");
+      await page.waitFor("document.getElementById('calendar').open && !document.getElementById('calendar-download').disabled");
+      assert.match(await page.eval("document.getElementById('calendar-summary').textContent"), /^\d+ entries, from /);
+      await page.eval("document.getElementById('calendar').close()");
+      // The close event comes a moment later and returns focus to the Calendar button; wait for it, so its
+      // scroll cannot cut short the next check's.
+      await page.waitFor("document.activeElement && document.activeElement.dataset.cal === 'resets'");
+      // The calendar tool (js/ics.js) loads on first use, versioned, from this site; nothing else is asked for.
+      const more = page.requests.slice(asked);
+      assert.ok(more.length === 1 && new URL(more[0]).pathname === `${base}js/ics.js` && /\?v=[0-9a-f]{10}$/.test(more[0]), JSON.stringify(more));
     });
 
     await check(`${url}: navigation, a shared link and reload`, async () => {
