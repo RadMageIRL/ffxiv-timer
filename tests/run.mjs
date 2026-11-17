@@ -976,9 +976,12 @@ test('theme: every color in the stylesheet is a token; the light theme gives eac
   for (const k of colors) assert.ok(k in lightOnly && lightOnly[k] !== dark[k], `${k} has no light value`);
 });
 
-test('theme: the dark colors are exactly v0.10.0\'s (the default look must not change)', () => {
+test('theme: the dark colors are exactly v0.10.0\'s, but for the search placeholder (the default look must not change)', () => {
   // The 27 color tokens v0.10.0 had, and the 25 colors it wrote out in rules, now tokens with the same values.
   // The page itself was compared pixel by pixel with v0.10.0 (local/release-checks/theme-shots.mjs).
+  // The one change on purpose: the search placeholder, 5 lighter in each channel (v0.10.0 #6f7b94, 4.23:1
+  // on its field), so it reaches 4.5:1 with the same hue.
+  const CHANGED = { '--placeholder': '#748099' };
   const V0100 = {
     '--bg': '#0b101d', '--bg-2': '#0f1628', '--panel': '#131b2e', '--panel-2': '#18223a', '--line': '#24304b', '--line-2': '#2f3d5e',
     '--text': '#e9edf6', '--muted': '#95a1ba', '--accent': '#e6c46e', '--accent-2': '#f3dc9b', '--focus': '#8fb6ff', '--warn': '#f0c88a',
@@ -994,7 +997,7 @@ test('theme: the dark colors are exactly v0.10.0\'s (the default look must not c
     '--unspoiled-line': '#2c5e57', '--shadow': 'rgba(0, 0, 0, .45)', '--backdrop': 'rgba(4, 7, 14, .7)',
   };
   const { dark } = themeTokens();
-  assert.deepEqual(Object.fromEntries(Object.keys(dark).filter((k) => isColor(dark[k])).map((k) => [k, dark[k]])), V0100);
+  assert.deepEqual(Object.fromEntries(Object.keys(dark).filter((k) => isColor(dark[k])).map((k) => [k, dark[k]])), { ...V0100, ...CHANGED });
   const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
   assert.match(html, /<meta name="color-scheme" content="dark">/);
   assert.ok(html.includes(`<meta name="theme-color" content="${dark['--bg']}">`), 'theme-color is the dark page color');
@@ -1046,8 +1049,8 @@ test('theme: contrast in both themes: text 4.5:1 on every surface it sits on, ic
     assert.ok(pairs.length >= 60, `${name}: ${pairs.length} pairs`);
     for (const [label, fg, bg, min] of pairs) { const r = ratio(fg, bg); if (r < min) below[`${name}: ${label}`] = Math.round(r * 100) / 100; }
   }
-  // Known and unchanged since v0.10.0: the dark search placeholder (changing it would change the dark look).
-  assert.deepEqual(below, { 'dark: --placeholder on --bg-2': 4.23 });
+  // Nothing below its minimum, in either theme (v0.11.0 lifted the dark search placeholder from 4.23:1).
+  assert.deepEqual(below, {});
 });
 
 test('theme boot (index.html): a saved "light" applies before the stylesheet; anything else, or blocked storage, stays dark', () => {

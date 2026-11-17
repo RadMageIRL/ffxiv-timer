@@ -1,5 +1,6 @@
-/* FFXIV Timer. Every color is a token here. Dark is the default and its values are exactly v0.10.0's;
-   the light theme (below the dark tokens) overrides the same tokens when <html data-theme="light">. */
+/* FFXIV Timer. Every color is a token here. Dark is the default and its values are exactly v0.10.0's
+   (but for the search placeholder, lifted to 4.5:1); the light theme (below the dark tokens) overrides
+   the same tokens when <html data-theme="light">. */
 :root {
   --bg: #0b101d;
   --bg-2: #0f1628;
@@ -32,7 +33,7 @@
   --glow-gold: rgba(230, 196, 110, .07);
   --glow-blue: rgba(120, 150, 255, .07);
   --topbar-bg: rgba(11, 16, 29, .86);
-  --placeholder: #6f7b94;
+  --placeholder: #748099; /* v0.10.0's #6f7b94, 5 lighter per channel: 4.5:1 on the search field */
   --gold-wash: rgba(230, 196, 110, .06);
   --gold-tint: rgba(230, 196, 110, .1);
   --pressed-wash: rgba(230, 196, 110, .14);
