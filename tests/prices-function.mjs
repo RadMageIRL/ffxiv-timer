@@ -93,6 +93,7 @@ test('privacy: the upstream request is GET, the contract URL and two fixed heade
     assert.equal(init.body, undefined);
     assert.equal(init.redirect, 'manual');
     assert.deepEqual(init.headers, { accept: 'application/json', 'user-agent': USER_AGENT });
+    assert.equal(USER_AGENT, 'RadMageLabs-FFXIV-Timer/1 (+https://radmagelabs.com/ffxiv/)', 'names the project and its public address, nothing else');
     assert.match(url, /^https:\/\/universalis\.app\/api\/v2\/(Aether|Gilgamesh)\/5057\?listings=20&entries=20&fields=/);
     for (const v of Object.values(loud)) assert.ok(!url.includes(v) && !JSON.stringify(init.headers).includes(v));
   }
@@ -170,7 +171,8 @@ test('privacy, over real HTTP: a visitor request full of identifying headers rea
   });
   await new Promise((r) => front.listen(0, '127.0.0.1', r));
   try {
-    const visitor = { cookie: 'session=secret', referer: 'https://radmagelabs.com/ffxiv/', 'user-agent': 'Mozilla/5.0 Firefox/133', 'accept-language': 'de-DE', 'x-forwarded-for': '198.51.100.9', 'x-vercel-forwarded-for': '198.51.100.9', forwarded: 'for=198.51.100.9' };
+    // (The referer is the visitor's page with its hash; the User-Agent names the bare public address.)
+    const visitor = { cookie: 'session=secret', referer: 'https://radmagelabs.com/ffxiv/#market/item/5057', 'user-agent': 'Mozilla/5.0 Firefox/133', 'accept-language': 'de-DE', 'x-forwarded-for': '198.51.100.9', 'x-vercel-forwarded-for': '198.51.100.9', forwarded: 'for=198.51.100.9' };
     const answer = await new Promise((ok, no) => {
       const req = httpRequest({ host: '127.0.0.1', port: front.address().port, path: '/ffxiv/prices/tax/63?path=tax%2F63', headers: visitor }, (res) => {
         let body = '';
@@ -395,6 +397,56 @@ test('last good: when Universalis fails, the last good answer is served, labeled
   assert.equal((await ask(h, 'tax/63')).status, 503);
   // Tax answers keep longer, and an item's lifetime caps the brief cache.
   assert.equal(DEFAULTS.lastGood.maxAgeMs.tax, 7 * 24 * 3600_000);
+});
+
+// ---- market times: a price is as old as Universalis says, never as new as the answer ----
+// Every number in an answer whose path names a time (lastUploadTime, lastReviewTime, sale and
+// purchase timestamps, worldUploadTimes in both shapes), by its path.
+function marketTimes(value, at = '', out = {}) {
+  if (Array.isArray(value)) value.forEach((v, i) => marketTimes(v, `${at}[${i}]`, out));
+  else if (value && typeof value === 'object') for (const [k, v] of Object.entries(value)) marketTimes(v, `${at}.${k}`, out);
+  else if (typeof value === 'number' && /time/i.test(at)) out[at] = value;
+  return out;
+}
+test('market times: upload, sale and review times reach the visitor as Universalis sent them, live and as the last good answer hours later', async () => {
+  let t = 1_800_000_000_000;
+  let broken = false;
+  const up = fakeUpstream((url) => (broken ? { status: 503, body: '' } : defaultAnswer(url)));
+  const h = handler(up.fetch, { now: () => t });
+  const paths = [AGG, 'item/Aether/5057', 'item/Gilgamesh/5057', 'aggregated/Gilgamesh/2,5057'];
+  const live = {};
+  for (const path of paths) {
+    const r = await ask(h, path);
+    const text = await r.text();
+    const want = marketTimes(defaultAnswer(up.calls.at(-1).url).body);
+    assert.ok(Object.keys(want).length >= 4, `${path}: the fixture has market times`);
+    assert.deepEqual(marketTimes(JSON.parse(text)), want, `${path}: live`);
+    assert.equal(r.headers.get('x-prices-fetched'), String(t), `${path}: when the function asked`);
+    for (const k of ['date', 'last-modified', 'age', 'expires']) assert.equal(r.headers.get(k), null, `${path}: no ${k} of the function's own`);
+    live[path] = { text, want };
+  }
+  const fetchedAt = t;
+  broken = true;
+  t += 6 * 3600_000;
+  for (const path of paths) {
+    const r = await ask(h, path);
+    assert.equal(r.headers.get('x-prices-source'), 'last-good', path);
+    assert.equal(await r.clone().text(), live[path].text, `${path}: the stored bytes`);
+    assert.deepEqual(marketTimes(await r.json()), live[path].want, `${path}: the same market times, not re-stamped`);
+    assert.equal(r.headers.get('x-prices-fetched'), String(fetchedAt), `${path}: still the time it was fetched, six hours ago`);
+  }
+  // A time in the wrong type is dropped, never replaced with a time of the function's own.
+  const odd = fakeUpstream((url) => {
+    const b = defaultAnswer(url).body;
+    if (b.listings) return { body: { ...b, lastUploadTime: String(b.lastUploadTime), listings: b.listings.map((l) => ({ ...l, lastReviewTime: null })) } };
+    return { body: { ...b, results: b.results.map((r) => ({ ...r, worldUploadTimes: r.worldUploadTimes.map((w) => ({ ...w, timestamp: 'now' })) })) } };
+  });
+  const oh = handler(odd.fetch, { now: () => t });
+  const item = (await askJson(oh, 'item/Aether/5057')).json;
+  assert.ok(!('lastUploadTime' in item) && item.listings.every((l) => !('lastReviewTime' in l)));
+  const agg = (await askJson(oh, AGG)).json;
+  assert.ok(agg.results.every((r) => r.worldUploadTimes.every((w) => !('timestamp' in w))));
+  assert.ok(!Object.values({ ...marketTimes(item), ...marketTimes(agg) }).includes(t));
 });
 
 test('last good: the memory is bounded by entries and bytes, dropping the least recently used', async () => {

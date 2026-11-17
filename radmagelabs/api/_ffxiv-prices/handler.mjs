@@ -19,6 +19,10 @@
 //   200  X-Prices-Source: last-good, when Universalis fails and this instance still holds a good
 //        answer for the same path (at most lastGood.maxAgeMs old); X-Prices-Fetched is its time.
 //        The CDN keeps it for at most lastGood.cdnSeconds, then only as stale-if-error.
+//   The market times in a body (upload, sale and review times) are Universalis's own, passed on
+//   unchanged on every path: live, last good, and the CDN's fresh, stale and stale-if-error copies,
+//   which are the stored bytes. Nothing here stamps an answer with the time it was served (no Date
+//   of its own, no Last-Modified), so a recently served answer never looks like a recent price.
 //   400  a path in the wrong form: ids out of order or repeated, or a query string of the visitor's
 //   404  a path the page never asks for: unknown kind, scope, world or item; also Universalis 404
 //   405  anything but GET (a HEAD missed the CDN and reached Universalis on the prototype)
@@ -41,8 +45,10 @@ export const PREFIX = '/ffxiv/prices/';
 // Query parameters a rewrite rule itself adds: its route parameter (:path*) and, when the
 // destination names one, p. Each may only repeat the path.
 const REWRITE_PARAMS = ['path', 'p'];
-// What Universalis sees as the client. Fixed, the same for every visitor.
-export const USER_AGENT = 'ffxiv-prices/1';
+// What Universalis sees as the client: this project and where to find it, so the Universalis
+// maintainer can tell who is asking. Fixed, the same for every visitor; the /1 is this function's
+// request format, not the page's version, so it does not change with each release.
+export const USER_AGENT = 'RadMageLabs-FFXIV-Timer/1 (+https://radmagelabs.com/ffxiv/)';
 // Item ids above this patch's Item table (allow.ITEM_ID_MAX) may come from a newer patch than the
 // tables the allow list was built from, so they pass up to this bound. Universalis lists an id it
 // does not know in failedItems.

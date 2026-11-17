@@ -74,6 +74,11 @@ export const STALE = { aggregated: 600, item: 240, tax: 86400 };
 // (2026-11-17): Vercel honors stale-if-error for function answers, and without it a failed
 // background refresh drops the old answer, so visitors get the error instead.
 export const STALE_IF_ERROR = { aggregated: 43200, item: 43200, tax: 604800 };
+// So an answer may be served long after it was fetched, and a fetch may return data uploaded long
+// before. The age of a price is always the Universalis time that comes with it (worldUploadTimes,
+// lastUploadTime, a sale's or purchase's timestamp, a listing's lastReviewTime), which the function
+// and the CDN pass on unchanged; never when the answer was fetched or served. X-Prices-Fetched only
+// says when the function last asked Universalis, and a missing time means an unknown age.
 
 const SCOPE = '[A-Za-z0-9-]{1,32}';
 export const PATTERNS = {
