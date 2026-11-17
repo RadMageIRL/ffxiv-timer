@@ -18,6 +18,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from '../tools/build.mjs';
 import { findChrome, launchChrome } from './lib/cdp.mjs';
 import { serve } from '../tools/lib/static-server.mjs';
+import { fakeUniversalis } from './lib/fake-universalis.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const shotsArg = process.argv.indexOf('--shots');
@@ -47,9 +48,12 @@ async function until(fn, timeout = 8000) {
   const end = Date.now() + timeout;
   while (!fn()) { if (Date.now() > end) throw new Error(`timed out waiting for ${fn}`); await sleep(50); }
 }
+// The radmagelabs.com imitation also answers the price paths, as the Labs rules will (see
+// tests/lib/fake-universalis.mjs); GitHub Pages has no such paths.
+const prices = fakeUniversalis();
 const servers = {
   github: await serve({ mounts: [{ prefix: '/ffxiv-timer/', dir: pages.appDir, notFound: '404.html' }] }),
-  proxy: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], routes: newsRoutes('/ffxiv/') }),
+  proxy: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], routes: newsRoutes('/ffxiv/'), handlers: [{ prefix: '/ffxiv/prices/', handle: prices.handle }] }),
   bare: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], slash: 'none' }),
   labs: await serve({ mounts: [{ prefix: '/ffxiv/', dir: labs.appDir, notFound: '404.html' }] }),
   flaky: await serve({ mounts: [{ prefix: '/ffxiv/', dir: pages.appDir, notFound: '404.html' }], routes: { ...newsRoutes('/ffxiv/', blip), '/ffxiv/js/ics.js': { file: join(pages.appDir, 'js', 'ics.js'), fail: icsBlip } } }),
@@ -804,6 +808,47 @@ try {
     assert.deepEqual(await page.eval("[...document.querySelectorAll('#news *')].filter(n => n.getBoundingClientRect().right > innerWidth + 1).map(n => n.tagName)"), []);
     await page.eval('localStorage.clear()');
     assert.deepEqual(page.problems, []);
+  });
+
+  // ---- Market & Crafting groundwork (v0.11.0 Phase 0): nothing visible yet ----
+  await test('everything above, on every host: no price request and no market file was ever asked for', async () => {
+    const all = Object.values(servers).flatMap((s) => s.requests);
+    assert.ok(all.length > 100, `requests seen: ${all.length}`);
+    assert.deepEqual(all.filter((r) => /\/prices\/|market-items\.js|router\.js/.test(r.path)), []);
+    assert.equal(prices.calls.length, 0);
+  });
+
+  await test('fake Universalis at radmagelabs.com/ffxiv/prices/: answers next to the page in Chrome, fails on request; GitHub Pages has no prices', async () => {
+    const page = await chrome.newPage();
+    await page.goto(`${servers.proxy.origin}/ffxiv/`);
+    await page.waitFor(READY);
+    const ask = (path) => page.eval(`fetch(${JSON.stringify(path)}).then(async (r) => ({ status: r.status, json: await r.json().catch(() => null) }), (e) => ({ status: 0, error: e.name }))`);
+    let r = await ask('prices/aggregated/Aether/2,5057,30000');
+    assert.equal(r.status, 200);
+    assert.deepEqual([r.json.results.map((x) => x.itemId), r.json.failedItems], [[2, 5057], [30000]]);
+    r = await ask('prices/item/Gilgamesh/5057');
+    assert.deepEqual([r.status, r.json.itemID, r.json.worldName], [200, 5057, 'Gilgamesh']);
+    assert.equal((await ask('prices/aggregated/Aether/2/../../worlds')).status, 404);
+    prices.failNext({ status: 503 });
+    assert.equal((await ask('prices/aggregated/Aether/2')).status, 503);
+    assert.deepEqual(prices.calls.map((c) => c.kind), ['aggregated', 'item', 'aggregated'], 'the refused path never reached upstream');
+    // Chrome quietly retries a request on another kept-alive connection when one drops before any answer
+    // (seen here: 3 attempts for one fetch), so a dropped connection reaches the page only when every
+    // retry drops too. The page sees it as a network error, like being offline.
+    prices.failNext({ offline: true }, 10);
+    assert.equal((await ask('prices/aggregated/Aether/2')).error, 'TypeError');
+    prices.reset();
+    await page.offline(true);
+    assert.equal((await ask('prices/aggregated/Aether/2')).error, 'TypeError', 'offline');
+    assert.equal(prices.calls.length, 0, 'nothing left the browser');
+    await page.offline(false);
+    assert.equal((await ask('prices/aggregated/Aether/2')).status, 200, 'fine again after');
+    assert.deepEqual(servers.proxy.outside(), []);
+    const pagesSite = await chrome.newPage();
+    await pagesSite.goto(`${servers.github.origin}/ffxiv-timer/`);
+    await pagesSite.waitFor(READY);
+    assert.equal(await pagesSite.eval("fetch('prices/aggregated/Aether/2').then((r) => r.status)"), 404);
+    prices.reset();
   });
 
 } finally {

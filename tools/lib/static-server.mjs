@@ -7,6 +7,10 @@
 // routes: { '/ffxiv/news/topics.xml': { file } | { proxy: 'https://...' } } answers single paths
 //         before the mounts, the way the radmagelabs.com rewrites pass the Lodestone feeds through.
 //         A route with fail: () => true answers 503 instead, for as long as fail() says so.
+// handlers: [{ prefix: '/ffxiv/prices/', handle }] answers every path under a prefix, before the
+//         routes and mounts, the way the radmagelabs.com price rules will. handle({ rest, url, req, res,
+//         send }) gets the path after the prefix; send(status, body, type, headers) records and answers,
+//         and a handler that destroys the socket instead is recorded with status 0.
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
@@ -17,16 +21,22 @@ const TYPES = {
   '.xml': 'text/xml; charset=utf-8',
 };
 
-export function serve({ mounts, slash = 'redirect', port = 0, routes = {} }) {
+export function serve({ mounts, slash = 'redirect', port = 0, routes = {}, handlers = [] }) {
   const requests = [];
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x');
     const path = decodeURIComponent(url.pathname);
     const send = (status, body, type = 'text/plain', headers = {}) => {
+      if (res.destroyed) return; // the visitor went away first (recorded as status 0 below)
       requests.push({ path, status });
       res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store', ...headers });
       res.end(body);
     };
+    const handler = handlers.find((h) => path.startsWith(h.prefix));
+    if (handler) {
+      res.on('close', () => { if (!res.writableEnded) requests.push({ path, status: 0 }); });
+      return handler.handle({ rest: path.slice(handler.prefix.length), url, req, res, send });
+    }
     const route = Object.hasOwn(routes, path) ? routes[path] : null;
     if (route && route.fail && route.fail()) return send(503, 'unavailable');
     if (route && route.file) return send(200, readFileSync(route.file), TYPES[extname(route.file)] || 'application/octet-stream');

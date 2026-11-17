@@ -1,6 +1,7 @@
-// Tests for the Market & Crafting groundwork: the item list (js/market-items.js and its lock file)
-// and the price paths (tools/lib/prices-contract.mjs) against captured Universalis answers. Run
-// alone with `node tests/market.mjs`, or through tests/run.mjs. No network.
+// Tests for the Market & Crafting groundwork: the item list (js/market-items.js and its lock file),
+// the price paths (tools/lib/prices-contract.mjs) against captured Universalis answers, and the
+// fake Universalis the browser tests use. Run alone with `node tests/market.mjs`, or through
+// tests/run.mjs. No network.
 //
 // Expected values come from outside this code: Universalis's own list of marketable ids and its
 // data centers (tests/fixtures/universalis/, captured once), a second extraction of the game
@@ -18,6 +19,8 @@ import { decodeItems, FORMAT, GROUPS, REGIONS } from '../tools/build-market.mjs'
 import { compareMarketXivapi } from '../tools/lib/compare-market.mjs';
 import { DATASET, MARKET_SHEETS } from '../tools/lib/gamedata.mjs';
 import { chunkIds, FORBIDDEN_KEYS, ITEM_FIELDS, keysDeep, MAX_IDS, upstreamFor } from '../tools/lib/prices-contract.mjs';
+import { serve } from '../tools/lib/static-server.mjs';
+import { fakeUniversalis } from './lib/fake-universalis.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
@@ -218,6 +221,80 @@ test('captured answers: ids off the board are failedItems, items with no data ar
   assert.deepEqual([none.listings.length, none.recentHistory.length, none.minPriceNQ], [0, 0, 0]);
   assert.equal(uni('error-unknown-scope').status, 404);
   assert.deepEqual(Object.keys(uni('tax-gilgamesh')).sort(), ['Crystarium', 'Gridania', 'Ishgard', 'Kugane', 'Limsa Lominsa', 'Old Sharlayan', 'Tuliyollal', "Ul'dah"]);
+});
+
+// ---- the fake Universalis ----
+test('the fake Universalis answers like the rules: fixture shapes, failedItems, 404 for any other path, the query ignored', async () => {
+  const fake = fakeUniversalis();
+  const server = await serve({ mounts: [{ prefix: '/ffxiv/', dir: ROOT }], handlers: [{ prefix: '/ffxiv/prices/', handle: fake.handle }] });
+  try {
+    const get = async (p) => { const r = await fetch(`${server.origin}/ffxiv/prices/${p}`); return { status: r.status, type: r.headers.get('content-type'), text: await r.text() }; };
+    let r = await get('aggregated/Aether/1,2,5057,30000,52712?fields=listings.retainerName');
+    assert.equal(r.status, 200);
+    let j = JSON.parse(r.text);
+    assert.deepEqual(j.failedItems, [1, 30000]);
+    assert.deepEqual(j.results.map((x) => x.itemId), [2, 5057, 52712], 'an item the fixtures lack still gets an answer');
+    r = await get('aggregated/Primal/5057');
+    assert.equal(JSON.parse(r.text).results[0].itemId, 5057, 'another data center reuses the shapes');
+    r = await get('item/Gilgamesh/5057');
+    j = JSON.parse(r.text);
+    assert.deepEqual([j.itemID, j.worldName], [5057, 'Gilgamesh']);
+    for (const bad of FORBIDDEN_KEYS) assert.ok(!keysDeep(j).has(bad));
+    r = await get('item/Aether/2');
+    assert.equal(JSON.parse(r.text).itemID, 2);
+    assert.equal((await get('tax/63')).status, 200);
+    assert.equal((await get('tax/9999')).status, 404, 'unknown world');
+    assert.equal((await get('aggregated/Nowhere/2')).status, 404, 'unknown scope');
+    assert.equal((await get('aggregated/Aether/2/../../worlds')).status, 404);
+    assert.equal((await get('history/Aether/2')).status, 404);
+    fake.empty([5057]);
+    j = JSON.parse((await get('aggregated/Aether/5057')).text);
+    assert.deepEqual(j.results[0].nq.minListing, {});
+    assert.equal(JSON.parse((await get('item/Aether/5057')).text).listings.length, 0);
+    assert.deepEqual(fake.calls.map((c) => c.kind), ['aggregated', 'aggregated', 'item', 'item', 'tax', 'tax', 'aggregated', 'aggregated', 'item'],
+      'refused paths never reach the upstream');
+  } finally { await server.close(); }
+});
+
+test('the fake Universalis fails on request: status codes, a dropped connection, a broken body, a delay, a hold', async () => {
+  const fake = fakeUniversalis();
+  const server = await serve({ mounts: [{ prefix: '/ffxiv/', dir: ROOT }], handlers: [{ prefix: '/ffxiv/prices/', handle: fake.handle }] });
+  const url = `${server.origin}/ffxiv/prices/aggregated/Aether/2`;
+  try {
+    fake.failNext({ status: 503 }, 2);
+    fake.failNext({ status: 429 });
+    assert.deepEqual([(await fetch(url)).status, (await fetch(url)).status, (await fetch(url)).status, (await fetch(url)).status], [503, 503, 429, 200]);
+    fake.failNext({ offline: true });
+    await assert.rejects(fetch(url));
+    fake.failNext({ mangle: true });
+    const mangled = await fetch(url);
+    assert.equal(mangled.status, 200);
+    await assert.rejects(mangled.json(), SyntaxError);
+    fake.failNext({ delay: 300 });
+    const t0 = Date.now();
+    assert.equal((await fetch(url)).status, 200);
+    assert.ok(Date.now() - t0 >= 280, 'delayed');
+    fake.hold();
+    let done = false;
+    const held = fetch(url).then((r) => { done = true; return r.status; });
+    await new Promise((ok) => setTimeout(ok, 150));
+    assert.equal(done, false, 'held');
+    fake.release();
+    assert.equal(await held, 200);
+    // An aborted request shows as status 0 in the server's log.
+    fake.hold();
+    const ac = new AbortController();
+    const aborted = fetch(url, { signal: ac.signal }).catch((e) => e.name);
+    await new Promise((ok) => setTimeout(ok, 100));
+    ac.abort();
+    assert.equal(await aborted, 'AbortError');
+    await new Promise((ok) => setTimeout(ok, 100)); // the server sees the connection close
+    fake.release();
+    await new Promise((ok) => setTimeout(ok, 100));
+    assert.equal(server.requests.at(-1).status, 0, 'recorded as dropped, with no late answer after it');
+    fake.reset();
+    assert.equal(fake.calls.length, 0);
+  } finally { await server.close(); }
 });
 
 await Promise.all(pending);

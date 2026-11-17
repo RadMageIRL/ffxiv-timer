@@ -157,6 +157,10 @@ async function makePage(conn, sessionId) {
       if (timezone) await send('Emulation.setTimezoneOverride', { timezoneId: timezone });
       if (locale) await send('Emulation.setLocaleOverride', { locale });
     },
+    // Takes the page offline (every request fails at once, as with no network) or back online.
+    async offline(on) {
+      await send('Network.emulateNetworkConditions', { offline: Boolean(on), latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    },
     async viewport(width, height, mobile = false) {
       await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: mobile ? 2 : 1, mobile });
     },
