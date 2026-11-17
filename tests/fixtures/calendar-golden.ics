@@ -1,0 +1,54 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//RadMage Labs//FFXIV Timer//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:FFXIV Timer
+BEGIN:VEVENT
+UID:node-346-20261117T010820Z@ffxiv-timer.radmagelabs.com
+DTSTAMP:20261117T010000Z
+DTSTART:20261117T010820Z
+DTEND:20261117T011410Z
+SUMMARY:FFXIV: Ilmenite\, Prime Achondrite (Legendary\, Lv 90 Miner)\, Mare
+  Lamentorum
+LOCATION:Mare Lamentorum\, Sinus Tormenti (29.6\, 22.4) (FINAL FANTASY XIV)
+DESCRIPTION:Legendary miner node in Mare Lamentorum\, Sinus Tormenti (29.6
+ \, 22.4)\, up from 20:00 ET to 22:00 ET\, 5 minutes 50 seconds of real tim
+ e.\nItems: Ilmenite (Lv 90 ★★)\; Prime Achondrite (Lv 90 ★★★\, c
+ ollectable).\nNeeds the Tome of Geological Folklore - The Sea of Stars.\nC
+ alculated by FFXIV Timer from the game's gathering tables (patch 7.57 hotf
+ ix 1)\, and checked against XIVAPI and the node tables on the FFXIV wiki. 
+ Not yet compared with the game itself.\nDetails: https://radmagelabs.com/f
+ fxiv/
+URL:https://radmagelabs.com/ffxiv/
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:FFXIV: Ilmenite\, Prime Achondrite appears in Mare Lamentorum i
+ n 10 minutes
+TRIGGER:-PT10M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:weather-middle-la-noscea-20261117T012000Z@ffxiv-timer.radmagelabs.com
+DTSTAMP:20261117T010000Z
+DTSTART:20261117T012000Z
+DTEND:20261117T014320Z
+SUMMARY:FFXIV: Middle La Noscea\, Clouds to Fair Skies
+LOCATION:Middle La Noscea\, La Noscea (FINAL FANTASY XIV)
+DESCRIPTION:The weather in Middle La Noscea changes from Clouds to Fair Ski
+ es at 00:00 ET and stays Fair Skies until 08:00 ET\, 23 minutes 20 seconds
+  of real time.\nCalculated by FFXIV Timer from the game's weather tables (
+ patch 7.57 hotfix 1)\, the same way the game picks the weather\, and check
+ ed against XIVAPI and two independent weather calculators. Not yet compare
+ d with the game itself.\nDetails: https://radmagelabs.com/ffxiv/#zone=midd
+ le-la-noscea
+URL:https://radmagelabs.com/ffxiv/#zone=middle-la-noscea
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:FFXIV: Middle La Noscea turns to Fair Skies in 10 minutes
+TRIGGER:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR

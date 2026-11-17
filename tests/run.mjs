@@ -4,7 +4,7 @@
 // independent weather implementations (tests/fixtures/weather-vectors.json) and a second
 // extraction of the game tables from XIVAPI (tests/fixtures/xivapi-weather.json).
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -702,6 +702,18 @@ test('target settings are validated', async () => {
   assert.throws(() => checkTarget('x', { urls: ['https://a.b/ffxiv/'], mount: 'other' }), /mount/);
   assert.doesNotThrow(() => checkTarget('x', { urls: ['https://a.b/ffxiv/', 'https://c.d/x/ffxiv/'], mount: 'ffxiv' }));
 });
+
+// ---- calendar files (js/ics.js) ----
+// Its own test file, which also runs alone, run here once per time zone: a file is written in UTC only, so
+// every zone must give the same bytes (tests/ics.mjs compares a golden file).
+for (const tz of ['America/Chicago', 'Europe/London', 'Asia/Kolkata', 'Australia/Lord_Howe', 'UTC']) {
+  test(`js/ics.js: tests/ics.mjs passes in ${tz}`, () => {
+    const r = spawnSync(process.execPath, [join(ROOT, 'tests', 'ics.mjs')], { env: { ...process.env, TZ: tz }, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const m = /(\d+) passed, 0 failed/.exec(r.stdout);
+    assert.ok(m && Number(m[1]) > 0, r.stdout);
+  });
+}
 
 // ---- generated data is current ----
 test('js/weather-data.js is exactly what the generator builds from the cached game tables', () => {
