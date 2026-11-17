@@ -1,4 +1,4 @@
-# FFXIV Timer v0.9.1
+# FFXIV Timer v0.10.0
 
 Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. It is a static
 page: no account, no backend and nothing to install. Your settings stay in your browser; the only

@@ -3,7 +3,7 @@
 Every version of FFXIV Timer and what changed in it, newest first. Dates are the day I released
 each one.
 
-## Unreleased
+## v0.10.0 (2026-11-16)
 
 Added
 - Resets: a panel with the daily reset, the Mini Cactpot, Grand Company missions, leve
