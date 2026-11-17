@@ -161,6 +161,13 @@ async function makePage(conn, sessionId) {
     async offline(on) {
       await send('Network.emulateNetworkConditions', { offline: Boolean(on), latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
     },
+    // One key pressed and released, as a keyboard sends it: 'Tab', 'Enter', ' ' (Space) or 'Escape'.
+    async key(key) {
+      const [keyCode, code, text] = { Tab: [9, 'Tab'], Enter: [13, 'Enter', '\r'], ' ': [32, 'Space', ' '], Escape: [27, 'Escape'] }[key];
+      const base = { key, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode };
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', ...base, ...(text ? { text } : {}) });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
+    },
     async viewport(width, height, mobile = false) {
       await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: mobile ? 2 : 1, mobile });
     },

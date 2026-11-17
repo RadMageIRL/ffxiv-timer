@@ -915,12 +915,30 @@
     renderNews();
   }
 
+  // ---- light and dark ----
+  // Dark is the default and is not saved by itself: the theme key is written only when the visitor
+  // presses the theme button. The boot script in index.html applies a saved "light" before the first
+  // paint; this keeps the button, the browser's color scheme and theme-color in step, also when another
+  // open tab changes the theme.
+  const savedTheme = () => (Store.read('theme', null) === 'light' ? 'light' : 'dark');
+  function applyTheme(theme) {
+    const root = document.documentElement, light = theme === 'light';
+    if (light) root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
+    document.querySelector('meta[name="color-scheme"]').setAttribute('content', light ? 'light' : 'dark');
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', getComputedStyle(root).getPropertyValue('--bg').trim());
+    const button = $('theme-toggle');
+    button.setAttribute('aria-pressed', String(light));
+    button.title = light ? 'Switch to the dark theme' : 'Switch to the light theme';
+  }
+
   // ---- about ----
   function renderAbout() {
     const src = DATA.source;
     const zonesByExpansion = EXPANSIONS.map((x) => `${x}: ${ZONES.filter((z) => z.expansion === x).map((z) => z.name).join(', ')}`);
     $('about-body').replaceChildren(
       el('p', null, 'Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. Free, no account and nothing to install. Your stars and settings stay in this browser; the only request beyond the page itself is Latest news, and only once you open it.'),
+      el('h3', null, 'Light and dark'),
+      el('p', null, 'The moon and sun button at the top switches between the dark theme, the default, and a light one. Your choice is saved in this browser once you make it; until then nothing is saved.'),
       el('h3', null, 'How the forecast works'),
       el('p', null, 'Weather in FFXIV is not random per player. Every eight bells (00:00, 08:00 and 16:00 ET, which is every 23 minutes 20 seconds) the game turns the current time into a number from 0 to 99 and looks it up in the zone\'s weather table. FFXIV Timer runs the same calculation on the same tables, so a forecast is the weather the game will choose, not an estimate.'),
       el('p', null, 'One bell (Eorzean hour) is 2 minutes 55 seconds and one sun (day) is 70 minutes. The game shows only the time; the date shown here counts suns and moons from the same starting point the weather uses.'),
@@ -982,6 +1000,7 @@
 
   // ---- wiring ----
   function init() {
+    applyTheme(savedTheme());
     readHash();
     const region = $('region-filter');
     region.append(...EXPANSIONS.map((x) => el('optgroup', { label: x },
@@ -1119,6 +1138,12 @@
       lastPeriod = -1; tick(); renderNews();
     });
     for (const b of document.querySelectorAll('[data-jump]')) b.addEventListener('click', () => jump(b.dataset.jump));
+    $('theme-toggle').addEventListener('click', () => {
+      const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      Store.write('theme', next);
+      applyTheme(next);
+    });
+    window.addEventListener('storage', (e) => { if (e.key === `${Store.PREFIX}theme`) applyTheme(savedTheme()); });
     const about = $('about');
     $('about-open').addEventListener('click', () => about.showModal());
     about.addEventListener('click', (e) => { if (e.target === about) about.close(); });

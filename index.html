@@ -17,6 +17,18 @@
   <meta name="description" content="FFXIV weather forecasts and transitions for 70 zones, Eorzea time, daily and weekly resets, and timers for all 189 unspoiled and legendary gathering nodes, with calendar export.">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0b101d">
+  <script>
+    // The light theme, if the visitor chose it with the theme button (nothing is saved until then):
+    // applied before the stylesheet loads, so the page never shows dark first. Dark is the default.
+    (function () {
+      try {
+        if (JSON.parse(localStorage.getItem('ffxiv-timer:v1:theme')) !== 'light') return;
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.querySelector('meta[name="color-scheme"]').setAttribute('content', 'light');
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#eef1f7');
+      } catch (e) { /* storage blocked or unreadable: dark */ }
+    })();
+  </script>
   <!-- deploy:meta -->
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/style.css">
@@ -42,6 +54,11 @@
     <div class="top-actions">
       <button type="button" id="hour-cycle" class="ghost" aria-label="Local time format">24h</button>
       <button type="button" id="about-open" class="ghost">About</button>
+    </div>
+    <!-- Light or dark. Beside About on wider screens; on a phone at the end of the section links, so the
+         first row stays as it was. -->
+    <div class="view-tools">
+      <button type="button" id="theme-toggle" class="ghost theme-toggle" aria-pressed="false" title="Switch to the light theme"><span class="visually-hidden">Light theme</span><svg class="theme-i theme-moon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-moon"/></svg><svg class="theme-i theme-sun" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sun"/></svg></button>
     </div>
   </header>
 
@@ -306,6 +323,8 @@
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <symbol id="i-crystal" viewBox="0 0 32 32"><path d="M16 2 25 13 16 30 7 13Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 13h18M16 2v28" stroke="currentColor" stroke-width="1.2" opacity=".55"/></symbol>
     <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.6A7.9 7.9 0 0 1 9.4 4.5a7.9 7.9 0 1 0 10.1 10.1Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
     <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4M12 12.4v5.2M9.4 15h5.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
   </svg>
 

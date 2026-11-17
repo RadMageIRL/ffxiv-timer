@@ -10,6 +10,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 import { compareWeather } from '../tools/lib/compare-weather.mjs';
 import { build, localRefs, TARGETS } from '../tools/build.mjs';
 
@@ -921,8 +922,8 @@ test('price function: tests/prices-function.mjs passes', () => {
 // ---- saved settings ----
 // Every key the page may keep in localStorage, under ffxiv-timer:v1:. Existing keys are never renamed or
 // reshaped (an older page must still read what a newer one saved); a new key is added here on purpose.
-const STORAGE_KEYS = ['favorites', 'finder', 'forecastZone', 'gathering', 'hour12', 'news', 'newsOpen', 'nodeFavorites', 'openGroups', 'remindLead', 'resets'];
-const STORAGE_RESERVED = ['market', 'theme']; // v0.11.0: market scope, favorites, sort and filters; the light/dark choice
+const STORAGE_KEYS = ['favorites', 'finder', 'forecastZone', 'gathering', 'hour12', 'news', 'newsOpen', 'nodeFavorites', 'openGroups', 'remindLead', 'resets', 'theme'];
+const STORAGE_RESERVED = ['market']; // v0.11.0: market scope, favorites, sort and filters
 test('storage: the page keeps only the pinned keys, every one through store.js with a literal name', () => {
   const used = new Set();
   for (const f of readdirSync(join(ROOT, 'js'))) {
@@ -935,6 +936,147 @@ test('storage: the page keeps only the pinned keys, every one through store.js w
   for (const k of STORAGE_KEYS) assert.ok(used.has(k), `${k} is no longer used: keep reading it, or say why here`);
   for (const k of used) assert.ok(STORAGE_KEYS.includes(k) || STORAGE_RESERVED.includes(k), `${k} is not an allowed key`);
   assert.match(readFileSync(join(ROOT, 'js', 'store.js'), 'utf8'), /const PREFIX = 'ffxiv-timer:v1:';/);
+  // The one exception: the theme boot script in index.html reads the theme key before store.js has
+  // loaded. It reads that key only and writes nothing.
+  const inline = [...readFileSync(join(ROOT, 'index.html'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  const reads = inline.flatMap((s) => [...s.matchAll(/localStorage\.(\w+)\(([^)]*)\)/g)].map((m) => `${m[1]}(${m[2]})`));
+  assert.deepEqual(reads, ["getItem('ffxiv-timer:v1:theme')"]);
+  for (const s of inline) assert.doesNotMatch(s.replace(/localStorage\.getItem\('ffxiv-timer:v1:theme'\)/, ''), /localStorage|sessionStorage|indexedDB|document\.cookie/);
+});
+
+// ---- light and dark (v0.11.0) ----
+// The theme tokens, read from the stylesheet: dark in :root, light overriding them under
+// :root[data-theme="light"].
+function themeTokens() {
+  const css = readFileSync(join(ROOT, 'css', 'style.css'), 'utf8');
+  const block = (sel) => {
+    const at = css.indexOf(`${sel} {`);
+    assert.ok(at >= 0, `no ${sel} block`);
+    return Object.fromEntries([...css.slice(at, css.indexOf('}', at)).matchAll(/(--[\w-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+  };
+  const dark = block(':root'), lightOnly = block(':root[data-theme="light"]');
+  return { css, dark, lightOnly, light: { ...dark, ...lightOnly } };
+}
+const isColor = (v) => /^(#[0-9a-f]{6}|rgba\([^)]*\))$/i.test(v);
+
+test('theme: every color in the stylesheet is a token; the light theme gives each color token a value of its own and adds no other', () => {
+  const { css, dark, lightOnly } = themeTokens();
+  const outside = css.split('\n').filter((l) => /#[0-9a-f]{3,8}\b|rgba?\(/i.test(l) && !/^\s*--[\w-]+:/.test(l));
+  // ::backdrop sits outside the page's tree, and older browsers give it no custom properties: its two
+  // colors are written out (the dark one as the fallback of var(--backdrop)).
+  assert.deepEqual(outside.map((l) => l.trim()), [
+    'dialog::backdrop { background: var(--backdrop, rgba(4, 7, 14, .7)); }',
+    ':root[data-theme="light"] dialog::backdrop { background: rgba(20, 28, 45, .45); }',
+  ]);
+  assert.equal(dark['--backdrop'], 'rgba(4, 7, 14, .7)');
+  assert.equal(lightOnly['--backdrop'], 'rgba(20, 28, 45, .45)');
+  for (const k of Object.keys(lightOnly)) assert.ok(k in dark, `${k} is not a dark token`);
+  const colors = Object.keys(dark).filter((k) => isColor(dark[k]));
+  assert.ok(colors.length >= 50, `${colors.length} color tokens`);
+  for (const k of colors) assert.ok(k in lightOnly && lightOnly[k] !== dark[k], `${k} has no light value`);
+});
+
+test('theme: the dark colors are exactly v0.10.0\'s (the default look must not change)', () => {
+  // The 27 color tokens v0.10.0 had, and the 25 colors it wrote out in rules, now tokens with the same values.
+  // The page itself was compared pixel by pixel with v0.10.0 (local/release-checks/theme-shots.mjs).
+  const V0100 = {
+    '--bg': '#0b101d', '--bg-2': '#0f1628', '--panel': '#131b2e', '--panel-2': '#18223a', '--line': '#24304b', '--line-2': '#2f3d5e',
+    '--text': '#e9edf6', '--muted': '#95a1ba', '--accent': '#e6c46e', '--accent-2': '#f3dc9b', '--focus': '#8fb6ff', '--warn': '#f0c88a',
+    '--warn-line': '#6d5531', '--night': '#1b2440', '--day': '#3a3418', '--wx-clear': '#f5c451', '--wx-fair': '#f1d58f', '--wx-clouds': '#a9b5c7',
+    '--wx-fog': '#c0c8d3', '--wx-wind': '#7fd6ca', '--wx-rain': '#78b0ff', '--wx-thunder': '#b896ff', '--wx-snow': '#d4ebff', '--wx-dust': '#dcab73',
+    '--wx-heat': '#ff9068', '--wx-umbral': '#d08cff', '--wx-other': '#c3c9d6',
+    '--glow-gold': 'rgba(230, 196, 110, .07)', '--glow-blue': 'rgba(120, 150, 255, .07)', '--topbar-bg': 'rgba(11, 16, 29, .86)', '--placeholder': '#6f7b94',
+    '--gold-wash': 'rgba(230, 196, 110, .06)', '--gold-tint': 'rgba(230, 196, 110, .1)', '--pressed-wash': 'rgba(230, 196, 110, .14)',
+    '--pressed-wash-hover': 'rgba(230, 196, 110, .24)', '--now-ring': 'rgba(230, 196, 110, .25)', '--teal-wash': 'rgba(127, 214, 202, .07)',
+    '--teal-wash-2': 'rgba(127, 214, 202, .08)', '--warn-wash': 'rgba(240, 200, 138, .1)', '--day-mid': '#4a4220', '--day-text': '#ffe39a',
+    '--day-line': '#6c5a24', '--day-wash': 'rgba(230, 196, 110, .12)', '--night-text': '#b9c8ff', '--night-line': '#34437a',
+    '--night-wash': 'rgba(120, 150, 255, .12)', '--legendary-text': '#f3dc9b', '--legendary-line': '#6c5a24', '--unspoiled-text': '#9fe3d9',
+    '--unspoiled-line': '#2c5e57', '--shadow': 'rgba(0, 0, 0, .45)', '--backdrop': 'rgba(4, 7, 14, .7)',
+  };
+  const { dark } = themeTokens();
+  assert.deepEqual(Object.fromEntries(Object.keys(dark).filter((k) => isColor(dark[k])).map((k) => [k, dark[k]])), V0100);
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  assert.match(html, /<meta name="color-scheme" content="dark">/);
+  assert.ok(html.includes(`<meta name="theme-color" content="${dark['--bg']}">`), 'theme-color is the dark page color');
+});
+
+test('theme: contrast in both themes: text 4.5:1 on every surface it sits on, icons, weather colors and focus 3:1', () => {
+  const parse = (c) => {
+    let m = /^#([0-9a-f]{6})$/i.exec(c);
+    if (m) { const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255, 1]; }
+    m = /^rgba\(([\d.]+),\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\)$/.exec(c);
+    assert.ok(m, `not a color: ${c}`);
+    return [+m[1], +m[2], +m[3], +m[4]];
+  };
+  const over = (fg, bg) => [0, 1, 2].map((i) => fg[i] * fg[3] + bg[i] * (1 - fg[3])).concat(1);
+  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const { dark, light } = themeTokens();
+  const below = {};
+  for (const [name, t] of [['dark', dark], ['light', light]]) {
+    const c = (k) => parse(t[k]);
+    const panel = c('--panel'), bg2 = c('--bg-2');
+    const pairs = [];
+    for (const s of ['--bg', '--bg-2', '--panel', '--panel-2']) {
+      for (const f of ['--text', '--muted', '--accent-2']) pairs.push([`${f} on ${s}`, c(f), c(s), 4.5]);
+      pairs.push([`--focus on ${s}`, c('--focus'), c(s), 3]);
+    }
+    pairs.push(
+      ['--accent on --panel (ET label, starred)', c('--accent'), panel, 4.5],
+      ['--warn on --panel (time unverified)', c('--warn'), panel, 4.5],
+      ['--warn on --warn-wash (maintenance)', c('--warn'), over(c('--warn-wash'), panel), 4.5],
+      ['--placeholder on --bg-2', c('--placeholder'), bg2, 4.5],
+      ['--bg on --accent (Up now badge)', c('--bg'), c('--accent'), 4.5],
+      ['--day-text on --day-wash', c('--day-text'), over(c('--day-wash'), panel), 4.5],
+      ['--night-text on --night-wash', c('--night-text'), over(c('--night-wash'), panel), 4.5],
+      ['--legendary-text on --gold-tint', c('--legendary-text'), over(c('--gold-tint'), panel), 4.5],
+      ['--unspoiled-text on --teal-wash-2', c('--unspoiled-text'), over(c('--teal-wash-2'), panel), 4.5],
+      ['--unspoiled-text on --panel (Upcoming)', c('--unspoiled-text'), panel, 4.5],
+      ['--accent-2 on --pressed-wash (pressed, on --bg-2)', c('--accent-2'), over(c('--pressed-wash'), bg2), 4.5],
+      ['--accent-2 on --pressed-wash (Download, on --panel)', c('--accent-2'), over(c('--pressed-wash'), panel), 4.5],
+      ['--text on --gold-wash (starred rows)', c('--text'), over(c('--gold-wash'), panel), 4.5],
+      ['--muted on --gold-wash', c('--muted'), over(c('--gold-wash'), panel), 4.5],
+      ['--muted on --teal-wash (nodes up now)', c('--muted'), over(c('--teal-wash'), panel), 4.5],
+    );
+    // Weather chips: the icon in its color on the panel and on the chip (its color at 14 %), the name in --text on the chip.
+    for (const k of Object.keys(t).filter((x) => x.startsWith('--wx-'))) {
+      const chip = over([...c(k).slice(0, 3), 0.14], panel);
+      pairs.push([`${k} icon on --panel`, c(k), panel, 3], [`${k} icon on its chip`, c(k), chip, 3], [`--text on the ${k} chip`, c('--text'), chip, 4.5]);
+    }
+    assert.ok(pairs.length >= 60, `${name}: ${pairs.length} pairs`);
+    for (const [label, fg, bg, min] of pairs) { const r = ratio(fg, bg); if (r < min) below[`${name}: ${label}`] = Math.round(r * 100) / 100; }
+  }
+  // Known and unchanged since v0.10.0: the dark search placeholder (changing it would change the dark look).
+  assert.deepEqual(below, { 'dark: --placeholder on --bg-2': 4.23 });
+});
+
+test('theme boot (index.html): a saved "light" applies before the stylesheet; anything else, or blocked storage, stays dark', () => {
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  const head = html.slice(0, html.indexOf('</head>'));
+  const boot = [...head.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).find((s) => s.includes('data-theme'));
+  assert.ok(boot, 'a theme boot script in the head');
+  assert.ok(head.indexOf(boot) < head.indexOf('<link rel="stylesheet"'), 'before the stylesheet');
+  assert.ok(head.indexOf('<meta name="theme-color"') < head.indexOf(boot), 'after the metas it changes');
+  const run = (stored, blocked = false) => {
+    const attrs = {}, metas = { 'color-scheme': 'dark', 'theme-color': '#0b101d' }, asked = [];
+    vm.runInNewContext(boot, {
+      localStorage: { getItem: (k) => { asked.push(k); if (blocked) throw new Error('blocked'); return stored; } },
+      document: {
+        documentElement: { setAttribute: (k, v) => { attrs[k] = v; } },
+        querySelector: (sel) => ({ setAttribute: (k, v) => { assert.equal(k, 'content'); metas[/name="([^"]+)"/.exec(sel)[1]] = v; } }),
+      },
+    });
+    return { attrs, metas, asked };
+  };
+  const light = run('"light"');
+  assert.deepEqual(light.attrs, { 'data-theme': 'light' });
+  assert.deepEqual(light.metas, { 'color-scheme': 'light', 'theme-color': themeTokens().light['--bg'] });
+  assert.deepEqual(light.asked, ['ffxiv-timer:v1:theme']);
+  for (const stored of [null, '"dark"', 'light', '"LIGHT"', '" light"', '1', 'true', '{"theme":"light"}', '["light"]', '', '{']) {
+    const r = run(stored);
+    assert.deepEqual([r.attrs, r.metas], [{}, { 'color-scheme': 'dark', 'theme-color': '#0b101d' }], `stored ${stored}`);
+  }
+  assert.deepEqual(run('"light"', true).attrs, {}, 'storage blocked: dark, and no error');
 });
 
 // ---- generated data is current ----

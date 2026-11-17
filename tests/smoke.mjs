@@ -663,6 +663,126 @@ try {
     if (shots) await page.screenshot(join(shots, 'about.png'));
   });
 
+  // ---- light and dark (v0.11.0) ----
+  const THEME_KEY = `${PREFIX}theme`;
+  const themeState = (page) => page.eval(`({
+    attr: document.documentElement.getAttribute('data-theme'), pressed: document.getElementById('theme-toggle').getAttribute('aria-pressed'),
+    title: document.getElementById('theme-toggle').title, bg: getComputedStyle(document.body).backgroundColor,
+    scheme: document.querySelector('meta[name="color-scheme"]').content, color: document.querySelector('meta[name="theme-color"]').content,
+    saved: localStorage.getItem(${JSON.stringify(THEME_KEY)}) })`);
+  const DARK = { attr: null, pressed: 'false', title: 'Switch to the light theme', bg: 'rgb(11, 16, 29)', scheme: 'dark', color: '#0b101d' };
+  const LIGHT = { attr: 'light', pressed: 'true', title: 'Switch to the dark theme', bg: 'rgb(238, 241, 247)', scheme: 'light', color: '#eef1f7' };
+
+  await test('light and dark: dark by default with nothing saved; the pill switches and saves only then; a saved light is in place before the stylesheet', async () => {
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    // Records the theme at the moment the stylesheet element appears, on every load of this page.
+    await page.beforeLoad("new MutationObserver((list, obs) => { for (const r of list) for (const n of r.addedNodes) if (n.nodeName === 'LINK' && n.rel === 'stylesheet') { window.__themeAtCss = document.documentElement.getAttribute('data-theme'); obs.disconnect(); } }).observe(document, { childList: true, subtree: true });");
+    const url = `${servers.proxy.origin}/ffxiv/#zone=eureka-pagos`;
+    await page.goto(url);
+    await page.eval('localStorage.clear()');
+    // Settings a v0.10.0 visitor has saved, which the theme must leave alone.
+    const older = { favorites: '["kozamauka"]', hour12: 'true', resets: '{"dataCenter":"aether","starred":["weekly"],"remindLead":15}', gathering: '{"view":"all"}', newsOpen: 'false' };
+    await page.eval(`(() => { const o = ${JSON.stringify(older)}; for (const k in o) localStorage.setItem(${JSON.stringify(PREFIX)} + k, o[k]); })()`);
+    await page.reload();
+    await page.waitFor(READY);
+    assert.deepEqual(await themeState(page), { ...DARK, saved: null }, 'a first visit: dark, nothing saved');
+    assert.equal(await page.eval('window.__themeAtCss'), null);
+    const ownKeys = () => page.eval(`Object.keys(localStorage).filter(k => k.startsWith(${JSON.stringify(PREFIX)})).sort()`);
+    const keysBefore = await ownKeys();
+    assert.equal(await page.eval("document.getElementById('theme-toggle').getAttribute('aria-label') || document.getElementById('theme-toggle').textContent.trim()"), 'Light theme', 'its name');
+    await page.eval("document.getElementById('theme-toggle').click()");
+    assert.deepEqual(await themeState(page), { ...LIGHT, saved: '"light"' });
+    await page.reload();
+    await page.waitFor(READY);
+    assert.equal(await page.eval('window.__themeAtCss'), 'light', 'light before the stylesheet arrives: no dark first');
+    assert.deepEqual(await themeState(page), { ...LIGHT, saved: '"light"' });
+    await page.eval("document.getElementById('theme-toggle').click()");
+    assert.deepEqual(await themeState(page), { ...DARK, saved: '"dark"' }, 'back to dark, and that choice is saved');
+    await page.reload();
+    await page.waitFor(READY);
+    assert.equal(await page.eval('window.__themeAtCss'), null);
+    assert.deepEqual(await themeState(page), { ...DARK, saved: '"dark"' });
+    // Anything but the exact saved value "light" is dark, with no error.
+    for (const bad of ['light', '"LIGHT"', '1', '{"theme":"light"}', '']) {
+      await page.eval(`localStorage.setItem(${JSON.stringify(THEME_KEY)}, ${JSON.stringify(bad)})`);
+      await page.reload();
+      await page.waitFor(READY);
+      assert.deepEqual({ ...(await themeState(page)), saved: undefined }, { ...DARK, saved: undefined }, `saved ${JSON.stringify(bad)}`);
+    }
+    // Another open tab follows a change.
+    await page.eval(`localStorage.setItem(${JSON.stringify(THEME_KEY)}, '"dark"')`);
+    await page.reload();
+    await page.waitFor(READY);
+    const other = await chrome.newPage();
+    await other.goto(url);
+    await other.waitFor(READY);
+    await page.eval("document.getElementById('theme-toggle').click()");
+    await other.waitFor("document.documentElement.getAttribute('data-theme') === 'light' && document.getElementById('theme-toggle').getAttribute('aria-pressed') === 'true'");
+    // The other settings are exactly as they were.
+    assert.deepEqual(await page.eval(`Object.fromEntries(Object.keys(${JSON.stringify(older)}).map(k => [k, localStorage.getItem(${JSON.stringify(PREFIX)} + k)]))`), older);
+    assert.deepEqual(await ownKeys(), [...keysBefore, THEME_KEY].sort(), 'the theme key is the only one added');
+    await page.eval('localStorage.clear()');
+    assert.deepEqual([page.problems, other.problems], [[], []]);
+  });
+
+  await test('light and dark: by keyboard, the pill takes focus with a visible ring, and Enter and Space switch it', async () => {
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    await page.goto(`${servers.proxy.origin}/ffxiv/`);
+    await page.eval('localStorage.clear()');
+    await page.reload();
+    await page.waitFor(READY);
+    for (let i = 0; i < 30 && (await page.eval('document.activeElement.id')) !== 'theme-toggle'; i++) await page.key('Tab');
+    assert.equal(await page.eval('document.activeElement.id'), 'theme-toggle', 'reachable with Tab');
+    assert.ok(await page.eval("document.activeElement.matches(':focus-visible')"));
+    assert.equal(await page.eval('getComputedStyle(document.activeElement).outlineColor'), 'rgb(143, 182, 255)', 'the dark focus color');
+    await page.key('Enter');
+    assert.equal((await themeState(page)).attr, 'light');
+    assert.equal(await page.eval('getComputedStyle(document.activeElement).outlineColor'), 'rgb(36, 86, 201)', 'the light focus color');
+    await page.key(' ');
+    assert.equal((await themeState(page)).attr, null);
+    assert.equal(await page.eval('document.activeElement.id'), 'theme-toggle', 'focus stays on it');
+    await page.eval('localStorage.clear()');
+    assert.deepEqual(page.problems, []);
+  });
+
+  await test('phone widths (320, 360, 390 px) in both themes: no sideways scrolling; the first header row as before; the theme at the end of the section links', async () => {
+    for (const theme of ['dark', 'light']) {
+      for (const width of [320, 360, 390]) {
+        const page = await chrome.newPage();
+        await page.viewport(width, 844, true);
+        await page.beforeLoad(`try { localStorage.setItem(${JSON.stringify(THEME_KEY)}, ${JSON.stringify(JSON.stringify(theme))}); } catch (e) {}`);
+        await page.goto(`${servers.proxy.origin}/ffxiv/#zone=eureka-pagos&fz=eureka-pagos&prev=fog&to=heat-waves`);
+        await page.waitFor(READY);
+        const where = `${theme} ${width}`;
+        assert.equal(await page.eval("document.documentElement.getAttribute('data-theme')"), theme === 'light' ? 'light' : null, where);
+        assert.ok(await page.eval('document.documentElement.scrollWidth <= innerWidth'), `${where}: page scrolls sideways`);
+        const wide = await page.eval("[...document.querySelectorAll('body *')].filter(n => n.getBoundingClientRect().right > innerWidth + 1 && !(n.parentElement && n.parentElement.closest('.table-wrap, .jump'))).map(n => n.tagName + '.' + n.className).slice(0, 5)");
+        assert.deepEqual(wide, [], `${where}: elements past the right edge`);
+        const box = await page.eval("Object.fromEntries(['.brand', '.top-actions', '.jump', '.view-tools', '#theme-toggle'].map(s => { const r = document.querySelector(s).getBoundingClientRect(); return [s, { top: Math.round(r.top), bottom: Math.round(r.bottom), right: Math.round(r.right), width: Math.round(r.width) }]; }))");
+        assert.ok(box['.top-actions'].bottom <= box['.jump'].top, `${where}: 12h and About stay on the first row`);
+        assert.equal(box['.view-tools'].top, box['.jump'].top, `${where}: the theme on the section links' row`);
+        assert.ok(box['#theme-toggle'].right <= width, `${where}: in reach`);
+        if (shots && width === 390) await page.screenshot(join(shots, `phone-${theme}.png`), true);
+        assert.deepEqual(page.problems, [], where);
+        await page.eval('localStorage.clear()');
+      }
+    }
+    // The light theme on a wide screen, for the record.
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    await page.goto(`${servers.proxy.origin}/ffxiv/`);
+    await page.waitFor(READY);
+    if (shots) {
+      await page.eval(`localStorage.setItem(${JSON.stringify(THEME_KEY)}, '"light"')`);
+      await page.reload();
+      await page.waitFor(READY);
+      await page.screenshot(join(shots, 'desktop-light.png'), true);
+    }
+    await page.eval('localStorage.clear()');
+  });
+
   await test('Latest news: closed and silent until opened, then Lodestone headlines, remembered open or closed', async () => {
     const page = await chrome.newPage();
     await page.viewport(1440, 1000);
