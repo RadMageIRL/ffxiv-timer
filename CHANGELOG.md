@@ -36,6 +36,8 @@ Added
 Changed
 - Game data is from patch 7.58. No weather table or gathering node changed, and every zone and
   node was checked again against XIVAPI for 7.58.
+- Search results and link previews: the page title names the resets, and the description names
+  the daily and weekly resets and calendar export.
 
 ## v0.9.1 (2026-10-25)
 

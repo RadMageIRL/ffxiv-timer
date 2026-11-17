@@ -87,7 +87,7 @@ export function build(name, { outRoot = ROOT } = {}) {
   // Link previews and search results reuse the page's own description, so the two never drift.
   const description = (html.match(/<meta name="description" content="([^"&<]*)">/) || [])[1];
   if (!description) throw new Error('index.html needs a plain <meta name="description">');
-  const title = 'FFXIV Timer: Weather Forecasts, Timed Gathering Nodes & Eorzea Clock';
+  const title = 'FFXIV Timer: Weather Forecasts, Timed Gathering Nodes, Resets & Eorzea Clock';
   const image = 'https://radmagelabs.com/assets/og/ffxiv-timer.png';
   const app = {
     '@context': 'https://schema.org', '@type': 'WebApplication', name: 'FFXIV Timer', url: canonical, description,
