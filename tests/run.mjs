@@ -635,6 +635,26 @@ test('news: a round is ok, partial, unavailable (no feeds at this address) or fa
   assert.equal(N.roundOutcome([missing, missing], false), 'unavailable', 'GitHub Pages: no feeds there');
   assert.equal(N.roundOutcome([missing, missing], true), 'failed', 'radmagelabs.com passes them through, so a 404 there is a blip');
 });
+test('news: maintenance headlines are flagged for 7 days after the Lodestone posts them, newest first, each once', () => {
+  const feeds = { topics: N.parseFeed(feedFixture('lodestone-topics.xml')), news: N.parseFeed(feedFixture('lodestone-news.xml')) };
+  const newest = Date.UTC(2026, 9, 23, 10, 12, 33), oldest = Date.UTC(2026, 9, 22, 13, 30, 21);
+  const titles = (t) => N.maintenance(feeds, t).map((i) => i.title);
+  // The saved Notices and maintenance feed has three headlines in the Maintenance category (Oct. 22 and 23).
+  assert.deepEqual(titles(Date.UTC(2026, 9, 24)), ['Companion App Emergency Maintenance (Oct. 21): Follow-up 2', 'Forums Emergency Maintenance (Oct. 21): Follow-up',
+    'Config Data Sharing Function Emergency Maintenance (Oct. 21-22): Completed']);
+  assert.equal(N.MAINTENANCE_MS, 7 * DAY);
+  assert.equal(titles(oldest + 7 * DAY - 1).length, 3);
+  assert.equal(titles(oldest + 7 * DAY).length, 2, 'seven days after it is posted, a headline is no longer flagged');
+  assert.deepEqual(titles(newest + 7 * DAY), []);
+  assert.deepEqual(titles(newest - 2 * 3600000).length, 2, 'a headline dated more than an hour ahead of the clock is not flagged yet');
+  // Only the Lodestone's own Maintenance category counts, in any case; a title that mentions maintenance is not enough.
+  const at = Date.UTC(2026, 9, 24), item = (title, category) => ({ title, link: `${LINK}${title.length}`, dateMs: at - DAY, category });
+  assert.deepEqual(N.maintenance({ news: [item('Maintenance Mode Explained', 'Notices'), item('All Worlds Maintenance', 'MAINTENANCE'), item('x', '')] }, at).map((i) => i.title), ['All Worlds Maintenance']);
+  const dup = item('Same', 'Maintenance');
+  assert.equal(N.maintenance({ topics: [dup], news: [dup] }, at).length, 1, 'the same link in both feeds counts once');
+  for (const bad of [null, undefined, {}, { news: null }]) assert.deepEqual(N.maintenance(bad, at), []);
+  assert.equal(N.FLAG_FRESH_MS, DAY);
+});
 
 // ---- base path and build ----
 test('every page script parses (app.js is only exercised by the browser tests)', () => {

@@ -4,8 +4,9 @@
 // Pages, a file opened from disk) the panel links to the Lodestone instead. The last good
 // headlines are kept, so a failed fetch shows them and tries again soon instead of showing an
 // error. Only titles, links, dates and categories are used, always as plain text, and only links
-// back to the Lodestone are kept. Parsing and the retry rules are pure, so the Node tests can
-// check them.
+// back to the Lodestone are kept. Recent headlines in the Lodestone's Maintenance category are
+// flagged, from headlines already loaded or saved, so the flag adds no request. Parsing, the retry
+// rules and the flag are pure, so the Node tests can check them.
 (function (root) {
   'use strict';
 
@@ -88,6 +89,28 @@
     return 'failed';
   }
 
+  /** A maintenance headline is flagged for this long after the Lodestone posts it. */
+  const MAINTENANCE_MS = 7 * 86400000;
+  /** Saved headlines older than this are not used for the flag on the closed bar: they may be out of date. */
+  const FLAG_FRESH_MS = 24 * 3600000;
+  /**
+   * The headlines to flag as maintenance: the Lodestone's own "Maintenance" category, posted within
+   * MAINTENANCE_MS before nowMs, newest first, each link once. Nothing is read from the article: the
+   * Lodestone gives maintenance times only in its prose, so the flag shows the headline as written.
+   */
+  function maintenance(feeds, nowMs) {
+    const seen = new Set(), out = [];
+    for (const f of FEEDS) {
+      for (const i of (feeds && feeds[f.key]) || []) {
+        if (!/^maintenance$/i.test(i.category || '') || !Number.isFinite(i.dateMs) || seen.has(i.link)) continue;
+        if (i.dateMs > nowMs + 3600000 || nowMs - i.dateMs >= MAINTENANCE_MS) continue;
+        seen.add(i.link);
+        out.push(i);
+      }
+    }
+    return out.sort((a, b) => b.dateMs - a.dateMs);
+  }
+
   /** A cached copy is used as is while it is younger than REFRESH_MS. */
   const isFresh = (cache, nowMs) => Boolean(cache && Number.isFinite(cache.fetchedAt) && nowMs >= cache.fetchedAt && nowMs - cache.fetchedAt < REFRESH_MS);
 
@@ -105,7 +128,7 @@
     return FEEDS.some((f) => feeds[f.key].length) ? { fetchedAt: raw.fetchedAt, feeds } : null;
   }
 
-  const News = { FEEDS, HOST, LODESTONE, HOME, PER_FEED, REFRESH_MS, TIMEOUT_MS, RETRY_MS, QUIET_FAILURES, parseFeed, cleanLink, isFresh, sanitizeCache, retryDelay, roundOutcome };
+  const News = { FEEDS, HOST, LODESTONE, HOME, PER_FEED, REFRESH_MS, TIMEOUT_MS, RETRY_MS, QUIET_FAILURES, MAINTENANCE_MS, FLAG_FRESH_MS, parseFeed, cleanLink, isFresh, sanitizeCache, retryDelay, roundOutcome, maintenance };
   if (typeof module === 'object' && module.exports) module.exports = News;
   else root.FfxivNews = News;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

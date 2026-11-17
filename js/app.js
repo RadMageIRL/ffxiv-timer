@@ -849,6 +849,14 @@
         unavailable: ['Headlines load at ', el('a', { href: News.HOME }, 'radmagelabs.com/ffxiv/'), '. Here, ', lodestoneLink('read the news on the Lodestone'), '.'],
       }[view];
       $('news-note').replaceChildren(...note);
+      // The maintenance flag, from headlines this page already holds: loaded now, or saved here on an earlier
+      // visit (a closed bar asks for nothing). Saved headlines older than a day are not trusted for it.
+      const held = news.feeds ? { feeds: news.feeds, fetchedAt: news.fetchedAt } : News.sanitizeCache(Store.read('news', null));
+      const flagged = held && now - held.fetchedAt < News.FLAG_FRESH_MS ? News.maintenance(held.feeds, now) : [];
+      const flaggedLinks = new Set(flagged.map((i) => i.link)), flag = $('news-flag');
+      flag.hidden = !flagged.length;
+      flag.replaceChildren(...(flagged.length ? [el('span', { class: 'badge maint' }, 'Maintenance'), el('span', { class: 'news-flag-title' }, flagged[0].title),
+        flagged.length > 1 ? el('span', { class: 'muted news-flag-more' }, `and ${flagged.length - 1} more`) : null] : []));
       const cols = !news.feeds ? [] : News.FEEDS.map((f) => {
         const items = news.feeds[f.key];
         return el('section', { class: 'news-col', 'data-feed': f.key },
@@ -858,7 +866,7 @@
               : el('ul', { class: 'news-list' }, items.map((i) => el('li', null,
                 el('a', { href: i.link, target: '_blank', rel: 'noopener noreferrer' }, i.title),
                 el('span', { class: 'news-meta' },
-                  i.category ? el('span', { class: 'badge tag' }, i.category) : null,
+                  i.category ? el('span', { class: `badge tag${flaggedLinks.has(i.link) ? ' maint' : ''}` }, i.category) : null,
                   i.dateMs ? el('time', { datetime: new Date(i.dateMs).toISOString() }, fmt('day').format(i.dateMs)) : null)))));
       });
       $('news-cols').replaceChildren(...cols);
@@ -937,7 +945,7 @@
       el('p', null, 'Forecasts and node times have not yet been compared with what the game itself shows (a Skywatcher, the weather on the minimap, a node appearing). They are computed from the game’s data, not observed. If you see a difference, ',
         el('a', { href: 'https://github.com/RadMageIRL/ffxiv-timer/issues', rel: 'noopener' }, 'please report it'), '.'),
       el('h3', null, 'Latest news'),
-      el('p', null, 'The news bar starts closed and loads nothing until you open it. Opening it asks this site for the newest headlines from the official Lodestone (na.finalfantasyxiv.com); radmagelabs.com fetches them from the Lodestone, so your browser does not contact Square Enix. Only titles, dates and links are shown, and every link goes to the Lodestone. Headlines are refreshed every 15 minutes while the bar is open; if a refresh fails, the last ones stay up and it tries again shortly. At radmageirl.github.io the bar links to the Lodestone instead.'),
+      el('p', null, 'The news bar starts closed and loads nothing until you open it. Opening it asks this site for the newest headlines from the official Lodestone (na.finalfantasyxiv.com); radmagelabs.com fetches them from the Lodestone, so your browser does not contact Square Enix. Only titles, dates and links are shown, and every link goes to the Lodestone. Headlines are refreshed every 15 minutes while the bar is open; if a refresh fails, the last ones stay up and it tries again shortly. At radmageirl.github.io the bar links to the Lodestone instead. A headline the Lodestone files under Maintenance is flagged on the bar for 7 days after it is posted, even while the bar is closed, using headlines this browser already has (from the last day); the flag never asks for anything. Maintenance times are in the Lodestone articles, not in the headlines, so open the notice for the details.'),
       el('h3', null, 'Credits'),
       el('p', null, 'FINAL FANTASY XIV © SQUARE ENIX. Zone and weather names are game text, used under the FINAL FANTASY XIV Materials Usage Policy. FFXIV Timer is a free fan tool and is not affiliated with or endorsed by Square Enix. Icons are original.'),
       el('p', null, 'Code is MIT licensed: ', el('a', { href: 'https://github.com/RadMageIRL/ffxiv-timer', rel: 'noopener' }, 'github.com/RadMageIRL/ffxiv-timer'), '.'));
@@ -948,6 +956,7 @@
     renderZones(now);
     renderTimeline(now);
     renderResets(now);
+    renderNews(); // the maintenance flag ages out as time passes
     renderForecast(now);
     renderFinder(now);
     renderGathering(now);

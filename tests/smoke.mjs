@@ -752,6 +752,56 @@ try {
     assert.ok(page.problems.filter((p) => !p.startsWith('HTTP ')).every((p) => /^log: Failed to load resource: .*status of 503/.test(p)), JSON.stringify(page.problems));
     await page.eval("document.querySelector('#news summary').click()");
   });
+  await test('Latest news: a recent maintenance headline is flagged on the bar, open or closed, without asking for anything more', async () => {
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    const fetched = () => servers.proxy.requests.filter((r) => r.path.includes('/news/')).length;
+    const flag = "document.getElementById('news-flag')";
+    await page.startClockAt(Date.UTC(2026, 9, 24)); // the day after the saved feeds' maintenance notices
+    await page.goto(`${servers.proxy.origin}/ffxiv/`);
+    await page.eval('localStorage.clear()');
+    await page.reload();
+    await page.waitFor(READY);
+    assert.equal(await page.eval(`${flag}.hidden`), true, 'nothing saved, nothing flagged');
+    const start = fetched();
+    await page.eval("document.querySelector('#news summary').click()");
+    await page.waitFor("document.querySelectorAll('#news .news-list li').length === 10");
+    assert.equal(await page.eval(`${flag}.hidden`), false);
+    assert.equal(await page.eval(`${flag}.textContent`), 'MaintenanceCompanion App Emergency Maintenance (Oct. 21): Follow-up 2and 2 more');
+    assert.equal(await page.eval("document.querySelectorAll('#news [data-feed=\"news\"] .badge.tag.maint').length"), 3);
+    if (shots) await page.screenshot(join(shots, 'news-maintenance.png'));
+    // Closed, after a reload: the flag stays, from the headlines saved here, and nothing more is asked for.
+    await page.eval("document.querySelector('#news summary').click()");
+    await page.reload();
+    await page.waitFor(READY);
+    assert.equal(await page.eval("document.getElementById('news').open"), false);
+    assert.match(await page.eval(`${flag}.textContent`), /^MaintenanceCompanion App Emergency Maintenance/);
+    assert.equal(fetched(), start + 2, 'only the two feeds, once, when the bar was opened');
+    // Saved headlines more than a day old are not trusted for the flag.
+    await page.eval(`{ const k = '${PREFIX}news', c = JSON.parse(localStorage.getItem(k)); c.fetchedAt -= 25 * 3600000; localStorage.setItem(k, JSON.stringify(c)); }`);
+    await page.reload();
+    await page.waitFor(READY);
+    assert.equal(await page.eval(`${flag}.hidden`), true);
+    assert.equal(fetched(), start + 2);
+    // A week after they were posted, the same headlines are listed with their category but no flag or mark.
+    const later = await chrome.newPage();
+    await later.viewport(1440, 1000);
+    await later.startClockAt(Date.UTC(2026, 9, 31));
+    await later.goto(`${servers.proxy.origin}/ffxiv/`);
+    await later.waitFor(READY);
+    await later.eval("document.querySelector('#news summary').click()");
+    await later.waitFor("document.querySelectorAll('#news .news-list li').length === 10");
+    assert.equal(await later.eval(`${flag}.hidden`), true);
+    assert.equal(await later.eval("document.querySelectorAll('#news .badge.tag.maint').length"), 0, 'no mark on old maintenance headlines');
+    assert.equal(await later.eval("[...document.querySelectorAll('#news .badge.tag')].filter(b => b.textContent === 'Maintenance').length"), 3, 'their category is still shown');
+    await later.eval("document.querySelector('#news summary').click()");
+    assert.deepEqual(later.problems, []);
+    await page.viewport(390, 844, true);
+    assert.deepEqual(await page.eval("[...document.querySelectorAll('#news *')].filter(n => n.getBoundingClientRect().right > innerWidth + 1).map(n => n.tagName)"), []);
+    await page.eval('localStorage.clear()');
+    assert.deepEqual(page.problems, []);
+  });
+
 } finally {
   await chrome.close();
   await Promise.all(Object.values(servers).map((s) => s.close()));
