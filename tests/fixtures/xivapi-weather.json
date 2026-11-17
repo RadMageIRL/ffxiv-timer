@@ -1,4 +1,4 @@
-{"source":"v2.xivapi.com","version":"7.57x1","schema":"exdschema@2:rev:e773c41a90aed788cf4c1c48469fa85618ef01fb","zones":[
+{"source":"v2.xivapi.com","version":"7.58","schema":"exdschema@2:rev:e773c41a90aed788cf4c1c48469fa85618ef01fb","zones":[
   {"territory":128,"name":"Limsa Lominsa Upper Decks","weatherRate":14,"rates":[[3,20],[1,30],[2,30],[4,10],[7,10]],"names":{"1":"Clear Skies","2":"Fair Skies","3":"Clouds","4":"Fog","7":"Rain"}},
   {"territory":129,"name":"Limsa Lominsa Lower Decks","weatherRate":15,"rates":[[3,20],[1,30],[2,30],[4,10],[7,10]],"names":{"1":"Clear Skies","2":"Fair Skies","3":"Clouds","4":"Fog","7":"Rain"}},
   {"territory":134,"name":"Middle La Noscea","weatherRate":16,"rates":[[3,20],[1,30],[2,20],[5,10],[4,10],[7,10]],"names":{"1":"Clear Skies","2":"Fair Skies","3":"Clouds","4":"Fog","5":"Wind","7":"Rain"}},

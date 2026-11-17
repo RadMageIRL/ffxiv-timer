@@ -68,8 +68,8 @@ time; the date here counts suns (days) and moons (32 suns each) from that zero.
 
 ## Where the data comes from
 
-Weather tables and gathering nodes are generated from the game's own data tables for patch 7.57
-hotfix 1 (TerritoryType, WeatherRate, Weather, PlaceName, ExVersion, GatheringPoint,
+Weather tables and gathering nodes are generated from the game's own data tables for patch 7.58
+(TerritoryType, WeatherRate, Weather, PlaceName, ExVersion, GatheringPoint,
 GatheringPointBase, GatheringItem, GatheringRarePopTimeTable and related tables), read from a
 pinned commit of [xivapi/ffxiv-datamining](https://github.com/xivapi/ffxiv-datamining) with every
 file's SHA-256 checked. `NOTICE` lists every source. All calculations are deterministic: the same

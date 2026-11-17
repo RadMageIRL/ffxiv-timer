@@ -11,8 +11,8 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 export const DATASET = {
   repo: 'xivapi/ffxiv-datamining',
-  commit: '44948e4cda5846eab0baa9872122a888fcc4f1b1',
-  patch: '7.57h1',
+  commit: '52a72b38aa2f967cab36867f34cd9bee9debb88b',
+  patch: '7.58',
   language: 'en',
   sha256: {
     TerritoryType: '47adcb76ebe86ea87393a943c06bec18282c49771331a2365f829e057dc7f813',
@@ -28,7 +28,7 @@ export const DATASET = {
     GatheringType: 'fc35ee416853722b87e63ff162ce7ee229180719a577ac70cc96d0e28f6e3752',
     GatheringSubCategory: '11ca93382b5181cda56acfcea579117b0ca7f1465a29b39b044d1d7d2494d347',
     ExportedGatheringPoint: 'ff35bc2b956ada9938b5d634ad0aede762c1e0caa74d8c38c31e7428a5c34ed5',
-    Item: '67dc31b8c0fa410bb878bfda8b27ca92696703a220c7e45efd8fcacb789218c3',
+    Item: 'bea47a186c8d9533808d2436610c866a4dc22590455eca11973a289ffe470dd2',
     Map: '758afc0be55bcf020376fdbd8f135db435583b1840d477c3b3eb5651c34e396a',
     GatheringItemLevelConvertTable: '0636fe4df504c574f66757c5d74c9295471860f8e2a44e3f4f654332fc0cdc27',
   },

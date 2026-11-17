@@ -14,8 +14,8 @@ Game data in js/weather-data.js
   Policy (https://support.na.square-enix.com/rule.php?id=5382&tag=authc), which requires the
   notice above.
   Source: the CSV export of the game tables in xivapi/ffxiv-datamining,
-  https://github.com/xivapi/ffxiv-datamining, commit 44948e4cda5846eab0baa9872122a888fcc4f1b1
-  (patch 7.57 hotfix 1). That repository publishes no license of its own; only the tables named
+  https://github.com/xivapi/ffxiv-datamining, commit 52a72b38aa2f967cab36867f34cd9bee9debb88b
+  (patch 7.58). That repository publishes no license of its own; only the tables named
   in tools/lib/gamedata.mjs are read, and only the rows for supported zones and nodes are kept.
   Checked against XIVAPI (https://v2.xivapi.com), whose capture is in
   tests/fixtures/xivapi-weather.json.

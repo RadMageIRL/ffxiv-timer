@@ -235,7 +235,7 @@ test('unsupported places are named, carry no tables, and never overlap supported
 test('weather-data.js names its source commit and patch', () => {
   assert.equal(DATA.source.dataset, 'xivapi/ffxiv-datamining');
   assert.match(DATA.source.commit, /^[0-9a-f]{40}$/);
-  assert.equal(DATA.source.patch, '7.57h1');
+  assert.equal(DATA.source.patch, '7.58');
 });
 
 // ---- forecasts and transitions ----

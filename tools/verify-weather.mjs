@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { ROOT } from './lib/gamedata.mjs';
 import { compareWeather } from './lib/compare-weather.mjs';
 
-const XIVAPI_VERSION = '7.57x1'; // XIVAPI's name for game patch 7.57 hotfix 1
+const XIVAPI_VERSION = '7.58'; // XIVAPI's name for game patch 7.58
 const data = createRequire(import.meta.url)('../js/weather-data.js');
 
 async function getJson(url) {

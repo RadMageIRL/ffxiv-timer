@@ -356,8 +356,8 @@ test('a node entry names its items, kind, level, job, place, folklore tome and t
   assert.ok(d.includes('Items: Ilmenite (Lv 90 ★★); Prime Achondrite (Lv 90 ★★★, collectable).'), d);
   assert.ok(d.includes('Needs the Tome of Geological Folklore - The Sea of Stars.'), d);
   assert.ok(d.includes('5 minutes 50 seconds of real time'), 'two Eorzean hours');
-  assert.ok(d.includes(`Calculated by FFXIV Timer from the game's gathering tables (patch 7.57 hotfix 1), and checked against XIVAPI and the node tables on the FFXIV wiki. Not yet compared with the game itself.`), d);
-  assert.equal(GD.source.patch, '7.57h1', 'the patch named is the data\'s own');
+  assert.ok(d.includes(`Calculated by FFXIV Timer from the game's gathering tables (patch 7.58), and checked against XIVAPI and the node tables on the FFXIV wiki. Not yet compared with the game itself.`), d);
+  assert.equal(GD.source.patch, '7.58', 'the patch named is the data\'s own');
   assert.ok(d.endsWith('Details: https://radmagelabs.com/ffxiv/'));
 });
 

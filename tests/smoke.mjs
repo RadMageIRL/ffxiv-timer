@@ -76,7 +76,7 @@ try {
       const assets = site.server.requests.filter((r) => /\.(js|css|svg)$/.test(r.path));
       assert.ok(assets.length >= 8, `assets requested: ${assets.length}`);
       assert.match(await page.eval("document.getElementById('et-date').textContent"), /^\d+(st|nd|rd|th) Sun of the \d(st|nd|rd|th) (Astral|Umbral) Moon$/);
-      assert.equal(await page.eval("document.getElementById('data-patch').textContent"), '7.57h1');
+      assert.equal(await page.eval("document.getElementById('data-patch').textContent"), '7.58');
     });
 
     await test(`${site.name}: a shared link restores the forecast and transition search, also after reload`, async () => {

@@ -15,7 +15,7 @@ import { ROOT } from './lib/gamedata.mjs';
 import { WIKI_EXCEPTIONS, compareGatheringWiki, compareGatheringXivapi } from './lib/compare-gathering.mjs';
 import { parseWikiTables } from './lib/wiki-gathering.mjs';
 
-const XIVAPI = 'https://v2.xivapi.com/api', XIVAPI_VERSION = '7.57x1';
+const XIVAPI = 'https://v2.xivapi.com/api', XIVAPI_VERSION = '7.58';
 const WIKI = 'https://ffxiv.consolegameswiki.com/mediawiki';
 // Revisions read on 2026-10-23. Pages are only read at these revisions, so a later wiki edit
 // cannot change a result without this list changing.

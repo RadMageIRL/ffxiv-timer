@@ -16,10 +16,9 @@ DESCRIPTION:Legendary miner node in Mare Lamentorum\, Sinus Tormenti (29.6
  \, 22.4)\, up from 20:00 ET to 22:00 ET\, 5 minutes 50 seconds of real tim
  e.\nItems: Ilmenite (Lv 90 ★★)\; Prime Achondrite (Lv 90 ★★★\, c
  ollectable).\nNeeds the Tome of Geological Folklore - The Sea of Stars.\nC
- alculated by FFXIV Timer from the game's gathering tables (patch 7.57 hotf
- ix 1)\, and checked against XIVAPI and the node tables on the FFXIV wiki. 
- Not yet compared with the game itself.\nDetails: https://radmagelabs.com/f
- fxiv/
+ alculated by FFXIV Timer from the game's gathering tables (patch 7.58)\, a
+ nd checked against XIVAPI and the node tables on the FFXIV wiki. Not yet c
+ ompared with the game itself.\nDetails: https://radmagelabs.com/ffxiv/
 URL:https://radmagelabs.com/ffxiv/
 TRANSP:TRANSPARENT
 BEGIN:VALARM
@@ -39,10 +38,10 @@ LOCATION:Middle La Noscea\, La Noscea (FINAL FANTASY XIV)
 DESCRIPTION:The weather in Middle La Noscea changes from Clouds to Fair Ski
  es at 00:00 ET and stays Fair Skies until 08:00 ET\, 23 minutes 20 seconds
   of real time.\nCalculated by FFXIV Timer from the game's weather tables (
- patch 7.57 hotfix 1)\, the same way the game picks the weather\, and check
- ed against XIVAPI and two independent weather calculators. Not yet compare
- d with the game itself.\nDetails: https://radmagelabs.com/ffxiv/#zone=midd
- le-la-noscea
+ patch 7.58)\, the same way the game picks the weather\, and checked agains
+ t XIVAPI and two independent weather calculators. Not yet compared with th
+ e game itself.\nDetails: https://radmagelabs.com/ffxiv/#zone=middle-la-nos
+ cea
 URL:https://radmagelabs.com/ffxiv/#zone=middle-la-noscea
 TRANSP:TRANSPARENT
 BEGIN:VALARM
