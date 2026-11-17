@@ -155,6 +155,9 @@ a { color: var(--accent-2); }
 .tagline { color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: .04em; }
 .tagline a { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
 .tagline a:hover { color: var(--accent); text-decoration-style: solid; }
+/* A button that reads as a link (share, in the tagline). */
+.link-btn { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.link-btn:hover { color: var(--accent); text-decoration-style: solid; }
 .jump { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
 .jump::-webkit-scrollbar { display: none; }
 .jump button, .ghost {
@@ -165,10 +168,12 @@ a { color: var(--accent-2); }
 .top-actions { display: flex; gap: 4px; }
 .top-actions .ghost { border-color: var(--line); }
 .ghost.small { padding: 4px 10px; font-size: 13px; border-color: var(--line); }
-/* Light or dark. Beside About (4px apart, like the buttons before it) on wider screens; on a phone at
-   the end of the section links (see the narrow-screen rules). */
+/* Light or dark, and share on a phone. Beside About (4px apart, like the buttons before it) on wider
+   screens; on a phone at the end of the section links (see the narrow-screen rules). */
 .view-tools { display: flex; gap: 4px; margin-left: -12px; }
 .view-tools .ghost { border-color: var(--line); }
+.share-btn { display: none; }
+.share-btn svg { display: block; width: 1.5em; height: 1.5em; padding: .15em; fill: none; }
 /* The theme: one pill with a moon and a sun, the current theme's icon on a raised disc. Its height
    equals the other header buttons', so the header keeps its size. */
 .theme-toggle { display: inline-flex; align-items: center; gap: 2px; padding: 6px; }
@@ -499,7 +504,7 @@ input[type="search"]::placeholder { color: var(--placeholder); }
   box-shadow: 0 8px 30px var(--shadow);
 }
 .toast strong { grid-column: 1; }
-.toast span { grid-column: 1; color: var(--muted); font-size: 13px; }
+.toast span { grid-column: 1; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; } /* a shared link has no spaces */
 .toast button { grid-column: 2; grid-row: 1 / span 2; font-size: 18px; line-height: 1; }
 
 /* ---- footer and dialog ---- */
@@ -543,14 +548,16 @@ dialog .cal-done { min-height: 1.5em; font-size: 13px; color: var(--muted); }
 }
 @media (max-width: 640px) {
   body { font-size: 14px; }
-  /* Two rows as before: the brand with 12h and About, then the section links, now with the theme at
-     their end. The ::after item breaks the row; the 6px between the rows moved from the row gap
+  /* Two rows as before: the brand with 12h and About, then the section links, now with share and the
+     theme at their end. The ::after item breaks the row; the 6px between the rows moved from the row gap
      to the second row's margin, so the break itself adds no height. */
   .topbar { flex-wrap: wrap; gap: 0 10px; padding-top: 8px; padding-bottom: 8px; }
   .topbar::after { content: ""; order: 3; flex-basis: 100%; }
   .jump { order: 4; flex: 1 1 0; min-width: 0; margin: 6px 0 0 -8px; }
   .top-actions { margin-left: auto; }
   .view-tools { order: 5; margin: 6px 0 0; }
+  .share-btn { display: inline-flex; align-items: center; padding: 6px 8px; }
+  .tagline-share { display: none; }
   .panel { padding: 14px; }
   .clock { padding: 16px 16px 14px; }
   .news > summary { padding: 10px 14px; }

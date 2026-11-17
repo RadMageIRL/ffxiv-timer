@@ -403,11 +403,15 @@
       }
     }
   }
-  function notify(title, body) {
-    const toast = el('div', { class: 'toast', role: 'status' }, el('strong', null, title), el('span', null, body),
+  // A message in the corner of the page for 20 seconds, read out by screen readers.
+  function toast(title, body) {
+    const t = el('div', { class: 'toast', role: 'status' }, el('strong', null, title), el('span', null, body),
       el('button', { type: 'button', class: 'ghost small', 'aria-label': 'Dismiss', onclick: (e) => e.currentTarget.parentElement.remove() }, '×'));
-    $('toasts').append(toast);
-    setTimeout(() => toast.remove(), 20000);
+    $('toasts').append(t);
+    setTimeout(() => t.remove(), 20000);
+  }
+  function notify(title, body) {
+    toast(title, body);
     try {
       if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body, tag: title });
     } catch (e) { /* the toast is enough */ }
@@ -931,12 +935,39 @@
     button.title = light ? 'Switch to the dark theme' : 'Switch to the light theme';
   }
 
+  // ---- share ----
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* fall back below */ }
+    const area = el('textarea', { class: 'visually-hidden', readonly: true });
+    area.value = text;
+    (document.querySelector('dialog[open]') || document.body).append(area); // outside an open dialog it could not be selected
+    area.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    area.remove();
+    return ok;
+  }
+  // The canonical address plus this view's hash (Format.shareUrl), wherever the page was opened, and
+  // nothing of the visitor's. The device's share sheet where there is one; otherwise, or when it
+  // fails, the link is copied. Closing the share sheet does nothing.
+  async function sharePage() {
+    const url = Format.shareUrl(location.hash), data = { title: 'FFXIV Timer', url };
+    if (navigator.share && (!navigator.canShare || navigator.canShare(data))) {
+      try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    if (await copyText(url)) toast('Copied the link to FFXIV Timer', url);
+    else toast('Copying did not work here', `The link is ${url}`);
+  }
+
   // ---- about ----
   function renderAbout() {
     const src = DATA.source;
     const zonesByExpansion = EXPANSIONS.map((x) => `${x}: ${ZONES.filter((z) => z.expansion === x).map((z) => z.name).join(', ')}`);
     $('about-body').replaceChildren(
       el('p', null, 'Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. Free, no account and nothing to install. Your stars and settings stay in this browser; the only request beyond the page itself is Latest news, and only once you open it.'),
+      el('h3', null, 'Share'),
+      el('p', null, "Share gives out a link to radmagelabs.com/ffxiv/ with the part of this page's address after the # sign, so it opens on the forecast zone and transition search you have now. Nothing else goes with it: not your stars, your settings or anything about you, and the page itself sends nothing anywhere. Where your device has a share sheet it opens, and you choose where the link goes; otherwise the link is copied."),
+      el('p', null, el('button', { type: 'button', class: 'ghost small', 'data-share': true }, 'Share FFXIV Timer')),
       el('h3', null, 'Light and dark'),
       el('p', null, 'The moon and sun button at the top switches between the dark theme, the default, and a light one. Your choice is saved in this browser once you make it; until then nothing is saved.'),
       el('h3', null, 'How the forecast works'),
@@ -1144,6 +1175,15 @@
       applyTheme(next);
     });
     window.addEventListener('storage', (e) => { if (e.key === `${Store.PREFIX}theme`) applyTheme(savedTheme()); });
+    // Share, from the header or from About. About closes first: a toast behind a modal dialog is
+    // neither seen nor read.
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-share]');
+      if (!b) return;
+      const d = b.closest('dialog');
+      if (d) d.close();
+      sharePage();
+    });
     const about = $('about');
     $('about-open').addEventListener('click', () => about.showModal());
     about.addEventListener('click', (e) => { if (e.target === about) about.close(); });

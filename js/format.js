@@ -1,4 +1,4 @@
-// Display formatting that does not depend on the viewer's locale or time zone.
+// Display formatting that does not depend on the viewer's locale or time zone, and the link Share hands out.
 (function (root) {
   'use strict';
 
@@ -17,7 +17,16 @@
     return name.toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   }
 
-  const Format = { countdown, slug };
+  // The address everyone is given, wherever this copy was opened (radmagelabs.com, GitHub Pages, a
+  // local file). tools/build.mjs declares the same address as the page's canonical one.
+  const CANONICAL = 'https://radmagelabs.com/ffxiv/';
+  // The link Share hands out: the canonical address plus this view's hash exactly as the address bar
+  // has it (the forecast zone and transition search, or any deep link that is open), nothing else.
+  function shareUrl(hash) {
+    return CANONICAL + (typeof hash === 'string' && hash.length > 1 && hash[0] === '#' ? hash : '');
+  }
+
+  const Format = { countdown, slug, CANONICAL, shareUrl };
   if (typeof module === 'object' && module.exports) module.exports = Format;
   else root.FfxivFormat = Format;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -663,7 +663,7 @@ try {
     if (shots) await page.screenshot(join(shots, 'about.png'));
   });
 
-  // ---- light and dark (v0.11.0) ----
+  // ---- light and dark, and share (v0.11.0) ----
   const THEME_KEY = `${PREFIX}theme`;
   const themeState = (page) => page.eval(`({
     attr: document.documentElement.getAttribute('data-theme'), pressed: document.getElementById('theme-toggle').getAttribute('aria-pressed'),
@@ -747,7 +747,67 @@ try {
     assert.deepEqual(page.problems, []);
   });
 
-  await test('phone widths (320, 360, 390 px) in both themes: no sideways scrolling; the first header row as before; the theme at the end of the section links', async () => {
+  await test('Share: the canonical address plus the hash the page shows, from the header and About; the share sheet if there is one, else copied with a toast; nothing sent', async () => {
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    await page.goto(`${servers.proxy.origin}/ffxiv/#zone=eureka-pagos&fz=eureka-anemos&to=gales&bells=8`);
+    await page.waitFor(`${READY} && document.getElementById('finder-zone').value === 'eureka-anemos'`);
+    const hash = await page.eval('location.hash');
+    assert.equal(hash, '#zone=eureka-pagos&fz=eureka-anemos&to=gales&bells=8', 'the deep link as it came');
+    const want = `https://radmagelabs.com/ffxiv/${hash}`;
+    const before = servers.proxy.requests.length;
+    // A share sheet: it gets the title and the link, and nothing else happens.
+    await page.eval("window.__shared = []; window.__copied = []; navigator.share = (d) => { __shared.push(d); return Promise.resolve(); }; navigator.canShare = () => true; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (t) => { __copied.push(t); return Promise.resolve(); } } });");
+    await page.eval("document.querySelector('.tagline [data-share]').click()");
+    await page.waitFor('__shared.length === 1');
+    assert.deepEqual(await page.eval('__shared[0]'), { title: 'FFXIV Timer', url: want });
+    // Closing the sheet does nothing at all.
+    await page.eval("navigator.share = () => Promise.reject(new DOMException('closed', 'AbortError'))");
+    await page.eval("document.querySelector('.tagline [data-share]').click()");
+    await sleep(300);
+    assert.deepEqual(await page.eval("[__copied.length, document.querySelectorAll('#toasts .toast').length]"), [0, 0]);
+    // A sheet that fails, or none at all: the link is copied and a toast says so, with the link.
+    await page.eval("navigator.share = () => Promise.reject(new DOMException('no', 'NotAllowedError'))");
+    await page.eval("document.querySelector('.tagline [data-share]').click()");
+    await page.waitFor('__copied.length === 1');
+    await page.eval("Object.defineProperty(navigator, 'share', { configurable: true, value: undefined })");
+    // The page's hash changes with the forecast zone, and the link follows it.
+    await page.eval("const s = document.getElementById('forecast-zone'); s.value = 'kozamauka'; s.dispatchEvent(new Event('change'))");
+    const hash2 = await page.eval('location.hash');
+    assert.match(hash2, /^#zone=kozamauka&fz=eureka-anemos&to=gales&bells=8$/);
+    await page.eval("document.querySelector('.tagline [data-share]').click()");
+    await page.waitFor('__copied.length === 2');
+    assert.deepEqual(await page.eval('__copied'), [want, `https://radmagelabs.com/ffxiv/${hash2}`]);
+    const toasts = await page.eval("[...document.querySelectorAll('#toasts .toast')].map(t => [t.getAttribute('role'), t.querySelector('strong').textContent, t.querySelector('span').textContent])");
+    assert.deepEqual(toasts, [['status', 'Copied the link to FFXIV Timer', want], ['status', 'Copied the link to FFXIV Timer', `https://radmagelabs.com/ffxiv/${hash2}`]]);
+    // From About: About closes first, so the toast is seen.
+    await page.eval("document.querySelectorAll('#toasts .toast').forEach(t => t.remove())");
+    await page.eval("document.getElementById('about-open').click()");
+    await page.waitFor("document.getElementById('about').open");
+    assert.equal(await page.eval("document.querySelector('#about-body [data-share]').textContent"), 'Share FFXIV Timer');
+    await page.eval("document.querySelector('#about-body [data-share]').click()");
+    await page.waitFor('__copied.length === 3');
+    assert.equal(await page.eval("document.getElementById('about').open"), false);
+    assert.equal(await page.eval("document.querySelectorAll('#toasts .toast').length"), 1);
+    // Neither copying way works: the toast gives the link to copy by hand.
+    await page.eval("document.querySelectorAll('#toasts .toast').forEach(t => t.remove()); Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')) } }); document.execCommand = () => false;");
+    await page.eval("document.querySelector('.tagline [data-share]').click()");
+    await page.waitFor("document.querySelectorAll('#toasts .toast').length === 1");
+    assert.deepEqual(await page.eval("[document.querySelector('#toasts strong').textContent, document.querySelector('#toasts span').textContent]"), ['Copying did not work here', `The link is https://radmagelabs.com/ffxiv/${hash2}`]);
+    assert.deepEqual(servers.proxy.requests.slice(before), [], 'sharing asked this site for nothing');
+    assert.deepEqual(page.problems, []);
+    // Wherever the page was opened, the link is the canonical one.
+    const pagesSite = await chrome.newPage();
+    await pagesSite.goto(`${servers.github.origin}/ffxiv-timer/#zone=kozamauka`);
+    await pagesSite.waitFor(READY);
+    await pagesSite.eval("window.__shared = []; navigator.share = (d) => { __shared.push(d); return Promise.resolve(); };");
+    await pagesSite.eval("document.querySelector('.tagline [data-share]').click()");
+    await pagesSite.waitFor('__shared.length === 1');
+    assert.equal(await pagesSite.eval('__shared[0].url'), `https://radmagelabs.com/ffxiv/${await pagesSite.eval('location.hash')}`);
+    assert.match(await pagesSite.eval('__shared[0].url'), /^https:\/\/radmagelabs\.com\/ffxiv\/#zone=kozamauka&fz=/);
+  });
+
+  await test('phone widths (320, 360, 390 px) in both themes: no sideways scrolling; the first header row as before; share and theme at the end of the section links', async () => {
     for (const theme of ['dark', 'light']) {
       for (const width of [320, 360, 390]) {
         const page = await chrome.newPage();
@@ -760,20 +820,27 @@ try {
         assert.ok(await page.eval('document.documentElement.scrollWidth <= innerWidth'), `${where}: page scrolls sideways`);
         const wide = await page.eval("[...document.querySelectorAll('body *')].filter(n => n.getBoundingClientRect().right > innerWidth + 1 && !(n.parentElement && n.parentElement.closest('.table-wrap, .jump'))).map(n => n.tagName + '.' + n.className).slice(0, 5)");
         assert.deepEqual(wide, [], `${where}: elements past the right edge`);
-        const box = await page.eval("Object.fromEntries(['.brand', '.top-actions', '.jump', '.view-tools', '#theme-toggle'].map(s => { const r = document.querySelector(s).getBoundingClientRect(); return [s, { top: Math.round(r.top), bottom: Math.round(r.bottom), right: Math.round(r.right), width: Math.round(r.width) }]; }))");
+        const box = await page.eval("Object.fromEntries(['.brand', '.top-actions', '.jump', '.view-tools', '.share-btn', '#theme-toggle', '.tagline-share'].map(s => { const r = document.querySelector(s).getBoundingClientRect(); return [s, { top: Math.round(r.top), bottom: Math.round(r.bottom), right: Math.round(r.right), width: Math.round(r.width) }]; }))");
         assert.ok(box['.top-actions'].bottom <= box['.jump'].top, `${where}: 12h and About stay on the first row`);
-        assert.equal(box['.view-tools'].top, box['.jump'].top, `${where}: the theme on the section links' row`);
-        assert.ok(box['#theme-toggle'].right <= width, `${where}: in reach`);
+        assert.equal(box['.view-tools'].top, box['.jump'].top, `${where}: share and theme on the section links' row`);
+        assert.ok(box['#theme-toggle'].right <= width && box['.share-btn'].width > 0, `${where}: in reach`);
+        assert.equal(box['.tagline-share'].width, 0, `${where}: the tagline has no share on a phone`);
         if (shots && width === 390) await page.screenshot(join(shots, `phone-${theme}.png`), true);
         assert.deepEqual(page.problems, [], where);
+        // The phone's own share button shares the same link.
+        await page.eval("window.__shared = []; navigator.share = (d) => { __shared.push(d); return Promise.resolve(); };");
+        await page.eval("document.querySelector('.share-btn').click()");
+        await page.waitFor('__shared.length === 1');
+        assert.equal(await page.eval('__shared[0].url'), 'https://radmagelabs.com/ffxiv/#zone=eureka-pagos&fz=eureka-pagos&prev=fog&to=heat-waves');
         await page.eval('localStorage.clear()');
       }
     }
-    // The light theme on a wide screen, for the record.
+    // On a wide screen it is the other way round: share in the tagline, no separate button.
     const page = await chrome.newPage();
     await page.viewport(1440, 1000);
     await page.goto(`${servers.proxy.origin}/ffxiv/`);
     await page.waitFor(READY);
+    assert.deepEqual(await page.eval("[getComputedStyle(document.querySelector('.share-btn')).display, document.querySelector('.tagline-share').getBoundingClientRect().width > 0]"), ['none', true]);
     if (shots) {
       await page.eval(`localStorage.setItem(${JSON.stringify(THEME_KEY)}, '"light"')`);
       await page.reload();

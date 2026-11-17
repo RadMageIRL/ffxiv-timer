@@ -1079,6 +1079,20 @@ test('theme boot (index.html): a saved "light" applies before the stylesheet; an
   assert.deepEqual(run('"light"', true).attrs, {}, 'storage blocked: dark, and no error');
 });
 
+// ---- share (v0.11.0) ----
+test('share: the canonical address the build declares, plus the current hash exactly, and nothing else', () => {
+  assert.equal(F.CANONICAL, TARGETS.canonical);
+  assert.equal(F.shareUrl(''), 'https://radmagelabs.com/ffxiv/');
+  assert.equal(F.shareUrl('#'), 'https://radmagelabs.com/ffxiv/');
+  assert.equal(F.shareUrl(undefined), 'https://radmagelabs.com/ffxiv/');
+  for (const hash of ['#zone=eureka-pagos&fz=eureka-anemos&to=gales&bells=8', '#zone=middle-la-noscea&fz=eureka-pagos&prev=fog&to=heat-waves',
+    '#zone=kozamauka', '#main', '#market/item/5057', '#zone=the%20black%20shroud']) {
+    assert.equal(F.shareUrl(hash), `https://radmagelabs.com/ffxiv/${hash}`, hash);
+  }
+  assert.equal(F.shareUrl('zone=x'), 'https://radmagelabs.com/ffxiv/', 'only a hash, never a path or query');
+  assert.equal(F.shareUrl('?x=1#zone=a'), 'https://radmagelabs.com/ffxiv/');
+});
+
 // ---- generated data is current ----
 test('js/weather-data.js is exactly what the generator builds from the cached game tables', () => {
   const cache = join(ROOT, 'tools', '.cache', DATA.source.commit);
