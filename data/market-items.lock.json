@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "file": "js/market-items.js",
+  "source": {
+    "dataset": "xivapi/ffxiv-datamining",
+    "commit": "52a72b38aa2f967cab36867f34cd9bee9debb88b",
+    "patch": "7.58",
+    "language": "en"
+  },
+  "sheets": {
+    "Item": "bea47a186c8d9533808d2436610c866a4dc22590455eca11973a289ffe470dd2",
+    "ItemSearchCategory": "def808328c89646afe2d1e590db53d86e07505415739df27e04513992a7d0efb",
+    "World": "dcead0228b57e8c8d2be679e7baeba32f4d1fbc0f209b00d83a402ebaef1248f",
+    "WorldDCGroupType": "3081697e7c1650572d3f9691c3b84002f1d142df26174b21ae2a0b6683fcb6ef"
+  },
+  "count": 16845,
+  "categories": 76,
+  "dataCenters": 11,
+  "worlds": 85,
+  "bytes": 626452,
+  "sha256": "09423c29f7a7cf1ed84de37fad6008ca75ba746a691c212a03b0face1ee8eec1"
+}

@@ -1,17 +1,31 @@
-// Tests for the Market & Crafting groundwork: the price paths (tools/lib/prices-contract.mjs)
-// against captured Universalis answers. Run alone with `node tests/market.mjs`, or through
-// tests/run.mjs. No network.
+// Tests for the Market & Crafting groundwork: the item list (js/market-items.js and its lock file)
+// and the price paths (tools/lib/prices-contract.mjs) against captured Universalis answers. Run
+// alone with `node tests/market.mjs`, or through tests/run.mjs. No network.
 //
-// Expected values come from outside this code: answers captured once from Universalis
-// (tests/fixtures/universalis/).
+// Expected values come from outside this code: Universalis's own list of marketable ids and its
+// data centers (tests/fixtures/universalis/, captured once), a second extraction of the game
+// tables from XIVAPI (tests/fixtures/xivapi-market.json), and the Resets panel's data centers.
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
+import zlib from 'node:zlib';
+import { decodeItems, FORMAT, GROUPS, REGIONS } from '../tools/build-market.mjs';
+import { compareMarketXivapi } from '../tools/lib/compare-market.mjs';
+import { DATASET, MARKET_SHEETS } from '../tools/lib/gamedata.mjs';
 import { chunkIds, FORBIDDEN_KEYS, ITEM_FIELDS, keysDeep, MAX_IDS, upstreamFor } from '../tools/lib/prices-contract.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const require = createRequire(import.meta.url);
+const M = require('../js/market-items.js');
+const R = require('../js/resets.js');
+const ITEMS = decodeItems(M.items);
 const uni = (name) => JSON.parse(readFileSync(join(ROOT, 'tests', 'fixtures', 'universalis', `${name}.json`), 'utf8'));
+const DASH = new RegExp(`[${String.fromCharCode(0x2013)}-${String.fromCharCode(0x2015)}]`);
 
 let passed = 0, failed = 0;
 const pending = [];
@@ -23,6 +37,103 @@ function test(name, fn) {
     else passed++;
   } catch (e) { fail(name, e); }
 }
+
+// ---- the item list ----
+test('the lock file describes js/market-items.js exactly: bytes, SHA-256, source commit, sheet pins and counts', () => {
+  const text = readFileSync(join(ROOT, 'js', 'market-items.js'));
+  const lock = JSON.parse(readFileSync(join(ROOT, 'data', 'market-items.lock.json'), 'utf8'));
+  assert.equal(lock.format, FORMAT);
+  assert.equal(lock.file, 'js/market-items.js');
+  assert.equal(lock.bytes, text.length);
+  assert.equal(lock.sha256, createHash('sha256').update(text).digest('hex'));
+  assert.deepEqual(lock.source, { dataset: DATASET.repo, commit: DATASET.commit, patch: DATASET.patch, language: DATASET.language });
+  assert.deepEqual(lock.sheets, Object.fromEntries(MARKET_SHEETS.map((s) => [s, DATASET.sha256[s]])));
+  assert.deepEqual([lock.count, lock.categories, lock.dataCenters, lock.worlds],
+    [ITEMS.length, M.categories.length, M.dataCenters.length, M.dataCenters.reduce((n, d) => n + d.worlds.length, 0)]);
+  assert.deepEqual(M.source, lock.source);
+  assert.equal(M.count, ITEMS.length);
+});
+
+test('the list holds exactly the ids Universalis calls marketable (16,845 for 7.58)', () => {
+  const theirs = uni('marketable');
+  assert.equal(ITEMS.length, 16845);
+  assert.equal(theirs.length, ITEMS.length);
+  assert.deepEqual(ITEMS.map((i) => i.id), [...theirs].sort((a, b) => a - b));
+});
+
+test('items are sorted by id, each once, with a board category, a level, an HQ flag and a clean name', () => {
+  const cats = new Set(M.categories.map((c) => c.id));
+  for (let i = 0; i < ITEMS.length; i++) {
+    const it = ITEMS[i];
+    if (i) assert.ok(it.id > ITEMS[i - 1].id, `order at ${it.id}`);
+    assert.ok(cats.has(it.category), `${it.id}: category ${it.category}`);
+    assert.ok(Number.isInteger(it.level) && it.level >= 1, `${it.id}: level`);
+    assert.equal(typeof it.hq, 'boolean');
+    assert.ok(it.name && it.name === it.name.trim() && !/[\t\n\r]/.test(it.name), `${it.id}: name ${JSON.stringify(it.name)}`);
+    assert.doesNotMatch(it.name, DASH, `${it.id}: a dash character in the name`);
+  }
+  assert.ok(ITEMS.some((i) => i.hq) && ITEMS.some((i) => !i.hq));
+});
+
+test('categories: every one shown holds an item, each in one of the four board groups, in board order', () => {
+  const used = new Set(ITEMS.map((i) => i.category));
+  assert.deepEqual(M.groups, GROUPS);
+  for (const c of M.categories) {
+    assert.ok(used.has(c.id), `${c.name} is empty`);
+    assert.ok(GROUPS.some((g) => g.id === c.group), c.name);
+  }
+  for (let i = 1; i < M.categories.length; i++) {
+    const a = M.categories[i - 1], b = M.categories[i];
+    assert.ok(a.group < b.group || (a.group === b.group && a.order <= b.order), `${a.name} before ${b.name}`);
+  }
+  assert.equal(new Set(M.categories.map((c) => c.id)).size, M.categories.length);
+  assert.equal(M.categories.length, 76);
+});
+
+test('names, categories, levels and HQ agree with a second extraction of the game data (XIVAPI 7.58)', () => {
+  const x = JSON.parse(readFileSync(join(ROOT, 'tests', 'fixtures', 'xivapi-market.json'), 'utf8'));
+  assert.ok(x.items.length >= 50, 'sample size');
+  assert.deepEqual(compareMarketXivapi(x, ITEMS), []);
+  // The comparison can fail.
+  const bent = { ...x, items: x.items.map((r, i) => (i === 3 ? { ...r, name: `${r.name}x` } : i === 7 ? { ...r, level: r.level + 1 } : r)) };
+  assert.equal(compareMarketXivapi(bent, ITEMS).length, 2);
+});
+
+test('data centers: the 11 global ones Universalis lists, with the same regions and the same worlds', () => {
+  const dcs = uni('data-centers').filter((d) => REGIONS.some((r) => r.scope === d.region));
+  const worlds = new Map(uni('worlds').map((w) => [w.id, w.name]));
+  assert.equal(M.dataCenters.length, 11);
+  assert.deepEqual(M.dataCenters.map((d) => d.name).sort(), dcs.map((d) => d.name).sort());
+  for (const d of M.dataCenters) {
+    const theirs = dcs.find((x) => x.name === d.name);
+    assert.equal(REGIONS.find((r) => r.key === d.region).scope, theirs.region, d.name);
+    assert.deepEqual(d.worlds.map((w) => w.id).sort((a, b) => a - b), [...theirs.worlds].sort((a, b) => a - b), d.name);
+    for (const w of d.worlds) assert.equal(worlds.get(w.id), w.name, `world ${w.id}`);
+  }
+});
+
+test('data centers use the Resets panel\'s keys, names, regions and order, so a saved choice carries over', () => {
+  const regionName = new Map(M.regions.map((r) => [r.key, r.name]));
+  assert.deepEqual(M.dataCenters.map((d) => ({ key: d.key, name: d.name, region: regionName.get(d.region) })), R.DATA_CENTERS);
+});
+
+test('js/market-items.js runs as a plain browser script and sets FFXIV_MARKET_ITEMS', () => {
+  const sandbox = {};
+  vm.runInNewContext(readFileSync(join(ROOT, 'js', 'market-items.js'), 'utf8'), sandbox);
+  assert.equal(sandbox.FFXIV_MARKET_ITEMS.count, ITEMS.length);
+  assert.equal(sandbox.FFXIV_MARKET_ITEMS.items, M.items);
+});
+
+test('the item list stays inside its share of the first Market visit (150 KB gzipped of the 200 KB budget)', () => {
+  const gz = zlib.gzipSync(readFileSync(join(ROOT, 'js', 'market-items.js')), { level: 9 }).length;
+  assert.ok(gz <= 150 * 1024, `${(gz / 1024).toFixed(1)} KB gzipped`);
+});
+
+test('js/market-items.js and its lock file are exactly what the generator builds from the cached game tables', () => {
+  const cache = join(ROOT, 'tools', '.cache', DATASET.commit);
+  if (!MARKET_SHEETS.every((s) => existsSync(join(cache, `${s}.csv`)))) { console.log('  (skipped: run node tools/build-market.mjs once to cache the game tables)'); return; }
+  execFileSync(process.execPath, [join(ROOT, 'tools', 'build-market.mjs'), '--check', '--csv', cache], { stdio: 'pipe' });
+});
 
 // ---- the price paths ----
 test('the pinned item fields name nothing that identifies a player', () => {
@@ -95,6 +206,7 @@ test('captured answers: aggregated times in milliseconds, item review and sale t
 test('captured answers: ids off the board are failedItems, items with no data are empty objects, worlds add a world level', () => {
   const dc = uni('aggregated-dc');
   assert.deepEqual([...dc.failedItems].sort((a, b) => a - b), [1, 30000]);
+  assert.ok(dc.results.every((r) => ITEMS.some((i) => i.id === r.itemId)));
   const fire = dc.results.find((r) => r.itemId === 2);
   assert.deepEqual(fire.hq, { minListing: {}, recentPurchase: {}, averageSalePrice: {}, dailySaleVelocity: {} }, 'no HQ fire shards');
   assert.deepEqual(Object.keys(uni('aggregated-world').results.find((r) => r.itemId === 5057).nq.minListing).sort(), ['dc', 'region', 'world']);

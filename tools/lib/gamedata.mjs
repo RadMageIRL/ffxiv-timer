@@ -31,6 +31,9 @@ export const DATASET = {
     Item: 'bea47a186c8d9533808d2436610c866a4dc22590455eca11973a289ffe470dd2',
     Map: '758afc0be55bcf020376fdbd8f135db435583b1840d477c3b3eb5651c34e396a',
     GatheringItemLevelConvertTable: '0636fe4df504c574f66757c5d74c9295471860f8e2a44e3f4f654332fc0cdc27',
+    ItemSearchCategory: 'def808328c89646afe2d1e590db53d86e07505415739df27e04513992a7d0efb',
+    World: 'dcead0228b57e8c8d2be679e7baeba32f4d1fbc0f209b00d83a402ebaef1248f',
+    WorldDCGroupType: '3081697e7c1650572d3f9691c3b84002f1d142df26174b21ae2a0b6683fcb6ef',
   },
 };
 
@@ -38,6 +41,7 @@ export const WEATHER_SHEETS = ['TerritoryType', 'WeatherRate', 'Weather', 'Place
 export const GATHERING_SHEETS = ['TerritoryType', 'PlaceName', 'ExVersion', 'GatheringPoint', 'GatheringPointBase',
   'GatheringItem', 'GatheringPointTransient', 'GatheringRarePopTimeTable', 'GatheringType', 'GatheringSubCategory',
   'ExportedGatheringPoint', 'Item', 'Map', 'GatheringItemLevelConvertTable'];
+export const MARKET_SHEETS = ['Item', 'ItemSearchCategory', 'World', 'WorldDCGroupType'];
 
 const sourceUrl = (sheet) =>
   `https://raw.githubusercontent.com/${DATASET.repo}/${DATASET.commit}/csv/${DATASET.language}/${sheet}.csv`;
