@@ -1,0 +1,75 @@
+{
+ "results": [
+  {
+   "itemId": 2,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 1,
+      "worldId": 88
+     },
+     "region": {
+      "price": 1,
+      "worldId": 88
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 70,
+      "timestamp": 1794829327000,
+      "worldId": 86
+     },
+     "region": {
+      "price": 70,
+      "timestamp": 1794829327000,
+      "worldId": 86
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 62.89087273246679
+     },
+     "region": {
+      "price": 62.89087273246679
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 15292.84642908978
+     },
+     "region": {
+      "quantity": 15292.846392099713
+     }
+    }
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 88,
+     "timestamp": 1794637674300
+    }
+   ]
+  },
+  {
+   "itemId": 5849,
+   "nq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   }
+  }
+ ],
+ "failedItems": []
+}

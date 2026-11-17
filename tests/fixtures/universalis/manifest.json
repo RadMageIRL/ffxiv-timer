@@ -1,0 +1,76 @@
+{
+  "capturedAt": "2026-11-17T04:54:28.718Z",
+  "upstream": "https://universalis.app/api/v2",
+  "files": {
+    "marketable": {
+      "url": "https://universalis.app/api/v2/marketable",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "data-centers": {
+      "url": "https://universalis.app/api/v2/data-centers",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "worlds": {
+      "url": "https://universalis.app/api/v2/worlds",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "aggregated-dc": {
+      "url": "https://universalis.app/api/v2/aggregated/Aether/1,2,14,5057,5121,13115,30000,36521,41773,44162,6544,7008,24511",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "aggregated-region": {
+      "url": "https://universalis.app/api/v2/aggregated/North-America/1,2,14,5057,5121,13115,30000,36521,41773,44162,6544,7008,24511",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "aggregated-world": {
+      "url": "https://universalis.app/api/v2/aggregated/Gilgamesh/1,2,14,5057,5121,13115,30000,36521,41773,44162,6544,7008,24511",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "item-dc-hq": {
+      "url": "https://universalis.app/api/v2/Aether/5057?listings=20&entries=20&fields=itemID,worldID,worldName,dcName,regionName,lastUploadTime,hasData,listingsCount,recentHistoryCount,unitsForSale,unitsSold,regularSaleVelocity,nqSaleVelocity,hqSaleVelocity,minPriceNQ,minPriceHQ,averagePriceNQ,averagePriceHQ,currentAveragePriceNQ,currentAveragePriceHQ,worldUploadTimes,listings.pricePerUnit,listings.quantity,listings.total,listings.tax,listings.hq,listings.isCrafted,listings.onMannequin,listings.worldID,listings.worldName,listings.lastReviewTime,listings.retainerCity,recentHistory.pricePerUnit,recentHistory.quantity,recentHistory.total,recentHistory.hq,recentHistory.onMannequin,recentHistory.timestamp,recentHistory.worldID,recentHistory.worldName",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "item-dc-nq": {
+      "url": "https://universalis.app/api/v2/Aether/2?listings=20&entries=20&fields=itemID,worldID,worldName,dcName,regionName,lastUploadTime,hasData,listingsCount,recentHistoryCount,unitsForSale,unitsSold,regularSaleVelocity,nqSaleVelocity,hqSaleVelocity,minPriceNQ,minPriceHQ,averagePriceNQ,averagePriceHQ,currentAveragePriceNQ,currentAveragePriceHQ,worldUploadTimes,listings.pricePerUnit,listings.quantity,listings.total,listings.tax,listings.hq,listings.isCrafted,listings.onMannequin,listings.worldID,listings.worldName,listings.lastReviewTime,listings.retainerCity,recentHistory.pricePerUnit,recentHistory.quantity,recentHistory.total,recentHistory.hq,recentHistory.onMannequin,recentHistory.timestamp,recentHistory.worldID,recentHistory.worldName",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "item-world": {
+      "url": "https://universalis.app/api/v2/Gilgamesh/5057?listings=20&entries=20&fields=itemID,worldID,worldName,dcName,regionName,lastUploadTime,hasData,listingsCount,recentHistoryCount,unitsForSale,unitsSold,regularSaleVelocity,nqSaleVelocity,hqSaleVelocity,minPriceNQ,minPriceHQ,averagePriceNQ,averagePriceHQ,currentAveragePriceNQ,currentAveragePriceHQ,worldUploadTimes,listings.pricePerUnit,listings.quantity,listings.total,listings.tax,listings.hq,listings.isCrafted,listings.onMannequin,listings.worldID,listings.worldName,listings.lastReviewTime,listings.retainerCity,recentHistory.pricePerUnit,recentHistory.quantity,recentHistory.total,recentHistory.hq,recentHistory.onMannequin,recentHistory.timestamp,recentHistory.worldID,recentHistory.worldName",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "item-thin": {
+      "url": "https://universalis.app/api/v2/Aether/36521?listings=20&entries=20&fields=itemID,worldID,worldName,dcName,regionName,lastUploadTime,hasData,listingsCount,recentHistoryCount,unitsForSale,unitsSold,regularSaleVelocity,nqSaleVelocity,hqSaleVelocity,minPriceNQ,minPriceHQ,averagePriceNQ,averagePriceHQ,currentAveragePriceNQ,currentAveragePriceHQ,worldUploadTimes,listings.pricePerUnit,listings.quantity,listings.total,listings.tax,listings.hq,listings.isCrafted,listings.onMannequin,listings.worldID,listings.worldName,listings.lastReviewTime,listings.retainerCity,recentHistory.pricePerUnit,recentHistory.quantity,recentHistory.total,recentHistory.hq,recentHistory.onMannequin,recentHistory.timestamp,recentHistory.worldID,recentHistory.worldName",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "aggregated-empty": {
+      "url": "https://universalis.app/api/v2/aggregated/Materia/2,5849",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "item-empty": {
+      "url": "https://universalis.app/api/v2/Materia/5849?listings=20&entries=20&fields=itemID,worldID,worldName,dcName,regionName,lastUploadTime,hasData,listingsCount,recentHistoryCount,unitsForSale,unitsSold,regularSaleVelocity,nqSaleVelocity,hqSaleVelocity,minPriceNQ,minPriceHQ,averagePriceNQ,averagePriceHQ,currentAveragePriceNQ,currentAveragePriceHQ,worldUploadTimes,listings.pricePerUnit,listings.quantity,listings.total,listings.tax,listings.hq,listings.isCrafted,listings.onMannequin,listings.worldID,listings.worldName,listings.lastReviewTime,listings.retainerCity,recentHistory.pricePerUnit,recentHistory.quantity,recentHistory.total,recentHistory.hq,recentHistory.onMannequin,recentHistory.timestamp,recentHistory.worldID,recentHistory.worldName",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "tax-gilgamesh": {
+      "url": "https://universalis.app/api/v2/tax-rates?world=63",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "error-unknown-scope": {
+      "url": "https://universalis.app/api/v2/aggregated/Nowhere/5057",
+      "status": 404,
+      "contentType": "application/problem+json; charset=utf-8"
+    }
+  }
+}

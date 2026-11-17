@@ -1,0 +1,311 @@
+{
+ "itemID": 36521,
+ "lastUploadTime": 1794808271728,
+ "listings": [
+  {
+   "lastReviewTime": 1780357229,
+   "pricePerUnit": 8000,
+   "quantity": 1,
+   "worldName": "Siren",
+   "worldID": 57,
+   "hq": false,
+   "isCrafted": false,
+   "onMannequin": false,
+   "retainerCity": 1,
+   "total": 8000,
+   "tax": 400
+  },
+  {
+   "lastReviewTime": 1794808266,
+   "pricePerUnit": 59759,
+   "quantity": 1,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "hq": false,
+   "isCrafted": false,
+   "onMannequin": false,
+   "retainerCity": 1,
+   "total": 59759,
+   "tax": 2987
+  },
+  {
+   "lastReviewTime": 1794808266,
+   "pricePerUnit": 59760,
+   "quantity": 1,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "hq": false,
+   "isCrafted": false,
+   "onMannequin": false,
+   "retainerCity": 1,
+   "total": 59760,
+   "tax": 2988
+  },
+  {
+   "lastReviewTime": 1794808266,
+   "pricePerUnit": 60000,
+   "quantity": 1,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "hq": false,
+   "isCrafted": false,
+   "onMannequin": false,
+   "retainerCity": 7,
+   "total": 60000,
+   "tax": 3000
+  },
+  {
+   "lastReviewTime": 1793535969,
+   "pricePerUnit": 100000,
+   "quantity": 1,
+   "worldName": "Faerie",
+   "worldID": 54,
+   "hq": false,
+   "isCrafted": false,
+   "onMannequin": false,
+   "retainerCity": 14,
+   "total": 100000,
+   "tax": 5000
+  },
+  {
+   "lastReviewTime": 1793535969,
+   "pricePerUnit": 444444,
+   "quantity": 1,
+   "worldName": "Faerie",
+   "worldID": 54,
+   "hq": false,
+   "isCrafted": false,
+   "onMannequin": false,
+   "retainerCity": 10,
+   "total": 444444,
+   "tax": 22222
+  }
+ ],
+ "recentHistory": [
+  {
+   "hq": false,
+   "pricePerUnit": 6000,
+   "quantity": 1,
+   "timestamp": 1782140313,
+   "onMannequin": false,
+   "worldName": "Midgardsormr",
+   "worldID": 65,
+   "total": 6000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 1,
+   "quantity": 4,
+   "timestamp": 1781813156,
+   "onMannequin": false,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "total": 4
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 19995,
+   "quantity": 2,
+   "timestamp": 1778008147,
+   "onMannequin": false,
+   "worldName": "Sargatanas",
+   "worldID": 99,
+   "total": 39990
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 999,
+   "quantity": 1,
+   "timestamp": 1777122350,
+   "onMannequin": false,
+   "worldName": "Sargatanas",
+   "worldID": 99,
+   "total": 999
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 40008,
+   "quantity": 1,
+   "timestamp": 1753483652,
+   "onMannequin": false,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "total": 40008
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 74999,
+   "quantity": 1,
+   "timestamp": 1746395456,
+   "onMannequin": false,
+   "worldName": "Jenova",
+   "worldID": 40,
+   "total": 74999
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 10000,
+   "quantity": 1,
+   "timestamp": 1728828497,
+   "onMannequin": false,
+   "worldName": "Gilgamesh",
+   "worldID": 63,
+   "total": 10000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 1000,
+   "quantity": 1,
+   "timestamp": 1723778828,
+   "onMannequin": false,
+   "worldName": "Gilgamesh",
+   "worldID": 63,
+   "total": 1000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 999,
+   "quantity": 1,
+   "timestamp": 1723778827,
+   "onMannequin": false,
+   "worldName": "Gilgamesh",
+   "worldID": 63,
+   "total": 999
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 60008,
+   "quantity": 5,
+   "timestamp": 1719186652,
+   "onMannequin": false,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "total": 300040
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 75000,
+   "quantity": 1,
+   "timestamp": 1719186650,
+   "onMannequin": false,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "total": 75000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 70008,
+   "quantity": 1,
+   "timestamp": 1719186649,
+   "onMannequin": false,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "total": 70008
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 70000,
+   "quantity": 1,
+   "timestamp": 1719186648,
+   "onMannequin": false,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "total": 70000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 70000,
+   "quantity": 1,
+   "timestamp": 1719186647,
+   "onMannequin": false,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "total": 70000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 69000,
+   "quantity": 1,
+   "timestamp": 1719186645,
+   "onMannequin": false,
+   "worldName": "Adamantoise",
+   "worldID": 73,
+   "total": 69000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 100000,
+   "quantity": 1,
+   "timestamp": 1719186613,
+   "onMannequin": false,
+   "worldName": "Siren",
+   "worldID": 57,
+   "total": 100000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 50000,
+   "quantity": 1,
+   "timestamp": 1719186612,
+   "onMannequin": false,
+   "worldName": "Siren",
+   "worldID": 57,
+   "total": 50000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 40000,
+   "quantity": 1,
+   "timestamp": 1719186611,
+   "onMannequin": false,
+   "worldName": "Siren",
+   "worldID": 57,
+   "total": 40000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 67000,
+   "quantity": 1,
+   "timestamp": 1719186579,
+   "onMannequin": false,
+   "worldName": "Sargatanas",
+   "worldID": 99,
+   "total": 67000
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 64988,
+   "quantity": 1,
+   "timestamp": 1719186577,
+   "onMannequin": false,
+   "worldName": "Sargatanas",
+   "worldID": 99,
+   "total": 64988
+  }
+ ],
+ "dcName": "Aether",
+ "currentAveragePriceNQ": 121993.836,
+ "currentAveragePriceHQ": 0,
+ "regularSaleVelocity": 0,
+ "nqSaleVelocity": 0,
+ "hqSaleVelocity": 0,
+ "averagePriceNQ": 77404.65,
+ "averagePriceHQ": 0,
+ "minPriceNQ": 8000,
+ "minPriceHQ": 0,
+ "worldUploadTimes": {
+  "40": 1793153441439,
+  "54": 1793535969568,
+  "57": 1780357229206,
+  "63": 1780786998604,
+  "65": 1792297966927,
+  "73": 1794808271728,
+  "79": 1783652951826,
+  "99": 1793100195111
+ },
+ "listingsCount": 6,
+ "recentHistoryCount": 20,
+ "unitsForSale": 6,
+ "unitsSold": 28,
+ "hasData": true
+}

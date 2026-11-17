@@ -1,0 +1,711 @@
+{
+ "results": [
+  {
+   "itemId": 2,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 50,
+      "worldId": 79
+     },
+     "region": {
+      "price": 38,
+      "worldId": 409
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 65,
+      "timestamp": 1794882597000,
+      "worldId": 40
+     },
+     "region": {
+      "price": 47,
+      "timestamp": 1794888756000,
+      "worldId": 410
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 61.78785588841231
+     },
+     "region": {
+      "price": 52.5330717652677
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 147836.1105085652
+     },
+     "region": {
+      "quantity": 768471.6586502482
+     }
+    }
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 79,
+     "timestamp": 1794888886187
+    },
+    {
+     "worldId": 409,
+     "timestamp": 1794889220079
+    }
+   ]
+  },
+  {
+   "itemId": 14,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 7,
+      "worldId": 57
+     },
+     "region": {
+      "price": 7,
+      "worldId": 57
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 7,
+      "timestamp": 1794874504000,
+      "worldId": 40
+     },
+     "region": {
+      "price": 19,
+      "timestamp": 1794883353000,
+      "worldId": 34
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 20.810993053190924
+     },
+     "region": {
+      "price": 19.967710243443214
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 134718.69356277832
+     },
+     "region": {
+      "quantity": 501859.26580470195
+     }
+    }
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 57,
+     "timestamp": 1794884366690
+    }
+   ]
+  },
+  {
+   "itemId": 5057,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 50,
+      "worldId": 57
+     },
+     "region": {
+      "price": 43,
+      "worldId": 64
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 90,
+      "timestamp": 1794882425000,
+      "worldId": 57
+     },
+     "region": {
+      "price": 200,
+      "timestamp": 1794888387000,
+      "worldId": 74
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 2684.9995311767466
+     },
+     "region": {
+      "price": 1016.0305918524213
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 665.6218492807774
+     },
+     "region": {
+      "quantity": 2029.9437931649213
+     }
+    }
+   },
+   "hq": {
+    "minListing": {
+     "dc": {
+      "price": 99,
+      "worldId": 79
+     },
+     "region": {
+      "price": 50,
+      "worldId": 406
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 70,
+      "timestamp": 1794867116000,
+      "worldId": 79
+     },
+     "region": {
+      "price": 250,
+      "timestamp": 1794888392000,
+      "worldId": 74
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 147.27439024390245
+     },
+     "region": {
+      "price": 3973.5167286245355
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 102.35535235072433
+     },
+     "region": {
+      "quantity": 503.6632255446861
+     }
+    }
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 57,
+     "timestamp": 1794883954057
+    },
+    {
+     "worldId": 79,
+     "timestamp": 1794889439351
+    },
+    {
+     "worldId": 64,
+     "timestamp": 1794859037875
+    },
+    {
+     "worldId": 406,
+     "timestamp": 1794858723118
+    }
+   ]
+  },
+  {
+   "itemId": 5121,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 650,
+      "worldId": 40
+     },
+     "region": {
+      "price": 350,
+      "worldId": 95
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 718,
+      "timestamp": 1794886344000,
+      "worldId": 57
+     },
+     "region": {
+      "price": 549,
+      "timestamp": 1794888557000,
+      "worldId": 37
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 604.639160988075
+     },
+     "region": {
+      "price": 507.5676948631053
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 14654.289775342919
+     },
+     "region": {
+      "quantity": 55985.877497868525
+     }
+    }
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 40,
+     "timestamp": 1794890619016
+    },
+    {
+     "worldId": 95,
+     "timestamp": 1794889740761
+    }
+   ]
+  },
+  {
+   "itemId": 13115,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 495999,
+      "worldId": 99
+     },
+     "region": {
+      "price": 429000,
+      "worldId": 78
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 582798,
+      "timestamp": 1794890415000,
+      "worldId": 65
+     },
+     "region": {
+      "price": 440000,
+      "timestamp": 1794890769000,
+      "worldId": 64
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 499023.1733067729
+     },
+     "region": {
+      "price": 469289.5825979889
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 469.96080216238647
+     },
+     "region": {
+      "quantity": 1520.6633290608704
+     }
+    }
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 99,
+     "timestamp": 1794890574899
+    },
+    {
+     "worldId": 78,
+     "timestamp": 1794891147714
+    }
+   ]
+  },
+  {
+   "itemId": 36521,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 8000,
+      "worldId": 57
+     },
+     "region": {
+      "price": 66,
+      "worldId": 93
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 20000,
+      "timestamp": 1649407888000,
+      "worldId": 65
+     },
+     "region": {
+      "price": 60008,
+      "timestamp": 1789457993000,
+      "worldId": 74
+     }
+    },
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 57,
+     "timestamp": 1780357229206
+    },
+    {
+     "worldId": 93,
+     "timestamp": 1771620162735
+    }
+   ]
+  },
+  {
+   "itemId": 41773,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 548,
+      "worldId": 73
+     },
+     "region": {
+      "price": 200,
+      "worldId": 34
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 993,
+      "timestamp": 1794890163000,
+      "worldId": 63
+     },
+     "region": {
+      "price": 500,
+      "timestamp": 1794890616000,
+      "worldId": 406
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 767.1907744874716
+     },
+     "region": {
+      "price": 907.2309853501906
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 1643.9262357028863
+     },
+     "region": {
+      "quantity": 4664.968332660176
+     }
+    }
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 73,
+     "timestamp": 1794889559598
+    },
+    {
+     "worldId": 34,
+     "timestamp": 1794890924923
+    }
+   ]
+  },
+  {
+   "itemId": 44162,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 2999,
+      "worldId": 54
+     },
+     "region": {
+      "price": 500,
+      "worldId": 93
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 2249,
+      "timestamp": 1793145591000,
+      "worldId": 65
+     },
+     "region": {
+      "price": 1098,
+      "timestamp": 1794864687000,
+      "worldId": 95
+     }
+    },
+    "averageSalePrice": {
+     "region": {
+      "price": 1043
+     }
+    },
+    "dailySaleVelocity": {
+     "region": {
+      "quantity": 8.425589657411013
+     }
+    }
+   },
+   "hq": {
+    "minListing": {
+     "dc": {
+      "price": 1799,
+      "worldId": 65
+     },
+     "region": {
+      "price": 1499,
+      "worldId": 37
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 2980,
+      "timestamp": 1794880314000,
+      "worldId": 99
+     },
+     "region": {
+      "price": 2980,
+      "timestamp": 1794880314000,
+      "worldId": 99
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 3233.3373493975905
+     },
+     "region": {
+      "price": 2040.5147679324893
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 77.70266041904576
+     },
+     "region": {
+      "quantity": 443.74772195698006
+     }
+    }
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 54,
+     "timestamp": 1794884197136
+    },
+    {
+     "worldId": 65,
+     "timestamp": 1794621281784
+    },
+    {
+     "worldId": 93,
+     "timestamp": 1794863821965
+    },
+    {
+     "worldId": 37,
+     "timestamp": 1794887553310
+    }
+   ]
+  },
+  {
+   "itemId": 6544,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 13000,
+      "worldId": 57
+     },
+     "region": {
+      "price": 4000,
+      "worldId": 53
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 7690,
+      "timestamp": 1794549643000,
+      "worldId": 57
+     },
+     "region": {
+      "price": 16000,
+      "timestamp": 1794805176000,
+      "worldId": 91
+     }
+    },
+    "averageSalePrice": {
+     "region": {
+      "price": 17895
+     }
+    },
+    "dailySaleVelocity": {
+     "region": {
+      "quantity": 0.6241177253402416
+     }
+    }
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 57,
+     "timestamp": 1794873310093
+    },
+    {
+     "worldId": 53,
+     "timestamp": 1792749297422
+    }
+   ]
+  },
+  {
+   "itemId": 7008,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 189,
+      "worldId": 57
+     },
+     "region": {
+      "price": 149,
+      "worldId": 411
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 741,
+      "timestamp": 1794878799000,
+      "worldId": 54
+     },
+     "region": {
+      "price": 200,
+      "timestamp": 1794884906000,
+      "worldId": 35
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 225.05032182562903
+     },
+     "region": {
+      "price": 190.13430147058824
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 1599.925735251367
+     },
+     "region": {
+      "quantity": 8488.000748324755
+     }
+    }
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 57,
+     "timestamp": 1794889253610
+    },
+    {
+     "worldId": 411,
+     "timestamp": 1794881653315
+    }
+   ]
+  },
+  {
+   "itemId": 24511,
+   "nq": {
+    "minListing": {
+     "dc": {
+      "price": 18964,
+      "worldId": 99
+     },
+     "region": {
+      "price": 13700,
+      "worldId": 81
+     }
+    },
+    "recentPurchase": {
+     "dc": {
+      "price": 28500,
+      "timestamp": 1794879481000,
+      "worldId": 65
+     },
+     "region": {
+      "price": 13695,
+      "timestamp": 1794889680000,
+      "worldId": 81
+     }
+    },
+    "averageSalePrice": {
+     "dc": {
+      "price": 24465.576642335767
+     },
+     "region": {
+      "price": 20567.059665871122
+     }
+    },
+    "dailySaleVelocity": {
+     "dc": {
+      "quantity": 42.752061022855415
+     },
+     "region": {
+      "quantity": 261.5053068504642
+     }
+    }
+   },
+   "hq": {
+    "minListing": {},
+    "recentPurchase": {},
+    "averageSalePrice": {},
+    "dailySaleVelocity": {}
+   },
+   "worldUploadTimes": [
+    {
+     "worldId": 99,
+     "timestamp": 1794888668389
+    },
+    {
+     "worldId": 81,
+     "timestamp": 1794890201477
+    }
+   ]
+  }
+ ],
+ "failedItems": [
+  1,
+  30000
+ ]
+}

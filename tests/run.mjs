@@ -900,6 +900,15 @@ for (const tz of ['America/Chicago', 'Europe/London', 'Asia/Kolkata', 'Australia
   });
 }
 
+// ---- Market & Crafting groundwork ----
+// Its own test file (its header says what it covers), which also runs alone.
+test('market groundwork: tests/market.mjs passes', () => {
+  const r = spawnSync(process.execPath, [join(ROOT, 'tests', 'market.mjs')], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const m = /(\d+) passed, 0 failed/.exec(r.stdout);
+  assert.ok(m && Number(m[1]) > 0, r.stdout);
+});
+
 // ---- saved settings ----
 // Every key the page may keep in localStorage, under ffxiv-timer:v1:. Existing keys are never renamed or
 // reshaped (an older page must still read what a newer one saved); a new key is added here on purpose.

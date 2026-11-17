@@ -1,0 +1,217 @@
+{
+ "itemID": 5057,
+ "worldID": 63,
+ "lastUploadTime": 1794883447832,
+ "listings": [
+  {
+   "lastReviewTime": 1794883437,
+   "pricePerUnit": 300,
+   "quantity": 1,
+   "hq": false,
+   "isCrafted": false,
+   "onMannequin": false,
+   "retainerCity": 1,
+   "total": 300,
+   "tax": 15
+  },
+  {
+   "lastReviewTime": 1794883437,
+   "pricePerUnit": 300,
+   "quantity": 99,
+   "hq": false,
+   "isCrafted": false,
+   "onMannequin": false,
+   "retainerCity": 1,
+   "total": 29700,
+   "tax": 1485
+  },
+  {
+   "lastReviewTime": 1794883437,
+   "pricePerUnit": 300,
+   "quantity": 99,
+   "hq": false,
+   "isCrafted": false,
+   "onMannequin": false,
+   "retainerCity": 1,
+   "total": 29700,
+   "tax": 1485
+  }
+ ],
+ "recentHistory": [
+  {
+   "hq": true,
+   "pricePerUnit": 300,
+   "quantity": 1,
+   "timestamp": 1794865050,
+   "onMannequin": false,
+   "total": 300
+  },
+  {
+   "hq": true,
+   "pricePerUnit": 302,
+   "quantity": 2,
+   "timestamp": 1794865048,
+   "onMannequin": false,
+   "total": 604
+  },
+  {
+   "hq": true,
+   "pricePerUnit": 69,
+   "quantity": 2,
+   "timestamp": 1794859605,
+   "onMannequin": false,
+   "total": 138
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 70,
+   "quantity": 16,
+   "timestamp": 1794859604,
+   "onMannequin": false,
+   "total": 1120
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 64,
+   "quantity": 1,
+   "timestamp": 1794840464,
+   "onMannequin": false,
+   "total": 64
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 201,
+   "quantity": 4,
+   "timestamp": 1794796895,
+   "onMannequin": false,
+   "total": 804
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 230,
+   "quantity": 1,
+   "timestamp": 1794781118,
+   "onMannequin": false,
+   "total": 230
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 999,
+   "quantity": 10,
+   "timestamp": 1794780515,
+   "onMannequin": false,
+   "total": 9990
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 140,
+   "quantity": 70,
+   "timestamp": 1794772660,
+   "onMannequin": false,
+   "total": 9800
+  },
+  {
+   "hq": true,
+   "pricePerUnit": 250,
+   "quantity": 10,
+   "timestamp": 1794772341,
+   "onMannequin": false,
+   "total": 2500
+  },
+  {
+   "hq": true,
+   "pricePerUnit": 144,
+   "quantity": 4,
+   "timestamp": 1794763711,
+   "onMannequin": false,
+   "total": 576
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 141,
+   "quantity": 1,
+   "timestamp": 1794742939,
+   "onMannequin": false,
+   "total": 141
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 141,
+   "quantity": 1,
+   "timestamp": 1794732687,
+   "onMannequin": false,
+   "total": 141
+  },
+  {
+   "hq": true,
+   "pricePerUnit": 230,
+   "quantity": 13,
+   "timestamp": 1794721485,
+   "onMannequin": false,
+   "total": 2990
+  },
+  {
+   "hq": true,
+   "pricePerUnit": 250,
+   "quantity": 10,
+   "timestamp": 1794717447,
+   "onMannequin": false,
+   "total": 2500
+  },
+  {
+   "hq": true,
+   "pricePerUnit": 250,
+   "quantity": 10,
+   "timestamp": 1794717445,
+   "onMannequin": false,
+   "total": 2500
+  },
+  {
+   "hq": true,
+   "pricePerUnit": 250,
+   "quantity": 10,
+   "timestamp": 1794717443,
+   "onMannequin": false,
+   "total": 2500
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 140,
+   "quantity": 3,
+   "timestamp": 1794696457,
+   "onMannequin": false,
+   "total": 420
+  },
+  {
+   "hq": false,
+   "pricePerUnit": 100,
+   "quantity": 1,
+   "timestamp": 1794645433,
+   "onMannequin": false,
+   "total": 100
+  },
+  {
+   "hq": true,
+   "pricePerUnit": 150,
+   "quantity": 2,
+   "timestamp": 1794627002,
+   "onMannequin": false,
+   "total": 300
+  }
+ ],
+ "currentAveragePriceNQ": 300,
+ "currentAveragePriceHQ": 0,
+ "regularSaleVelocity": 24.571428,
+ "nqSaleVelocity": 15.428572,
+ "hqSaleVelocity": 9.142858,
+ "averagePriceNQ": 222.6,
+ "averagePriceHQ": 219.5,
+ "minPriceNQ": 300,
+ "minPriceHQ": 0,
+ "worldName": "Gilgamesh",
+ "listingsCount": 3,
+ "recentHistoryCount": 20,
+ "unitsForSale": 199,
+ "unitsSold": 172,
+ "hasData": true
+}
