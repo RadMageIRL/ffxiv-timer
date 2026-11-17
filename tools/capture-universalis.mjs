@@ -4,12 +4,12 @@
 //
 // Test data only: none of these files is part of the page or the deployed build, and the page
 // never ships prices of its own. Every request is a plain GET of exactly the upstream URL the
-// price rules use (tools/lib/prices-contract.mjs), so the item answers carry only the pinned
+// price rules use (radmagelabs/api/_ffxiv-prices/contract.mjs), so the item answers carry only the pinned
 // fields, as the page will receive them. manifest.json records what was asked and when.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from './lib/gamedata.mjs';
-import { UPSTREAM, upstreamFor } from './lib/prices-contract.mjs';
+import { UPSTREAM, upstreamFor } from '../radmagelabs/api/_ffxiv-prices/contract.mjs';
 
 export const DIR = join(ROOT, 'tests', 'fixtures', 'universalis');
 // Shapes the parsers must handle: a cheap, fast-selling material without HQ (Fire Shard, Fire

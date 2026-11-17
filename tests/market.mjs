@@ -1,5 +1,5 @@
 // Tests for the Market & Crafting groundwork: the item list (js/market-items.js and its lock file),
-// the price paths (tools/lib/prices-contract.mjs) against captured Universalis answers, the fake
+// the price paths (radmagelabs/api/_ffxiv-prices/contract.mjs) against captured Universalis answers, the fake
 // Universalis the browser tests use, and the hash router (js/router.js). Run alone with
 // `node tests/market.mjs`, or through tests/run.mjs. No network.
 //
@@ -18,7 +18,7 @@ import zlib from 'node:zlib';
 import { decodeItems, FORMAT, GROUPS, REGIONS } from '../tools/build-market.mjs';
 import { compareMarketXivapi } from '../tools/lib/compare-market.mjs';
 import { DATASET, MARKET_SHEETS } from '../tools/lib/gamedata.mjs';
-import { chunkIds, FORBIDDEN_KEYS, ITEM_FIELDS, keysDeep, MAX_IDS, upstreamFor } from '../tools/lib/prices-contract.mjs';
+import { chunkIds, FORBIDDEN_KEYS, ITEM_FIELDS, keysDeep, MAX_IDS, upstreamFor } from '../radmagelabs/api/_ffxiv-prices/contract.mjs';
 import { serve } from '../tools/lib/static-server.mjs';
 import { fakeUniversalis } from './lib/fake-universalis.mjs';
 

@@ -1,5 +1,5 @@
 // A stand-in for the radmagelabs.com price rules and Universalis behind them, for the browser
-// tests. It answers the paths in tools/lib/prices-contract.mjs exactly as the real rules will:
+// tests. It answers the paths in radmagelabs/api/_ffxiv-prices/contract.mjs exactly as the real rules will:
 // anything else is 404 without reaching "upstream", the visitor's query string is ignored (the
 // rules delete it), and the answers have the shapes captured in tests/fixtures/universalis/.
 //
@@ -23,7 +23,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { upstreamFor } from '../../tools/lib/prices-contract.mjs';
+import { upstreamFor } from '../../radmagelabs/api/_ffxiv-prices/contract.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const fixture = (name) => JSON.parse(readFileSync(join(ROOT, 'tests', 'fixtures', 'universalis', `${name}.json`), 'utf8'));
