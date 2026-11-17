@@ -34,6 +34,7 @@
     <nav class="jump" aria-label="Sections">
       <button type="button" data-jump="now">Weather</button>
       <button type="button" data-jump="timeline">Upcoming</button>
+      <button type="button" data-jump="resets">Resets</button>
       <button type="button" data-jump="gathering">Gathering</button>
       <button type="button" data-jump="forecast">Forecast</button>
       <button type="button" data-jump="finder">Transitions</button>
@@ -108,9 +109,36 @@
       <section class="panel" id="timeline" aria-labelledby="timeline-title">
         <div class="panel-head">
           <h2 id="timeline-title">Upcoming</h2>
-          <p class="hint">Weather changes in starred zones, starred gathering nodes appearing, and sunrise and sunset, over the next two hours.</p>
+          <p class="hint">Weather changes in starred zones, starred gathering nodes appearing, starred resets, and sunrise and sunset, over the next two hours.</p>
         </div>
         <ol id="timeline-list" class="timeline"></ol>
+      </section>
+
+      <section class="panel" id="resets" aria-labelledby="resets-title">
+        <div class="panel-head">
+          <h2 id="resets-title">Resets</h2>
+          <p class="hint" id="resets-zone">Shown in your time zone.</p>
+          <p class="hint">Star a reset to follow it in Upcoming and get reminders.</p>
+        </div>
+        <div class="reset-tools">
+          <label class="inline-select"><span>Data center</span><select id="resets-dc" aria-label="Data center, for its Jumbo Cactpot drawing"></select></label>
+          <span class="reminders">
+            <label class="inline-select">
+              <span>Remind me</span>
+              <select id="reset-remind" aria-label="Remind me of starred resets">
+                <option value="">Off</option>
+                <option value="0">When it happens</option>
+                <option value="5">5 minutes before</option>
+                <option value="15">15 minutes before</option>
+                <option value="30">30 minutes before</option>
+              </select>
+            </label>
+            <button type="button" id="reset-notify-enable" class="ghost small" hidden>Allow notifications</button>
+          </span>
+          <p class="reminder-note" id="reset-reminder-note" hidden>Reminders for starred resets only work while this page is open in a tab. System notifications also need your browser's permission; without it, reminders show on this page only. <strong id="reset-notify-state"></strong></p>
+        </div>
+        <ol id="resets-list" class="reset-list"></ol>
+        <p class="hint reset-note">Marked <span class="badge unverified">time unverified</span>: the time comes from community sources only and has not yet been checked in the game. The others are stated by Square Enix on the Lodestone.</p>
       </section>
 
       <section class="panel wide" id="gathering" aria-labelledby="gathering-title">
@@ -244,6 +272,7 @@
   <script src="js/store.js"></script>
   <script src="js/icons.js"></script>
   <script src="js/news.js"></script>
+  <script src="js/resets.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

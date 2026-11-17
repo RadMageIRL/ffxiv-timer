@@ -31,7 +31,6 @@ async function test(name, fn) {
 
 const READY = "/^\\d\\d:\\d\\d$/.test(document.getElementById('et-time').textContent) && document.querySelectorAll('#zone-list .zone-row').length > 0 && document.querySelectorAll('#forecast-body tbody tr').length >= 12";
 const PREFIX = 'ffxiv-timer:v1:';
-
 const tmp = mkdtempSync(join(tmpdir(), 'ffxiv-timer-smoke-'));
 const pages = build('pages', { outRoot: tmp }), labs = build('labs', { outRoot: tmp });
 const newsRoutes = (base, fail) => Object.fromEntries(['topics', 'news'].map((f) => [`${base}news/${f}.xml`, { file: join(ROOT, 'tests', 'fixtures', `lodestone-${f}.xml`), fail }]));
@@ -262,6 +261,147 @@ try {
     await page.waitFor(`document.querySelector('#timeline-list .tl-up[data-node="${up.id}"]')`);
     assert.match(await page.eval(`document.querySelector('#timeline-list .tl-up[data-node="${up.id}"]').textContent`), /^Up now.*ends in/s);
     assert.equal(await page.eval("document.querySelector('#timeline-list li').classList.contains('tl-up')"), true, 'Up now entries come first');
+    assert.deepEqual(page.problems, []);
+  });
+
+  // ---- Resets and Add to calendar (v0.10.0) ----
+  const T0 = Date.UTC(2026, 9 + 1, 17, 14, 20); // Tuesday 2026-11-17 14:20 UTC: 08:20 CST, 23:20 JST
+  const resetText = (page, id) => page.eval(`(() => { const r = document.querySelector('#resets-list [data-reset="${id}"]'); return r && [r.querySelector('.reset-local') && r.querySelector('.reset-local').textContent, r.querySelector('.reset-utc') && r.querySelector('.reset-utc').textContent, Boolean(r.querySelector('.badge.unverified'))]; })()`);
+  const storage = (page) => page.eval('JSON.stringify(Object.keys(localStorage).sort().map(k => [k, localStorage.getItem(k)]))');
+
+  await test('Resets: local times with the zone named, UTC beside each, community-only times marked; the same in four time zones', async () => {
+    const cases = [
+      ['America/Chicago', T0, 'America/Chicago (CST)', ['Today 09:00 AM CST', 'every day, 15:00 UTC', true], ['Tue, Nov 24 02:00 AM CST', 'every Tuesday, 08:00 UTC', false]],
+      ['Asia/Tokyo', T0, 'Asia/Tokyo (GMT+9)', ['Tomorrow 12:00 AM GMT+9', 'every day, 15:00 UTC', true], ['Tue, Nov 24 05:00 PM GMT+9', 'every Tuesday, 08:00 UTC', false]],
+      ['Europe/London', T0, 'Europe/London (GMT)', ['Today 03:00 PM GMT', 'every day, 15:00 UTC', true], ['Tue, Nov 24 08:00 AM GMT', 'every Tuesday, 08:00 UTC', false]],
+      // The day before the US change to daylight time: the next weekly reset is already in CDT.
+      ['America/Chicago', Date.UTC(2027, 2, 13, 12), 'America/Chicago (CST)', ['Today 09:00 AM CST', 'every day, 15:00 UTC', true], ['Tue 03:00 AM CDT', 'every Tuesday, 08:00 UTC', false]],
+    ];
+    for (const [tz, at, zone, daily, weekly] of cases) {
+      const page = await chrome.newPage();
+      await page.emulate({ timezone: tz, locale: 'en-US' });
+      await page.startClockAt(at);
+      await page.goto(`${servers.github.origin}/ffxiv-timer/`);
+      await page.waitFor(READY);
+      assert.ok((await page.eval("document.getElementById('resets-zone').textContent")).startsWith(`Times are in your time zone, ${zone}, with UTC beside each one`), tz);
+      assert.deepEqual(await resetText(page, 'daily'), daily, `${tz} daily`);
+      assert.deepEqual(await resetText(page, 'weekly'), weekly, `${tz} weekly`);
+      assert.deepEqual(page.problems, []);
+    }
+  });
+
+  await test('Resets: the data center is saved under its own key only once chosen, and its Jumbo Cactpot drawing shows in local time and UTC', async () => {
+    const page = await chrome.newPage();
+    await page.emulate({ timezone: 'America/Chicago', locale: 'en-US' });
+    await page.startClockAt(T0);
+    await page.goto(`${servers.github.origin}/ffxiv-timer/`);
+    await page.waitFor(READY);
+    await page.eval('localStorage.clear()');
+    await page.reload();
+    await page.waitFor(READY);
+    // A first visit writes exactly what v0.9.1 wrote; Resets adds nothing until a data center is chosen.
+    assert.deepEqual(JSON.parse(await storage(page)).map(([k]) => k), [`${PREFIX}finder`, `${PREFIX}forecastZone`]);
+    assert.match(await page.eval("document.querySelector('#resets-list [data-reset=\"jumbo-cactpot\"]').textContent"), /Choose yours above/);
+    await page.eval("{ const s = document.getElementById('resets-dc'); s.value = 'aether'; s.dispatchEvent(new Event('change')); }");
+    assert.deepEqual(await resetText(page, 'jumbo-cactpot-aether'), ['Sat 08:00 PM CST', 'every Sunday, 02:00 UTC', false]);
+    assert.equal(await page.eval(`localStorage.getItem('${PREFIX}resets')`), '{"dataCenter":"aether","starred":[],"remindLead":null}');
+    await page.reload();
+    await page.waitFor(READY);
+    assert.equal(await page.eval("document.getElementById('resets-dc').value"), 'aether');
+    await page.eval("{ const s = document.getElementById('resets-dc'); s.value = 'materia'; s.dispatchEvent(new Event('change')); }");
+    assert.deepEqual(await resetText(page, 'jumbo-cactpot-materia'), ['Sat 03:00 AM CST', 'every Saturday, 09:00 UTC', false]);
+    // A saved value this version does not know is ignored, not shown.
+    await page.eval(`localStorage.setItem('${PREFIX}resets', '{"dataCenter":"atlantis"}')`);
+    await page.reload();
+    await page.waitFor(READY);
+    assert.equal(await page.eval("document.getElementById('resets-dc').value"), '');
+    assert.equal(await page.eval("document.querySelectorAll('#resets-list [data-reset^=\"jumbo-cactpot-\"]').length"), 0);
+    // The housing lottery: the results period until Thursday 2026-11-19 15:00 UTC.
+    assert.match(await page.eval("document.querySelector('#resets-list [data-reset=\"housing\"]').textContent"), /Results period now.*until Thu 09:00 AM CST.*every 9 days, 15:00 UTC/s);
+    assert.deepEqual(page.problems, []);
+  });
+
+  await test('Resets in Upcoming: nothing changes until one is starred; a starred reset joins in time order without moving the rest, and reminds', async () => {
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    await page.emulate({ timezone: 'America/Chicago', locale: 'en-US' });
+    const AT15 = Date.UTC(2026, 10, 17, 15);
+    await page.startClockAt(AT15 - 5 * 60000 - 10000); // 14:54:50 UTC, the daily reset in 5 min 10 s
+    await page.goto(`${servers.github.origin}/ffxiv-timer/`);
+    await page.eval('localStorage.clear()');
+    await page.reload();
+    await page.waitFor(READY);
+    const rows = () => page.eval("[...document.querySelectorAll('#timeline-list li')].map(li => [li.className, li.dataset.at || '', (li.querySelector('.tl-when') || li).textContent + '|' + ((li.querySelector('.tl-what') || {}).textContent || '')])");
+    const before = await rows();
+    assert.ok(before.length > 3 && before.every(([c]) => !c.includes('tl-reset')), 'no reset in Upcoming until one is starred');
+    await page.eval("document.querySelector('[data-reset-star=\"daily\"]').click()");
+    const after = await rows();
+    const reset = after.filter(([c]) => c.includes('tl-reset'));
+    assert.deepEqual(reset.map(([, at, text]) => [Number(at), text]), [[AT15, '09:00 AM15:00 UTC|Daily resettime unverifiedStarred in Resets']]);
+    assert.deepEqual(after.filter(([c]) => !c.includes('tl-reset')), before, 'every other row is as it was, in the same order');
+    const ats = after.map(([, at]) => Number(at)).filter(Boolean);
+    assert.deepEqual(ats, [...ats].sort((a, b) => a - b), 'in time order');
+    assert.equal(await page.eval("document.querySelector('[data-reset-star=\"daily\"]').getAttribute('aria-pressed')"), 'true');
+    assert.equal(await page.eval(`localStorage.getItem('${PREFIX}resets')`), '{"dataCenter":null,"starred":["daily"],"remindLead":null}', 'the star is saved at once');
+    // Reminders for starred resets: 5 minutes before, as a toast.
+    await page.eval("{ const s = document.getElementById('reset-remind'); s.value = '5'; s.dispatchEvent(new Event('change')); }");
+    assert.equal(await page.eval("document.getElementById('reset-reminder-note').hidden"), false);
+    await page.waitFor("document.getElementById('toasts').textContent.includes('Daily reset')", 20000);
+    assert.match(await page.eval("document.getElementById('toasts').textContent"), /Daily resetIn (5:00|4:\d\d), at Today 09:00 AM CST \(15:00 UTC\)\. Time unverified: from community sources only\./);
+    assert.equal(await page.eval(`localStorage.getItem('${PREFIX}resets')`), '{"dataCenter":null,"starred":["daily"],"remindLead":5}');
+    // Saved across a reload, and unstarring brings Upcoming back as it was.
+    await page.reload();
+    await page.waitFor(READY);
+    assert.equal(await page.eval("document.querySelectorAll('#timeline-list .tl-reset').length"), 1);
+    assert.equal(await page.eval("document.getElementById('reset-remind').value"), '5');
+    await page.eval("document.querySelector('[data-reset-star=\"daily\"]').click()");
+    assert.deepEqual((await rows()).map(([c, at]) => [c, at]), before.map(([c, at]) => [c, at]));
+    await page.eval('localStorage.clear()');
+    assert.deepEqual(page.problems, []);
+  });
+
+  await test('Resets in Upcoming: a reset at the same moment as a weather change comes after it; one past a full list waits its turn', async () => {
+    const require = createRequire(import.meta.url);
+    const E = require('../js/eorzea.js'), W = require('../js/weather.js'), D = require('../js/weather-data.js');
+    const starredZones = ['middle-la-noscea', 'urqopacha', 'eureka-pagos'].map((k) => D.zones.find((z) => z.key === k));
+    // What Upcoming lists for the default starred zones (no nodes starred), worked out here from the engines.
+    const listed = (now) => {
+      const ev = [];
+      for (const z of starredZones) for (const p of W.periods(z, now, 7)) if (p.start > now && p.start <= now + 2 * 3600000 && p.weather !== p.previous) ev.push(p.start);
+      for (const b of [6, 18]) for (let t = E.nextEtTime(now, b); t <= now + 2 * 3600000; t += E.SUN) ev.push(t);
+      return ev.sort((a, b) => a - b);
+    };
+    const open = async (at) => {
+      const page = await chrome.newPage();
+      await page.viewport(1440, 1000);
+      await page.startClockAt(at);
+      await page.goto(`${servers.github.origin}/ffxiv-timer/`);
+      await page.eval(`localStorage.clear(); localStorage.setItem('${PREFIX}resets', '{"starred":["daily"]}')`);
+      await page.reload();
+      await page.waitFor(READY);
+      return page;
+    };
+    const order = (page) => page.eval("[...document.querySelectorAll('#timeline-list li')].map(li => [li.classList.contains('tl-reset') ? 'reset' : li.classList.contains('tl-sun') ? 'sun' : 'other', Number(li.dataset.at || 0)])");
+    // 2026-10-24 15:00 UTC is also the start of a weather period: three changes and the daily reset share it.
+    const tie = Date.UTC(2026, 9, 24, 15);
+    let page = await open(tie - 40 * 60000);
+    let rows = await order(page);
+    const at = rows.findIndex(([kind]) => kind === 'reset');
+    assert.ok(at >= 3 && rows[at][1] === tie && rows.slice(at - 3, at).every(([kind, t]) => kind === 'other' && t === tie), JSON.stringify(rows));
+    assert.ok(rows.slice(at + 1).every(([, t]) => t > tie), 'and before anything later');
+    // A moment when Upcoming is full (16 events) and its last one comes before the next daily reset, within the two hours.
+    let full = null;
+    for (let t = Date.UTC(2026, 10, 18, 13, 0); t < Date.UTC(2026, 10, 25) && !full; t += 60000) {
+      const reset = Math.ceil((t - 15 * 3600000) / 86400000) * 86400000 + 15 * 3600000;
+      const ok = (u) => { const ev = listed(u); return ev.length > 16 && ev[15] < reset && reset <= u + 2 * 3600000; };
+      if (reset > t && ok(t) && ok(t + 90000)) full = t;
+    }
+    assert.ok(full, 'such a moment exists');
+    page = await open(full);
+    rows = await order(page);
+    assert.equal(rows.length, 16, 'the list is full');
+    assert.ok(!rows.some(([kind]) => kind === 'reset'), 'the reset is not shown past the last event, leaving a gap before it');
+    await page.eval('localStorage.clear()');
     assert.deepEqual(page.problems, []);
   });
 

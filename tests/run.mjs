@@ -654,6 +654,8 @@ test('index.html loads files that exist, engines before the page script', () => 
   const order = refs.filter((r) => r.endsWith('.js'));
   assert.ok(order.indexOf('js/eorzea.js') < order.indexOf('js/weather.js') && order.indexOf('js/weather.js') < order.indexOf('js/app.js'));
   assert.equal(order[order.length - 1], 'js/app.js');
+  // app.js reads XivResets as it loads.
+  assert.ok(order.indexOf('js/resets.js') >= 0 && order.indexOf('js/resets.js') < order.indexOf('js/app.js'));
 });
 test('the page description counts the zones and nodes the site has', () => {
   const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
@@ -701,6 +703,163 @@ test('target settings are validated', async () => {
   assert.throws(() => checkTarget('x', { urls: ['http://a.b/ffxiv/'] }));
   assert.throws(() => checkTarget('x', { urls: ['https://a.b/ffxiv/'], mount: 'other' }), /mount/);
   assert.doesNotThrow(() => checkTarget('x', { urls: ['https://a.b/ffxiv/', 'https://c.d/x/ffxiv/'], mount: 'ffxiv' }));
+});
+
+// ---- resets (js/resets.js) ----
+// Expected values come from the sources each reset names, checked through the time zone database rather
+// than through the engine's own UTC arithmetic: a Lodestone "6:00 p.m. (PST) / 7:00 p.m. (PDT)" must be
+// what the start reads in America/Los_Angeles, in standard and in daylight time.
+const R = require('../js/resets.js');
+const partsIn = (tz, t) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short', hour: 'numeric', minute: '2-digit', hourCycle: 'h12', timeZoneName: 'short' })
+  .formatToParts(t).filter((p) => p.type !== 'literal').map((p) => [p.type, p.value]));
+const clockIn = (tz, t) => { const p = partsIn(tz, t); return `${p.weekday} ${p.hour}:${p.minute} ${p.dayPeriod}`; };
+/** "6:00 p.m. (PST) / 7:00 p.m. (PDT)" -> { PST: '6:00 PM', PDT: '7:00 PM' }, read from the source text the reset carries. */
+function pacificTimes(text) {
+  const out = {};
+  for (const m of text.matchAll(/(\d{1,2}):(\d\d) (a\.m\.|p\.m\.) \(?(PST|PDT)\)?/g)) out[m[4]] = `${m[1]}:${m[2]} ${m[3] === 'a.m.' ? 'AM' : 'PM'}`;
+  return out;
+}
+/** Every start of a reset from `from` to `to`, by asking for the next one again and again. */
+const startsOf = (r, from, to) => { const out = []; for (let t = R.nextStart(r, from); t <= to; t = R.nextStart(r, t)) out.push(t); return out; };
+const Y2026 = Date.UTC(2026, 0, 1), Y2029 = Date.UTC(2029, 0, 1);
+
+test('resets: every reset has a safe id, a name, a rule, a certainty and a source; official ones quote a Square Enix page', () => {
+  const ids = new Set();
+  for (const r of R.RESETS) {
+    assert.match(r.id, /^[a-z0-9]+(?:-[a-z0-9]+)*$/, r.id);
+    assert.ok(!ids.has(r.id), `${r.id} twice`); ids.add(r.id);
+    assert.ok(r.name && r.about && r.source && ['daily', 'weekly', 'housing'].includes(r.group), r.id);
+    assert.ok(['official', 'unverified'].includes(r.certainty), r.id);
+    if (r.certainty === 'official') assert.match(r.source, /^the official .*(Lodestone|guide)/, r.id);
+    else assert.match(r.source, /community sources/, r.id);
+  }
+  // The daily reset, Grand Company missions, leves and the housing lottery's dates rest on community sources.
+  assert.deepEqual(R.RESETS.filter((r) => r.certainty === 'unverified').map((r) => r.id), ['daily', 'grand-company', 'leves', 'housing-entry', 'housing-results']);
+});
+
+test('resets: the 11 data centers the Lodestone lists, each in exactly one Jumbo Cactpot group, and the panel lists one drawing at most', () => {
+  assert.deepEqual(R.DATA_CENTERS.map((d) => d.name), ['Aether', 'Crystal', 'Dynamis', 'Primal', 'Chaos', 'Light', 'Materia', 'Elemental', 'Gaia', 'Mana', 'Meteor']);
+  for (const dc of R.DATA_CENTERS) assert.equal(R.JUMBO.filter((j) => j.dataCenters.includes(dc.key)).length, 1, dc.key);
+  assert.equal(R.JUMBO.flatMap((j) => j.dataCenters).length, 11);
+  for (const dc of R.DATA_CENTERS) assert.deepEqual(R.listed(dc.key).filter((r) => r.dataCenter).map((r) => r.id), [`jumbo-cactpot-${dc.key}`]);
+  for (const bad of [null, undefined, '', 'Aether', 'toString', 'atlantis']) assert.equal(R.listed(bad).filter((r) => r.dataCenter).length, 0, String(bad));
+  assert.deepEqual(R.listed(null).map((r) => r.id), ['daily', 'mini-cactpot', 'grand-company', 'leves', 'weekly', 'housing-entry', 'housing-results']);
+});
+
+test('resets: each Jumbo Cactpot drawing reads in Pacific time exactly as the Lodestone states it, before and after every daylight-saving change (2026 to 2028)', () => {
+  for (const j of R.JUMBO) {
+    const want = pacificTimes(j.lodestone);
+    assert.deepEqual(Object.keys(want).sort(), ['PDT', 'PST'], j.lodestone);
+    for (const key of j.dataCenters) {
+      const r = R.byId(`jumbo-cactpot-${key}`), seen = new Set();
+      assert.ok(r.source.includes(j.lodestone), 'the entry quotes the guide');
+      const starts = startsOf(r, Y2026, Y2029);
+      assert.ok(starts.length >= 156 && starts.length <= 157, `${key}: ${starts.length} weeks`);
+      for (const t of starts) {
+        const p = partsIn('America/Los_Angeles', t);
+        seen.add(p.timeZoneName);
+        assert.equal(`${p.weekday} ${p.hour}:${p.minute} ${p.dayPeriod}`, `Sat ${want[p.timeZoneName]}`, `${key} ${new Date(t).toISOString()}`);
+      }
+      assert.deepEqual([...seen].sort(), ['PDT', 'PST'], 'both standard and daylight time were checked');
+    }
+  }
+});
+
+test('resets: the Mini Cactpot resets every day at the Lodestone\'s 7:00 a.m. (PST) / 8:00 a.m. (PDT)', () => {
+  const r = R.byId('mini-cactpot'), want = pacificTimes(r.source);
+  assert.deepEqual(want, { PST: '7:00 AM', PDT: '8:00 AM' });
+  const starts = startsOf(r, Y2026, Y2029);
+  assert.equal(starts.length, 1096);
+  for (const t of starts) { const p = partsIn('America/Los_Angeles', t); assert.equal(`${p.hour}:${p.minute} ${p.dayPeriod}`, want[p.timeZoneName], new Date(t).toISOString()); }
+});
+
+test('resets: the weekly reset is the patch 7.5 notes\' Tuesday 1:00 a.m. PDT, 8:00 GMT and 18:00 AEST', () => {
+  const r = R.byId('weekly'), starts = startsOf(r, Y2026, Y2029);
+  assert.ok(r.source.includes('"is reset every Tuesday at 1:00 a.m. PDT (8:00 GMT / 18:00 AEST)"'));
+  assert.ok(starts.length >= 156);
+  let pdt = 0, gmt = 0;
+  for (const t of starts) {
+    const la = partsIn('America/Los_Angeles', t), uk = partsIn('Europe/London', t);
+    if (la.timeZoneName === 'PDT') { pdt++; assert.equal(clockIn('America/Los_Angeles', t), 'Tue 1:00 AM'); }
+    else assert.equal(clockIn('America/Los_Angeles', t), 'Tue 12:00 AM', 'midnight in standard time');
+    if (uk.timeZoneName === 'GMT') { gmt++; assert.equal(clockIn('Europe/London', t), 'Tue 8:00 AM'); }
+    assert.equal(clockIn('Australia/Brisbane', t), 'Tue 6:00 PM', 'AEST, which has no daylight time');
+  }
+  assert.ok(pdt > 50 && gmt > 50);
+});
+
+test('resets: the community times match the FFXIV wiki\'s table in Japan time (no daylight time): daily 12 a.m., Grand Company 5 a.m., leves 9 a.m. and 9 p.m.', () => {
+  const tokyo = (id) => [...new Set(startsOf(R.byId(id), Y2026, Date.UTC(2026, 1, 1)).map((t) => clockIn('Asia/Tokyo', t).replace(/^\w+ /, '')))].sort();
+  assert.deepEqual(tokyo('daily'), ['12:00 AM']);
+  assert.deepEqual(tokyo('grand-company'), ['5:00 AM']);
+  assert.deepEqual(tokyo('leves'), ['9:00 AM', '9:00 PM']);
+  assert.equal(startsOf(R.byId('leves'), Y2026, Y2026 + 10 * DAY).length, 20, 'twice a day');
+});
+
+test('resets: the housing lottery runs 5 days of entry then 4 of results, turning at 15:00 UTC, on the dates checked', () => {
+  const entry = R.byId('housing-entry'), results = R.byId('housing-results');
+  // A Lodestone notice ("Issue with the Housing Lottery System (Apr. 16): Follow-up") had set a results period to end on
+  // Wednesday, April 20, 2022 at 7:59 a.m. (PDT); news reports (Siliconera) put the next entry period at 8 a.m. PT on May 26.
+  assert.equal(R.nextStart(entry, Date.UTC(2022, 3, 20, 14, 59)), Date.UTC(2022, 3, 20, 15, 0));
+  assert.equal(clockIn('America/Los_Angeles', Date.UTC(2022, 3, 20, 15, 0)), 'Wed 8:00 AM');
+  assert.ok(startsOf(entry, Date.UTC(2022, 4, 1), Date.UTC(2022, 5, 1)).includes(Date.UTC(2022, 4, 26, 15, 0)));
+  // PaissaDB, read on 2026-11-17 at 02:03 UTC: the results period lasts until 2026-11-19 15:00 UTC.
+  assert.deepEqual(R.lotteryPhase(Date.UTC(2026, 10, 17, 2, 3)), { phase: 'results', start: Date.UTC(2026, 10, 15, 15), end: Date.UTC(2026, 10, 19, 15) });
+  // At random moments: the phase holds now, lasts 5 or 4 days, and the next phase starts where it ends.
+  for (let i = 0; i < 2000; i++) {
+    const t = Math.floor(Date.UTC(2023, 0, 1) + rand() * (Date.UTC(2030, 0, 1) - Date.UTC(2023, 0, 1)));
+    const p = R.lotteryPhase(t), q = R.lotteryPhase(p.end);
+    assert.ok(p.start <= t && t < p.end);
+    assert.equal(p.end - p.start, (p.phase === 'entry' ? 5 : 4) * DAY);
+    assert.deepEqual([q.phase, q.start], [p.phase === 'entry' ? 'results' : 'entry', p.end]);
+    assert.equal(new Date(p.end).getUTCHours(), 15);
+    assert.equal(p.end, R.nextStart(p.phase === 'entry' ? results : entry, t));
+  }
+});
+
+test('resets: nextStart is the first start strictly after now, against an independent calendar walk (random times and every edge)', () => {
+  // Independently of the engine: walk UTC calendar days with Date.UTC and pick the first matching start after t.
+  function walk(rule, t) {
+    const d = new Date(t), y = d.getUTCFullYear(), m = d.getUTCMonth(), day = d.getUTCDate();
+    const found = [];
+    for (let k = -1; k <= 8; k++) {
+      const midnight = Date.UTC(y, m, day + k);
+      if (rule.type === 'daily') for (const mm of rule.minutesUtc) found.push(midnight + mm * MIN);
+      if (rule.type === 'weekly' && new Date(midnight).getUTCDay() === rule.weekday) found.push(midnight + rule.minuteUtc * MIN);
+    }
+    if (rule.type === 'cycle') { let c = rule.anchor + rule.offsetDays * DAY; while (c <= t) c += rule.periodDays * DAY; while (c - rule.periodDays * DAY > t) c -= rule.periodDays * DAY; found.push(c); }
+    return Math.min(...found.filter((x) => x > t));
+  }
+  const times = Array.from({ length: 1500 }, () => Math.floor(Date.UTC(2023, 0, 1) + rand() * (Date.UTC(2032, 0, 1) - Date.UTC(2023, 0, 1))));
+  for (const r of R.RESETS) {
+    const edges = startsOf(r, Date.UTC(2027, 2, 1), Date.UTC(2027, 3, 1)).flatMap((s) => [s - 1, s, s + 1]);
+    for (const t of times.concat(edges)) {
+      const next = R.nextStart(r, t);
+      assert.ok(next > t, `${r.id} at ${t}`);
+      assert.equal(next, walk(r.rule, t), `${r.id} at ${new Date(t).toISOString()}`);
+    }
+  }
+});
+
+test('resets: upcoming holds every start after now up to and including now + span, in time order, ties by id', () => {
+  const at15 = Date.UTC(2026, 10, 17, 15), daily = R.byId('daily'), mini = R.byId('mini-cactpot');
+  assert.deepEqual(R.upcoming([daily], at15, DAY).map((x) => x.start), [at15 + DAY], 'a start at now is out, one at now + span is in');
+  assert.deepEqual(R.upcoming([daily], at15 - 1, DAY).map((x) => x.start), [at15]);
+  assert.equal(R.upcoming([daily], at15, 30 * DAY).length, 30);
+  assert.deepEqual(R.upcoming([mini, daily], at15 - 1, DAY).map((x) => x.reset.id), ['daily', 'mini-cactpot'], 'the same moment goes by id');
+  const all = R.upcoming(R.listed('chaos'), Date.UTC(2027, 2, 10), 30 * DAY);
+  for (let i = 1; i < all.length; i++) assert.ok(all[i - 1].start < all[i].start || (all[i - 1].start === all[i].start && all[i - 1].reset.id < all[i].reset.id));
+  assert.deepEqual(R.upcoming([], Date.UTC(2027, 2, 10), DAY), []);
+});
+
+test('resets: the answers are the same in every time zone, and the engine reads no local time', () => {
+  const script = "const R=require('./js/resets.js');const ts=[0,1e12,1761220800000,1795100400000,1999999999999];" +
+    "console.log(JSON.stringify(ts.map(t=>[R.RESETS.map(r=>R.nextStart(r,t)),R.lotteryPhase(t),R.upcoming(R.listed('aether'),t,7*864e5).length])))";
+  const run = (tz) => execFileSync(process.execPath, ['-e', script], { cwd: ROOT, env: { ...process.env, TZ: tz } }).toString();
+  const base = run('UTC');
+  for (const tz of ['America/Los_Angeles', 'Asia/Tokyo', 'Australia/Lord_Howe', 'Pacific/Chatham', 'Europe/London']) assert.equal(run(tz), base, tz);
+  const src = readFileSync(join(ROOT, 'js', 'resets.js'), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+  assert.doesNotMatch(src, /get(Hours|Minutes|Date|Day|Month|FullYear|TimezoneOffset)\(|toLocale|Intl\.|new Date\(|Date\.now/);
 });
 
 // ---- calendar files (js/ics.js) ----

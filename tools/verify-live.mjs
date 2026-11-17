@@ -13,6 +13,8 @@
 // through) or points there from any other address. Then the radmagelabs.com homepage's FFXIV
 // link is followed to make sure it opens the timer.
 //
+// The Resets panel's next times are compared with js/resets.js.
+//
 // This checks the deployed copy against the reference engines in this repo. It says nothing
 // about whether the game agrees; that is in-game validation, which is separate.
 import assert from 'node:assert/strict';
@@ -23,10 +25,12 @@ import { launchChrome } from '../tests/lib/cdp.mjs';
 import { ROOT, TARGETS } from './build.mjs';
 
 const require = createRequire(import.meta.url);
-const E = require('../js/eorzea.js'), W = require('../js/weather.js'), G = require('../js/gathering.js');
+const E = require('../js/eorzea.js'), W = require('../js/weather.js'), G = require('../js/gathering.js'), R = require('../js/resets.js');
 const WD = require('../js/weather-data.js'), NODES = require('../js/gathering-data.js').nodes;
 const NEWS = require('../js/news.js');
-const URLS = TARGETS.targets.pages.urls;
+// VERIFY_URLS (comma-separated) checks other addresses instead, such as the local preview of
+// tools/serve.mjs before a release; the radmagelabs.com homepage check is then skipped.
+const URLS = process.env.VERIFY_URLS ? process.env.VERIFY_URLS.split(',') : TARGETS.targets.pages.urls;
 const LABS_HOME = 'https://radmagelabs.com/';
 // The deployed page carries this checkout's title.
 const TITLE = readFileSync(join(ROOT, 'index.html'), 'utf8').match(/<title>([^<]*)<\/title>/)[1].replace(/&amp;/g, '&');
@@ -91,8 +95,17 @@ try {
       }
     });
 
+    await check(`${url}: every reset's next time matches js/resets.js`, async () => {
+      let now;
+      // Away from any reset (or lottery period) changing, so the page and the engine are asked about the same one.
+      for (;;) { now = await page.eval('Date.now()'); if (R.RESETS.every((r) => R.nextStart(r, now) - now > 4000)) break; await sleep(4000); }
+      const rows = await page.eval("[...document.querySelectorAll('#resets-list .reset-row[data-at]')].map(r => [r.dataset.reset, Number(r.dataset.at)])");
+      assert.ok(rows.length >= 6, JSON.stringify(rows));
+      for (const [id, at] of rows) assert.equal(at, id === 'housing' ? R.lotteryPhase(now).end : R.nextStart(R.byId(id), now), id);
+    });
+
     await check(`${url}: navigation, a shared link and reload`, async () => {
-      for (const id of ['gathering', 'forecast', 'finder', 'now']) {
+      for (const id of ['gathering', 'resets', 'forecast', 'finder', 'now']) {
         await page.eval(`document.querySelector('[data-jump="${id}"]').click()`);
         await page.waitFor(`Math.abs(document.getElementById('${id}').getBoundingClientRect().top) < 120`, 5000);
       }
@@ -167,7 +180,7 @@ try {
     });
   }
 
-  await check(`${LABS_HOME}: the FFXIV link opens the timer`, async () => {
+  if (!process.env.VERIFY_URLS) await check(`${LABS_HOME}: the FFXIV link opens the timer`, async () => {
     const page = await chrome.newPage();
     await page.goto(LABS_HOME);
     const links = await page.eval("[...document.querySelectorAll('a[href]')].map(a => a.href).filter(h => /\\/ffxiv\\/?$/.test(new URL(h).pathname))");

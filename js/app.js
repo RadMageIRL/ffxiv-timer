@@ -7,6 +7,7 @@
   const E = window.Eorzea, W = window.XivWeather, DATA = window.FFXIV_WEATHER_DATA;
   const G = window.XivGathering, NODES = window.FFXIV_GATHERING_DATA.nodes;
   const Store = window.FfxivStore, Icons = window.FfxivIcons, Format = window.FfxivFormat, News = window.FfxivNews;
+  const R = window.XivResets;
 
   const ZONES = DATA.zones;
   const BY_KEY = new Map(ZONES.map((z) => [z.key, z]));
@@ -37,6 +38,17 @@
     remindLead: Store.read('remindLead', null),
     newsOpen: Store.read('newsOpen', false) === true,
   };
+  // Resets settings, one key saved only once something is chosen: the data center whose Jumbo Cactpot
+  // drawing shows, the starred rows (in Upcoming and reminders) and the reminder lead in minutes.
+  const RESET_STAR_IDS = ['daily', 'mini-cactpot', 'grand-company', 'leves', 'weekly', 'jumbo-cactpot', 'housing'];
+  const RESET_LEADS = [0, 5, 15, 30];
+  {
+    const s = Store.read('resets', null) || {};
+    state.resetsDc = R.dataCenter(s.dataCenter) ? s.dataCenter : null;
+    state.resetStars = new Set((Array.isArray(s.starred) ? s.starred : []).filter((id) => RESET_STAR_IDS.includes(id)));
+    state.resetRemindLead = RESET_LEADS.includes(s.remindLead) ? s.remindLead : null;
+  }
+  const saveResets = () => Store.write('resets', { dataCenter: state.resetsDc, starred: [...state.resetStars], remindLead: state.resetRemindLead });
   const NODE_BY_ID = new Map(NODES.map((n) => [n.id, n]));
 
   // Gathering view and filters, saved between visits. Anything unexpected falls back to the default.
@@ -79,7 +91,6 @@
   }
   const countdown = (until) => el('span', { class: 'cd', 'data-until': String(until) });
   const etLabel = (t) => { const c = E.clock(t); return `${E.formatEt(c.bell, c.minute)} ET`; };
-
   // ---- time formatting (the only place the viewer's time zone is used) ----
   let formats = null;
   function fmt(kind) {
@@ -89,6 +100,8 @@
         time: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', ...h }),
         seconds: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', ...h }),
         day: new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+        weekday: new Intl.DateTimeFormat(undefined, { weekday: 'short' }),
+        zone: new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' }),
       };
     }
     return formats[kind];
@@ -96,6 +109,16 @@
   function localWhen(t, now) {
     const time = fmt('time').format(t);
     return new Date(t).toDateString() === new Date(now).toDateString() ? time : `${fmt('day').format(t)}, ${time}`;
+  }
+  // The viewer's time zone: its short name at t ("CST", "CDT", "GMT+5:30") and its full name ("America/Chicago").
+  const zoneAbbr = (t) => { try { return fmt('zone').formatToParts(t).find((p) => p.type === 'timeZoneName').value; } catch (e) { return ''; } };
+  const zoneName = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } };
+  const zoneLabel = (t) => { const name = zoneName(), abbr = zoneAbbr(t); return name ? `${name}${abbr ? ` (${abbr})` : ''}` : abbr || 'your device\'s time zone'; };
+  // "Today", "Tomorrow", a weekday within the week, else the date: in local calendar days (a day can be 23 or 25 hours).
+  function dayWord(t, now) {
+    const a = new Date(t), b = new Date(now);
+    const days = Math.round((new Date(a.getFullYear(), a.getMonth(), a.getDate()) - new Date(b.getFullYear(), b.getMonth(), b.getDate())) / 86400000);
+    return days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days > 1 && days < 7 ? fmt('weekday').format(t) : fmt('day').format(t);
   }
   const usesHour12 = () => (state.hour12 == null ? !!new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hour12 : state.hour12);
 
@@ -201,29 +224,49 @@
 
   // ---- upcoming timeline ----
   let timelineNext = Infinity;
-  function renderTimeline(now) {
+  // What Upcoming lists at now: starred nodes up now (ending soonest first), then the first TIMELINE_MAX
+  // events within TIMELINE_SPAN: weather changes in starred zones, sunrise and sunset, starred nodes appearing.
+  // Each event that a calendar can hold has a key: "w:<zone>:<at>" or "n:<node id>:<start>".
+  function timelineEvents(now) {
     const until = now + TIMELINE_SPAN, events = [];
     for (const key of state.favorites) {
       const z = BY_KEY.get(key);
       for (const p of W.periods(z, now, Math.ceil(TIMELINE_SPAN / W.PERIOD) + 1)) {
-        if (p.start > now && p.start <= until && p.weather !== p.previous) events.push({ at: p.start, zone: z, p });
+        if (p.start > now && p.start <= until && p.weather !== p.previous) events.push({ at: p.start, zone: z, p, key: `w:${z.key}:${p.start}` });
       }
     }
     for (const bell of [6, 18]) {
       for (let t = E.nextEtTime(now, bell); t <= until; t += E.SUN) events.push({ at: t, bell });
     }
     const starred = G.starredEvents(NODES, state.nodeFavorites, now, TIMELINE_SPAN);
-    for (const s of starred.spawns) events.push({ at: s.at, node: s.node });
+    for (const s of starred.spawns) events.push({ at: s.at, end: s.end, node: s.node, key: `n:${s.node.id}:${s.at}` });
     events.sort((a, b) => a.at - b.at || (a.bell != null ? -1 : 1));
+    const shown = events.slice(0, TIMELINE_MAX);
+    // Starred resets ("r:<reset id>:<at>") join without moving anything above: after whatever else happens at
+    // the same moment, and only as far as the list reaches (the two hours, or its last event when it is full).
+    const reach = events.length > TIMELINE_MAX ? shown[shown.length - 1].at : until;
+    const resets = R.upcoming(starredResets(), now, TIMELINE_SPAN).filter((x) => x.start <= reach)
+      .map((x) => ({ at: x.start, reset: x.reset, key: `r:${x.reset.id}:${x.start}` }));
+    const merged = [];
+    let i = 0;
+    for (const ev of shown) { while (i < resets.length && resets[i].at < ev.at) merged.push(resets[i++]); merged.push(ev); }
+    merged.push(...resets.slice(i));
+    return {
+      up: starred.up.map((u) => Object.assign({ key: `n:${u.node.id}:${u.start}` }, u)), events: merged,
+      first: Math.min(events.length ? events[0].at : Infinity, resets.length ? resets[0].at : Infinity),
+    };
+  }
+  function renderTimeline(now) {
+    const t = timelineEvents(now);
     // Redraw when the next event happens or a starred node that is up now goes down.
-    timelineNext = Math.min(events.length ? events[0].at : Infinity, ...starred.up.map((u) => u.end));
+    timelineNext = Math.min(t.first, ...t.up.map((u) => u.end));
     // Starred nodes already up come first, labeled as such, ending soonest first.
-    const upNow = starred.up.map((u) => el('li', { class: 'tl-item tl-node tl-up', 'data-node': String(u.node.id) },
+    const upNow = t.up.map((u) => el('li', { class: 'tl-item tl-node tl-up', 'data-node': String(u.node.id) },
       el('div', { class: 'tl-when' }, el('span', null, el('span', { class: 'badge now' }, 'Up now')), el('span', { class: 'muted' }, `until ${etLabel(u.end)}`)),
       el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, nodeTitle(u.node)),
         el('span', { class: 'muted' }, `${KIND_LABEL[u.node.kind]} ${u.node.job.toLowerCase()} node · ${u.node.zone} ${fmtCoords(u.node.coords)}`)),
       el('div', { class: 'tl-cd' }, el('span', { class: 'muted small' }, 'ends in '), countdown(u.end))));
-    const items = upNow.concat(events.slice(0, TIMELINE_MAX).map((ev) => el('li', { class: `tl-item${ev.bell != null ? ' tl-sun' : ''}${ev.node ? ' tl-node' : ''}` },
+    const items = upNow.concat(t.events.map((ev) => (ev.reset ? timelineReset(ev, now) : el('li', { class: `tl-item${ev.bell != null ? ' tl-sun' : ''}${ev.node ? ' tl-node' : ''}`, 'data-at': String(ev.at) },
       el('div', { class: 'tl-when' }, el('span', null, localWhen(ev.at, now)), el('span', { class: 'muted' }, etLabel(ev.at))),
       ev.bell != null
         ? el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, ev.bell === 6 ? 'Sunrise' : 'Sunset'), el('span', { class: 'muted' }, ev.bell === 6 ? 'Day begins' : 'Night begins'))
@@ -232,8 +275,8 @@
             el('span', { class: 'muted' }, `${KIND_LABEL[ev.node.kind]} ${ev.node.job.toLowerCase()} node appears · ${ev.node.zone}`))
           : el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, ev.zone.name),
           el('span', { class: 'tl-change' }, chip(ev.p.previous, true), el('span', { class: 'arrow', 'aria-label': 'to' }, '→'), chip(ev.p.weather, true))),
-      el('div', { class: 'tl-cd' }, countdown(ev.at)))));
-    if (!state.favorites.size && !state.nodeFavorites.size) items.unshift(el('li', { class: 'tl-item tl-note muted' }, 'Star zones in Weather now or nodes in Timed gathering to see them here.'));
+      el('div', { class: 'tl-cd' }, countdown(ev.at))))));
+    if (!state.favorites.size && !state.nodeFavorites.size && !state.resetStars.size) items.unshift(el('li', { class: 'tl-item tl-note muted' }, 'Star zones in Weather now, nodes in Timed gathering or resets in Resets to see them here.'));
     $('timeline-list').replaceChildren(...items);
   }
 
@@ -310,21 +353,36 @@
           : el('span', { class: 'node-status' }, `${localWhen(s.start, now)} · in `, countdown(s.start))));
   }
 
-  // Reminders for starred nodes while the page is open: a toast, and a system notification when
-  // the browser allows one. Each window is announced once.
+  // Reminders for starred nodes and starred resets while the page is open: a toast, and a system
+  // notification when the browser allows one. Each window or reset is announced once.
   const reminded = new Set();
   function checkReminders(now) {
-    if (state.remindLead == null) return;
-    const lead = state.remindLead * 60000;
-    for (const id of state.nodeFavorites) {
-      const n = NODE_BY_ID.get(id), s = G.status(n, now);
-      const start = s.start, key = `${id}:${start}`;
-      if (reminded.has(key)) continue;
-      const due = start - lead;
-      if (now >= due && now < Math.max(start, due + 15000)) {
-        reminded.add(key);
-        const when = start > now ? `in ${fmtCountdown(start - now)} (${etLabel(start)})` : `now (${etLabel(start)})`;
-        notify(`${nodeTitle(n)}`, `${KIND_LABEL[n.kind]} ${n.job.toLowerCase()} node in ${n.zone}, ${n.area} ${fmtCoords(n.coords)}: up ${when}.`);
+    if (state.remindLead != null) {
+      const lead = state.remindLead * 60000;
+      for (const id of state.nodeFavorites) {
+        const n = NODE_BY_ID.get(id), s = G.status(n, now);
+        const start = s.start, key = `${id}:${start}`;
+        if (reminded.has(key)) continue;
+        const due = start - lead;
+        if (now >= due && now < Math.max(start, due + 15000)) {
+          reminded.add(key);
+          const when = start > now ? `in ${fmtCountdown(start - now)} (${etLabel(start)})` : `now (${etLabel(start)})`;
+          notify(`${nodeTitle(n)}`, `${KIND_LABEL[n.kind]} ${n.job.toLowerCase()} node in ${n.zone}, ${n.area} ${fmtCoords(n.coords)}: up ${when}.`);
+        }
+      }
+    }
+    if (state.resetRemindLead != null) {
+      const lead = state.resetRemindLead * 60000;
+      for (const r of starredResets()) {
+        // The next start, or one that came in the last 15 s (a reminder "when it happens" may be a tick late).
+        const start = R.nextStart(r, now - 15000), key = `r:${r.id}:${start}`;
+        if (reminded.has(key)) continue;
+        const due = start - lead;
+        if (now >= due && now < Math.max(start, due + 15000)) {
+          reminded.add(key);
+          const when = start > now ? `In ${fmtCountdown(start - now)}, at ${resetLocal(start, now)} (${utcClock(start)})` : `Now, ${resetLocal(start, now)} (${utcClock(start)})`;
+          notify(r.name, `${when}.${r.certainty === 'unverified' ? ' Time unverified: from community sources only.' : ''}`);
+        }
       }
     }
   }
@@ -340,12 +398,16 @@
   function syncNotifyButton() {
     const supported = 'Notification' in window, permission = supported ? Notification.permission : 'unsupported';
     $('notify-enable').hidden = state.remindLead == null || permission !== 'default';
-    setText($('notify-state'), {
+    $('reset-notify-enable').hidden = state.resetRemindLead == null || permission !== 'default';
+    $('reset-reminder-note').hidden = state.resetRemindLead == null;
+    const said = {
       granted: 'Notifications are allowed.',
       denied: 'Notifications are blocked for this site in your browser settings.',
       unsupported: 'This browser does not offer notifications.',
       default: '',
-    }[permission] || '');
+    }[permission] || '';
+    setText($('notify-state'), said);
+    setText($('reset-notify-state'), said);
   }
 
   // ---- forecast ----
@@ -430,6 +492,84 @@
       el('div', { class: 'tl-when' }, el('span', null, localWhen(m.start, now)), el('span', { class: 'muted' }, `${E.formatEt(m.bell, 0)} ET`)),
       el('span', { class: 'tl-change' }, chip(m.previous, true), el('span', { class: 'arrow', 'aria-label': 'then' }, '→'), chip(m.weather, true)),
       el('div', { class: 'tl-cd' }, m.start <= now ? el('span', { class: 'badge now' }, 'Now') : countdown(m.start)))));
+  }
+
+  // ---- resets ----
+  // Every time in the viewer's own time zone, named, with UTC beside it: guides give reset times in UTC
+  // (GMT) and the Lodestone in Pacific time, so the UTC line lets a time read elsewhere be matched. The
+  // engine (js/resets.js) works in UTC only.
+  const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const RESET_GROUPS = [['daily', 'Daily'], ['weekly', 'Weekly'], ['housing', 'Housing lottery']];
+  const hhmm = (minute) => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+  /** A rule in UTC, as guides write it: "every day, 15:00 UTC", "every Tuesday, 08:00 UTC". */
+  function utcRule(rule) {
+    if (rule.type === 'daily') return `every day, ${rule.minutesUtc.map(hhmm).join(' and ')} UTC`;
+    if (rule.type === 'weekly') return `every ${WEEKDAY[rule.weekday]}, ${hhmm(rule.minuteUtc)} UTC`;
+    return `every ${rule.periodDays} days, ${hhmm(Math.round((rule.anchor % 86400000) / 60000))} UTC`;
+  }
+  /** A start in local time with its zone: "Today 9:00 AM CST", "Sat 8:00 PM CST". */
+  const resetLocal = (t, now) => `${dayWord(t, now)} ${fmt('time').format(t)}${zoneAbbr(t) ? ` ${zoneAbbr(t)}` : ''}`;
+  const unverifiedBadge = (r) => (r.certainty === 'unverified' ? el('span', { class: 'badge unverified', title: 'From community sources only; not yet checked in the game.' }, 'time unverified') : null);
+  /** An instant in UTC as guides write it: "15:00 UTC". */
+  const utcClock = (t) => { const d = new Date(t); return `${hhmm(d.getUTCHours() * 60 + d.getUTCMinutes())} UTC`; };
+  // The resets a panel row stands for: one reset, the chosen data center's Jumbo Cactpot ("jumbo-cactpot"),
+  // or the housing lottery's two phases ("housing").
+  function rowResets(rowId) {
+    if (rowId === 'housing') return [R.byId('housing-entry'), R.byId('housing-results')];
+    if (rowId === 'jumbo-cactpot') return state.resetsDc ? [R.byId(`jumbo-cactpot-${state.resetsDc}`)] : [];
+    const r = R.byId(rowId);
+    return r && (!r.dataCenter || r.dataCenter === state.resetsDc) ? [r] : [];
+  }
+  /** The resets of the starred rows, each once. */
+  const starredResets = () => [...new Set([...state.resetStars].flatMap(rowResets))];
+  const starKey = (r) => (r.dataCenter ? 'jumbo-cactpot' : r.id);
+  const resetStar = (key, name) => el('button', {
+    class: 'star', type: 'button', 'data-reset-star': key, 'aria-pressed': String(state.resetStars.has(key)), 'aria-label': `Star ${name}`,
+    html: '<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>',
+  });
+  let resetsNext = Infinity, resetsDay = '';
+  function resetRow(r, now) {
+    const t = R.nextStart(r, now);
+    return el('li', { class: `reset-row${state.resetStars.has(starKey(r)) ? ' fav' : ''}`, 'data-reset': r.id, 'data-at': String(t) },
+      resetStar(starKey(r), r.name),
+      el('div', { class: 'reset-what' }, el('span', { class: 'reset-name' }, r.name, unverifiedBadge(r)), el('span', { class: 'muted small' }, r.short || r.about)),
+      el('div', { class: 'reset-when' }, el('span', { class: 'reset-local' }, resetLocal(t, now)), el('span', { class: 'muted small reset-utc' }, utcRule(r.rule))),
+      el('div', { class: 'tl-cd' }, countdown(t)));
+  }
+  /** A starred reset in Upcoming: its local time, its UTC time where the others show ET, and a countdown. */
+  function timelineReset(ev, now) {
+    return el('li', { class: 'tl-item tl-reset', 'data-reset': ev.reset.id, 'data-at': String(ev.at) },
+      el('div', { class: 'tl-when' }, el('span', null, localWhen(ev.at, now)), el('span', { class: 'muted' }, utcClock(ev.at))),
+      el('div', { class: 'tl-what' }, el('span', { class: 'tl-zone' }, ev.reset.name, unverifiedBadge(ev.reset)), el('span', { class: 'muted' }, 'Starred in Resets')),
+      el('div', { class: 'tl-cd' }, countdown(ev.at)));
+  }
+  function renderResets(now) {
+    const listed = R.listed(state.resetsDc);
+    resetsNext = Math.min(...listed.map((r) => R.nextStart(r, now)));
+    resetsDay = new Date(now).toDateString();
+    setText($('resets-zone'), `Times are in your time zone, ${zoneLabel(now)}, with UTC beside each one: guides usually give reset times in UTC (GMT), and the Lodestone in Pacific time.`);
+    const items = [];
+    for (const [group, title] of RESET_GROUPS) {
+      items.push(el('li', { class: 'reset-heading' }, title));
+      if (group === 'housing') {
+        const p = R.lotteryPhase(now), entry = p.phase === 'entry', r = R.byId('housing-entry');
+        items.push(el('li', { class: `reset-row${state.resetStars.has('housing') ? ' fav' : ''}`, 'data-reset': 'housing', 'data-phase': p.phase, 'data-at': String(p.end) },
+          resetStar('housing', 'the housing lottery periods'),
+          el('div', { class: 'reset-what' }, el('span', { class: 'reset-name' }, entry ? 'Entry period now' : 'Results period now', unverifiedBadge(r)),
+            el('span', { class: 'muted small' }, entry ? 'Entries are open on every World. The 4-day results period follows.' : 'Winners can finalize their purchase. The next 5-day entry period follows.')),
+          el('div', { class: 'reset-when' }, el('span', { class: 'reset-local' }, `until ${resetLocal(p.end, now)}`), el('span', { class: 'muted small reset-utc' }, utcRule(r.rule))),
+          el('div', { class: 'tl-cd' }, countdown(p.end))));
+        continue;
+      }
+      for (const r of listed.filter((x) => x.group === group)) items.push(resetRow(r, now));
+      if (group === 'weekly' && !state.resetsDc) {
+        items.push(el('li', { class: 'reset-row', 'data-reset': 'jumbo-cactpot' },
+          el('span', { class: 'star-space', 'aria-hidden': 'true' }),
+          el('div', { class: 'reset-what' }, el('span', { class: 'reset-name' }, 'Jumbo Cactpot drawing'),
+            el('span', { class: 'muted small' }, 'Each data center draws at its own time. Choose yours above to see it.'))));
+      }
+    }
+    $('resets-list').replaceChildren(...items);
   }
 
   // ---- latest news ----
@@ -525,6 +665,8 @@
       el('p', null, `${DATA.unsupported.length} other cities, field zones and areas have weather in the game but no forecast here yet. More are added only after their tables are verified.`),
       el('h3', null, `Timed gathering (${NODES.length} nodes)`),
       el('p', null, `Unspoiled and legendary nodes from ${[...new Set(NODES.map((n) => n.expansion))].join(', ')}. Times, items, levels, places and folklore tomes come from the game data; more expansions are added the same way.`),
+      el('h3', null, 'Resets'),
+      el('p', null, 'Daily and weekly resets, the Mini and Jumbo Cactpot and the housing lottery, shown in your time zone with UTC beside each. The weekly reset, the Mini Cactpot and every data center\'s Jumbo Cactpot drawing are times Square Enix states on the Lodestone (its Cactpot guide and the patch 7.5 notes). The daily reset, Grand Company missions and leve allowances come from community sources only and are marked "time unverified" until they are checked in the game. The housing lottery\'s 9-day cycle (5 days of entry, 4 of results, turning at 15:00 UTC) is from the Lodestone; the dates of the current cycle come from community sources, so it is marked as well. Star a reset to follow it in Upcoming and, if you choose, to be reminded of it while this page is open.'),
       el('h3', null, 'Where the data comes from'),
       el('p', null, `Weather tables and gathering nodes come from the game's own data tables for patch ${src.patch}, as exported by the ${src.dataset} project (commit ${src.commit.slice(0, 10)}). Calculations are deterministic: the same moment always gives the same answer.`),
       el('h3', null, 'Checked against reference data'),
@@ -546,6 +688,7 @@
   function renderWeather(now) {
     renderZones(now);
     renderTimeline(now);
+    renderResets(now);
     renderForecast(now);
     renderFinder(now);
     renderGathering(now);
@@ -562,6 +705,7 @@
     if (period !== lastPeriod) { lastPeriod = period; renderWeather(now); return; }
     if (now >= gatheringNext) renderGathering(now);
     if (now >= timelineNext) renderTimeline(now);
+    if (now >= resetsNext || new Date(now).toDateString() !== resetsDay) renderResets(now);
     if (state.newsOpen && !news.loading && now >= news.nextAt) loadNews();
     checkReminders(now);
     updateCountdowns(now);
@@ -593,6 +737,41 @@
 
     $('node-search').addEventListener('input', (e) => { state.nodeSearch = e.target.value; renderGathering(Date.now()); updateCountdowns(Date.now()); });
     wireGatheringFilters();
+    // The data center for the Jumbo Cactpot, grouped by region; saved once one is chosen.
+    const dc = $('resets-dc'), regions = [...new Set(R.DATA_CENTERS.map((d) => d.region))];
+    dc.replaceChildren(el('option', { value: '' }, 'Choose'), ...regions.map((g) => el('optgroup', { label: g },
+      R.DATA_CENTERS.filter((d) => d.region === g).map((d) => el('option', { value: d.key }, d.name)))));
+    dc.value = state.resetsDc || '';
+    dc.addEventListener('change', () => {
+      state.resetsDc = R.dataCenter(dc.value) ? dc.value : null;
+      saveResets();
+      const t = Date.now();
+      renderResets(t); renderTimeline(t); updateCountdowns(t);
+    });
+    // A starred reset shows in Upcoming and gets reminders, as starred zones and nodes do.
+    $('resets-list').addEventListener('click', (e) => {
+      const star = e.target.closest('[data-reset-star]');
+      if (!star) return;
+      const key = star.dataset.resetStar;
+      if (state.resetStars.has(key)) state.resetStars.delete(key); else state.resetStars.add(key);
+      saveResets();
+      const t = Date.now();
+      renderResets(t); renderTimeline(t); updateCountdowns(t);
+      const again = document.querySelector(`[data-reset-star="${key}"]`);
+      if (again) again.focus();
+    });
+    const resetLead = $('reset-remind');
+    resetLead.value = state.resetRemindLead == null ? '' : String(state.resetRemindLead);
+    resetLead.addEventListener('change', () => {
+      const v = Number(resetLead.value);
+      state.resetRemindLead = resetLead.value !== '' && RESET_LEADS.includes(v) ? v : null;
+      saveResets();
+      syncNotifyButton();
+    });
+    $('reset-notify-enable').addEventListener('click', async () => {
+      try { await Notification.requestPermission(); } catch (err) { /* unsupported */ }
+      syncNotifyButton();
+    });
     $('node-list').addEventListener('click', (e) => {
       const star = e.target.closest('[data-node-star]'), open = e.target.closest('[data-open]');
       if (star) {
