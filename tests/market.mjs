@@ -1,7 +1,7 @@
 // Tests for the Market & Crafting groundwork: the item list (js/market-items.js and its lock file),
-// the price paths (tools/lib/prices-contract.mjs) against captured Universalis answers, and the
-// fake Universalis the browser tests use. Run alone with `node tests/market.mjs`, or through
-// tests/run.mjs. No network.
+// the price paths (tools/lib/prices-contract.mjs) against captured Universalis answers, the fake
+// Universalis the browser tests use, and the hash router (js/router.js). Run alone with
+// `node tests/market.mjs`, or through tests/run.mjs. No network.
 //
 // Expected values come from outside this code: Universalis's own list of marketable ids and its
 // data centers (tests/fixtures/universalis/, captured once), a second extraction of the game
@@ -26,6 +26,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const M = require('../js/market-items.js');
 const R = require('../js/resets.js');
+const Router = require('../js/router.js');
 const ITEMS = decodeItems(M.items);
 const uni = (name) => JSON.parse(readFileSync(join(ROOT, 'tests', 'fixtures', 'universalis', `${name}.json`), 'utf8'));
 const DASH = new RegExp(`[${String.fromCharCode(0x2013)}-${String.fromCharCode(0x2015)}]`);
@@ -295,6 +296,47 @@ test('the fake Universalis fails on request: status codes, a dropped connection,
     fake.reset();
     assert.equal(fake.calls.length, 0);
   } finally { await server.close(); }
+});
+
+// ---- the hash router ----
+test('router: every address Timers & Weather has today still opens Timers & Weather', () => {
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  const ids = [...html.matchAll(/\bid="([a-z][a-z0-9-]*)"/g)].map((m) => m[1]);
+  assert.ok(ids.length > 50);
+  for (const h of [
+    '', '#', '#zone=middle-la-noscea', '#zone=eureka-pagos&fz=eureka-anemos&to=gales&bells=8',
+    '#zone=eureka-pagos&fz=eureka-pagos&prev=fog&to=heat-waves', '#zone=zadnor', '#fz=eureka-anemos', '#zone=nowhere&fz=nowhere',
+    '#marketplace', '#Market', '#markets/item/1', '#zone=market', '#%6Darket', '#market%2Fitem%2F5057', ' #market',
+    ...ids.map((id) => `#${id}`),
+  ]) assert.deepEqual(Router.modeOf(h), { mode: 'timers' }, h);
+});
+
+test('router: #market opens Prices, #market/item/<id> one item (1 to 9 digits, no leading zero), anything else under it a notice', () => {
+  assert.deepEqual(Router.modeOf('#market'), { mode: 'market', view: 'home' });
+  assert.deepEqual(Router.modeOf('market'), { mode: 'market', view: 'home' });
+  assert.deepEqual(Router.modeOf('#market/'), { mode: 'market', view: 'home' });
+  assert.deepEqual(Router.modeOf('#market/item/5057'), { mode: 'market', view: 'item', id: 5057 });
+  assert.deepEqual(Router.modeOf('#market/item/1'), { mode: 'market', view: 'item', id: 1 });
+  assert.deepEqual(Router.modeOf('#market/item/999999999'), { mode: 'market', view: 'item', id: 999999999 });
+  for (const h of ['#market/item/0', '#market/item/05057', '#market/item/1234567890', '#market/item/', '#market/item/abc', '#market/item/5057/',
+    '#market/item/5057?x=1', '#market/item/5057&zone=x', '#market/crafting', '#market/x', '#market//item/5057', '#market/item/-1', '#market/item/5e3']) {
+    assert.deepEqual(Router.modeOf(h), { mode: 'market', view: 'notice' }, h);
+  }
+});
+
+test('router: marketHash names the view modeOf reads back', () => {
+  for (const v of [{ view: 'home' }, { view: 'item', id: 5057 }, { view: 'item', id: 999999999 }]) {
+    const back = Router.modeOf(Router.marketHash(v));
+    assert.equal(back.view, v.view);
+    if (v.id) assert.equal(back.id, v.id);
+  }
+  for (const bad of [null, {}, { view: 'item' }, { view: 'item', id: 0 }, { view: 'item', id: 1e9 }, { view: 'item', id: 1.5 }]) assert.equal(Router.marketHash(bad), '#market');
+});
+
+test('router: js/router.js runs as a plain browser script and sets XivRouter', () => {
+  const sandbox = {};
+  vm.runInNewContext(readFileSync(join(ROOT, 'js', 'router.js'), 'utf8'), sandbox);
+  assert.equal(JSON.stringify(sandbox.XivRouter.modeOf('#market/item/2')), JSON.stringify({ mode: 'market', view: 'item', id: 2 }));
 });
 
 await Promise.all(pending);
