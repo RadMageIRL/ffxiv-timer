@@ -3,6 +3,40 @@
 Every version of FFXIV Timer and what changed in it, newest first. Dates are the day I released
 each one.
 
+## Unreleased
+
+Added
+- Resets: a panel with the daily reset, the Mini Cactpot, Grand Company missions, leve
+  allowances, the weekly reset, your data center's Jumbo Cactpot drawing and the housing
+  lottery's current period. Each time is in your time zone, which is named, with its UTC time
+  beside it and a countdown. The weekly reset, the Mini Cactpot and every data center's Jumbo
+  Cactpot drawing are times Square Enix states on the Lodestone. The daily reset, Grand Company
+  missions, leve allowances and the dates of the housing lottery come from community sources
+  only and are marked "time unverified".
+- Starred resets: star a reset to see it in Upcoming, in time order with everything else, and,
+  if you choose, to be reminded of it when it happens or 5, 15 or 30 minutes before, while the
+  page is open. With no reset starred, Upcoming is exactly as before. Your data center, starred
+  resets and reminder choice are remembered on this device.
+- Add to calendar: calendar buttons in Upcoming, Resets, Timed gathering and Weather transitions
+  make a calendar file (.ics) of the times you choose. That can be a transition search's next
+  match or all the matches it lists; a node's next spawn or its windows over 2 or 6 hours (one
+  node, starred nodes, or the nodes the filters match); the weather changes in starred zones;
+  what Upcoming lists; or resets over up to 30 days. An alarm 5, 10 or 15 minutes before is
+  optional. The calendar tool loads from this site the first time you use it; the page writes
+  the file itself, and nothing is sent anywhere or saved. Each entry is written in UTC, so a
+  calendar shows it in its own time zone across daylight-saving changes. Something already
+  under way, such as a node that is up, starts when the file is made; nothing starts in the
+  past. The dialog asks you to check the count above 200 entries and makes no file above 500.
+- Latest news flags maintenance: a headline the Lodestone files under Maintenance is marked in
+  the list and shown on the bar for 7 days after it is posted, even while the bar is closed. The
+  flag uses only headlines already loaded or saved in this browser (from the last day), so it
+  asks for nothing.
+- Resets in the section links at the top.
+
+Changed
+- Game data is from patch 7.58. No weather table or gathering node changed, and every zone and
+  node was checked again against XIVAPI for 7.58.
+
 ## v0.9.1 (2026-10-25)
 
 Changed

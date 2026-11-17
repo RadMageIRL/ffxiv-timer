@@ -42,5 +42,15 @@ Lodestone headlines (Latest news)
   repository except trimmed copies of the two feeds (five entries each, titles, dates and links,
   no article text) in tests/fixtures/lodestone-topics.xml and lodestone-news.xml, for the tests.
 
+Reset times in js/resets.js
+  Times and wording stated by Square Enix on the Lodestone, read on 2026-11-16: the Cactpot guide
+  (https://na.finalfantasyxiv.com/lodestone/playguide/contentsguide/goldsaucer/cactpot/) for the
+  Mini Cactpot and each data center's Jumbo Cactpot drawing, the patch 7.5 notes for the weekly
+  reset, and the housing guide for the 5-day entry and 4-day results periods of the lottery. The
+  daily reset, Grand Company and leve times come from the FFXIV wiki's Daily and Weekly Checklist
+  (community sources) and are marked unverified on the page. The housing lottery's current period
+  was compared once with PaissaDB (https://github.com/zhudotexe/FFXIV_PaissaDB); nothing from it is
+  stored here.
+
 Icons
   The weather icons and the crystal mark are original to this project. No game images are used.

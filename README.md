@@ -17,7 +17,20 @@ The build is made to be served at two addresses, with the first as the canonical
   countdowns to the next bell, the next weather change and the next sunrise or sunset.
 - **Weather now.** Current weather in every supported zone, how long it lasts, and the next
   three changes. Search by zone, region or current weather; filter by region; star zones.
-- **Upcoming.** One timeline of weather changes in starred zones plus sunrise and sunset.
+- **Upcoming.** One timeline of weather changes in starred zones plus sunrise and sunset, and of
+  starred nodes and starred resets.
+- **Resets.** The daily reset, the Mini Cactpot, Grand Company missions, leve allowances, the
+  weekly reset, your data center's Jumbo Cactpot drawing and the housing lottery's current
+  period, each in your time zone (named on the page) with its UTC time beside it, since guides
+  give reset times in UTC and the Lodestone in Pacific time. Times that only community sources
+  give are marked "time unverified". Starred resets show in Upcoming and can remind you when they
+  happen or up to 30 minutes before, while the page is open.
+- **Add to calendar.** Calendar buttons in Upcoming, Resets, Timed gathering and Weather
+  transitions make a calendar file (.ics) of the times you choose, with an optional alarm. The
+  calendar tool loads from this site the first time you use it; the page writes the file itself
+  and sends nothing. Each entry is a UTC start, so a calendar shows it in its own time zone;
+  something already under way starts when the file is made, and a file holds at most 500
+  entries.
 - **Forecast.** Any supported zone's weather odds and its next 12 to 72 weather periods, each with
   the weather before it.
 - **Weather transitions.** Find when a zone changes from one weather to another ("Fog, then Heat
@@ -40,7 +53,9 @@ The build is made to be served at two addresses, with the first as the canonical
   to the Lodestone. Opening it asks radmagelabs.com, which passes the Lodestone's news feeds
   through; at the GitHub Pages address the bar links to the Lodestone instead. Headlines are
   refreshed every 15 minutes while the bar is open, and the bar remembers whether you left it
-  open. If a refresh fails, the last headlines stay up and it tries again shortly.
+  open. If a refresh fails, the last headlines stay up and it tries again shortly. A headline the
+  Lodestone files under Maintenance is flagged on the bar for 7 days, even while it is closed,
+  from the headlines this browser already has; the flag asks for nothing.
 
 Zones without a verified weather table are named as not supported. They never get a guess.
 
@@ -92,12 +107,22 @@ moment always gives the same answer, in every time zone.
 - The unit tests also check the roll against a BigInt version of the same arithmetic (including
   dates past the 32-bit wrap), the clock against the known real-time lengths of a bell, sun, moon
   and year, and the transition finder and node windows against brute-force searches.
+- Reset times are checked against the words of their sources through the time zone database:
+  every Jumbo Cactpot drawing from 2026 to 2028 must read in Pacific time exactly as the
+  Lodestone's Cactpot guide gives it, in standard and in daylight time; the Mini Cactpot likewise;
+  the weekly reset must be the patch 7.5 notes' Tuesday 1:00 a.m. PDT, 8:00 GMT and 18:00 AEST.
+  The housing lottery's cycle was compared with PaissaDB's current lottery period.
+- Calendar files are read back by a strict reader in the tests, in five time zones, and sample
+  files were read with two independent iCalendar libraries (ical.js and Python icalendar) with no
+  differences.
 
-### In the game (not done yet)
+### In the game and in calendar apps (not done yet)
 
 Nobody has yet compared these forecasts and node times with what the game itself shows (a
 Skywatcher NPC, the weather on the minimap, a node appearing). Until that happens they are
-computed from the game's data, not observed. Differences are welcome as
+computed from the game's data, not observed. The reset times marked "time unverified" have not
+been checked in the game either. Calendar files have not yet been imported into Google Calendar,
+Outlook or Apple Calendar. Differences are welcome as
 [issues](https://github.com/RadMageIRL/ffxiv-timer/issues).
 
 ## Run it locally
@@ -116,7 +141,7 @@ radmagelabs.com rewrites do; under `/ffxiv-timer/` they are missing, as on GitHu
 ## Tests
 
 ```
-node tests/run.mjs        # unit tests: clock, weather, transitions, countdowns, data, build
+node tests/run.mjs        # unit tests: clock, weather, transitions, resets, calendar files, data, build
 node tests/smoke.mjs      # browser and base-path tests in headless Chrome (CHROME_PATH if needed)
 node tools/screenshot.mjs # retake screenshots/ffxiv-timer.png at a fixed moment
 ```
