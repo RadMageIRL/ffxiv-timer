@@ -483,6 +483,9 @@ try {
     assert.equal(await page.eval('document.activeElement.id'), 'mk-item-title', 'focus moves into the details');
     await page.key('Escape');
     await page.waitFor("!document.getElementById('mk-item').open");
+    // The page puts the focus back in the dialog's close event, which the browser fires a task after open turns
+    // false (in v0.12.0's first CI run the check came in between): wait up to 3 s for it, then require it.
+    await page.waitFor("document.activeElement && document.activeElement.getAttribute('data-mkkey') === 'name:5057'", 3000).catch(() => {});
     assert.equal(await page.eval("document.activeElement.getAttribute('data-mkkey')"), 'name:5057', 'and back to the result');
     await page.eval("document.querySelector('#mk-results [data-mk-fav=\"5057\"]').focus()");
     await page.key(' ');
