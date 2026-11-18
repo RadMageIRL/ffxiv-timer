@@ -483,6 +483,32 @@ try {
     assert.deepEqual(page.problems, []);
   });
 
+  // Found in Phase 3: with the modes in the one-row header, 1201 to about 1320 px hid Transitions (the
+  // links' scrollbar is hidden, so nothing showed it was there). The links now take their own row up to 1360.
+  await test('header: from 1361 px every section link is in view on one row, in both modes; from 641 to 1360 px they have a row of their own', async () => {
+    const page = await fresh('#market', { market: { scope: 'dc:aether' } }, { width: 1361 });
+    await page.waitFor(`${MARKET_READY} && ${WATCH_PRICED}`);
+    const measure = () => page.eval("(() => { const j = [...document.querySelectorAll('.topbar .jump')].find((n) => n.getClientRects().length); return { h: Math.round(document.querySelector('.topbar').getBoundingClientRect().height), hidden: j.scrollWidth - j.clientWidth, linksTop: Math.round(j.getBoundingClientRect().top), modesTop: Math.round(document.querySelector('.modes').getBoundingClientRect().top) }; })()");
+    for (const mode of ['market', 'timers']) {
+      if (mode === 'timers') { await click(page, '[data-mode="timers"]'); await page.waitFor(READY); }
+      for (const w of [1361, 1440, 1920]) {
+        await page.viewport(w, 900);
+        await sleep(100);
+        const m = await measure();
+        assert.equal(m.hidden, 0, `${mode} at ${w}: ${m.hidden} px of section links hidden`);
+        assert.equal(m.linksTop, m.modesTop, `${mode} at ${w}: one row`);
+      }
+      for (const w of [641, 751, 1201, 1360]) {
+        await page.viewport(w, 900);
+        await sleep(100);
+        const m = await measure();
+        assert.ok(m.linksTop > m.modesTop, `${mode} at ${w}: the links have a row of their own`);
+        assert.equal(m.hidden, 0, `${mode} at ${w}: ${m.hidden} px of section links hidden`);
+      }
+    }
+    assert.deepEqual(page.problems, []);
+  });
+
   await test('phone widths (320, 390 px) in both themes: no sideways scrolling on the home, the results or the details', async () => {
     prices.reset();
     for (const theme of ['dark', 'light']) {
