@@ -34,6 +34,17 @@ export const DATASET = {
     ItemSearchCategory: 'def808328c89646afe2d1e590db53d86e07505415739df27e04513992a7d0efb',
     World: 'dcead0228b57e8c8d2be679e7baeba32f4d1fbc0f209b00d83a402ebaef1248f',
     WorldDCGroupType: '3081697e7c1650572d3f9691c3b84002f1d142df26174b21ae2a0b6683fcb6ef',
+    Recipe: 'ca25e38e1fed24ae4b1d1befeb50998715dc72c7d70d62026f549aa401661c27',
+    RecipeLevelTable: '6c74e0a19b80376f4879d744c2c4cdfbcac9dc4bf7812050cac4c6fb93460612',
+    SecretRecipeBook: '0c9ba5869daab9d12f07ae04f382d284fba776ea79169dca7c552f7ba8b4110e',
+    ClassJob: 'da65a1a26fe11951fff4654a2fec1a0702375294a07ae270bbbcaf35cf22d691',
+    GilShop: '70172a418d22999f99de7663c3ccaa000ba1efc960160be8ea77d60923d8c253',
+    GilShopItem: '0bc345d71797f0c0dabdd375ca2915f2582672c1ed921c47b695e40cbb7d54b6',
+    ENpcBase: 'bbad4bf44cf5b2382d806aeb153f9149cb36506c7a846d7ea77af352cb5e2cc9',
+    TopicSelect: 'a089822c5436ce7755313ab35ab6a9b8a88121804830f23bc737c3c85e9ae69a',
+    PreHandler: '4213709357c90439ffab689a041bbf080e45d1a0f1b2b7da1bc2c611b6a4ebcf',
+    CustomTalk: '6248ddaa763bab3321280c8834648b450b26c7d73b9963f4d67f8bec7d6adbfc',
+    CustomTalkNestHandlers: '324becb5c1e8fad2a5943d8d4d9646ca158b5e58913a141a01b144067cfd2151',
   },
 };
 
@@ -42,6 +53,12 @@ export const GATHERING_SHEETS = ['TerritoryType', 'PlaceName', 'ExVersion', 'Gat
   'GatheringItem', 'GatheringPointTransient', 'GatheringRarePopTimeTable', 'GatheringType', 'GatheringSubCategory',
   'ExportedGatheringPoint', 'Item', 'Map', 'GatheringItemLevelConvertTable'];
 export const MARKET_SHEETS = ['Item', 'ItemSearchCategory', 'World', 'WorldDCGroupType'];
+// The recipe catalog (tools/build-recipes.mjs): recipes and their levels, master books and job names; the gil
+// shops and the NPC menus and scripts that open them (which items a vendor really sells); the gathering
+// points (which ingredients the supported timed nodes give).
+export const SHOP_SHEETS = ['GilShop', 'GilShopItem', 'ENpcBase', 'TopicSelect', 'PreHandler', 'CustomTalk', 'CustomTalkNestHandlers'];
+export const RECIPE_SHEETS = ['Item', 'Recipe', 'RecipeLevelTable', 'SecretRecipeBook', 'ClassJob', ...SHOP_SHEETS,
+  'GatheringItem', 'GatheringPointBase'];
 
 const sourceUrl = (sheet) =>
   `https://raw.githubusercontent.com/${DATASET.repo}/${DATASET.commit}/csv/${DATASET.language}/${sheet}.csv`;

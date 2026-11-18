@@ -1,0 +1,45 @@
+{
+  "format": 1,
+  "file": "js/recipes.js",
+  "source": {
+    "dataset": "xivapi/ffxiv-datamining",
+    "commit": "52a72b38aa2f967cab36867f34cd9bee9debb88b",
+    "patch": "7.58",
+    "language": "en"
+  },
+  "sheets": {
+    "Item": "bea47a186c8d9533808d2436610c866a4dc22590455eca11973a289ffe470dd2",
+    "Recipe": "ca25e38e1fed24ae4b1d1befeb50998715dc72c7d70d62026f549aa401661c27",
+    "RecipeLevelTable": "6c74e0a19b80376f4879d744c2c4cdfbcac9dc4bf7812050cac4c6fb93460612",
+    "SecretRecipeBook": "0c9ba5869daab9d12f07ae04f382d284fba776ea79169dca7c552f7ba8b4110e",
+    "ClassJob": "da65a1a26fe11951fff4654a2fec1a0702375294a07ae270bbbcaf35cf22d691",
+    "GilShop": "70172a418d22999f99de7663c3ccaa000ba1efc960160be8ea77d60923d8c253",
+    "GilShopItem": "0bc345d71797f0c0dabdd375ca2915f2582672c1ed921c47b695e40cbb7d54b6",
+    "ENpcBase": "bbad4bf44cf5b2382d806aeb153f9149cb36506c7a846d7ea77af352cb5e2cc9",
+    "TopicSelect": "a089822c5436ce7755313ab35ab6a9b8a88121804830f23bc737c3c85e9ae69a",
+    "PreHandler": "4213709357c90439ffab689a041bbf080e45d1a0f1b2b7da1bc2c611b6a4ebcf",
+    "CustomTalk": "6248ddaa763bab3321280c8834648b450b26c7d73b9963f4d67f8bec7d6adbfc",
+    "CustomTalkNestHandlers": "324becb5c1e8fad2a5943d8d4d9646ca158b5e58913a141a01b144067cfd2151",
+    "GatheringItem": "53fdd67ad7bbd0da4c1490f5d6f3cc5e1dc207ff850fde0b25cbad655c562687",
+    "GatheringPointBase": "10559d5397177a22f0bfd9234649f4e590f2f545b7fa2e391c5768f5dd9cc669"
+  },
+  "supportedNodes": "70649d4df71294e6ecbfcd8268268c468ca1c80ec065c99d25293a7bf1e62314",
+  "recipes": 9644,
+  "outputs": 9490,
+  "outputsWithSeveralRecipes": 111,
+  "ingredients": 2701,
+  "notOnTheBoard": 6,
+  "vendorItems": 447,
+  "vendorItemsGated": 57,
+  "timedItems": 189,
+  "books": 110,
+  "levels": 134,
+  "graph": {
+    "cycles": 0,
+    "maxDepth": 5,
+    "maxMarketIds": 42,
+    "maxCraftSteps": 14
+  },
+  "bytes": 531649,
+  "sha256": "88a4aee8ec1233786ce2a8b0f8ec5fe82879cb313a6c9ef31f97aabc89585193"
+}

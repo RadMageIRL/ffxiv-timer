@@ -28,6 +28,8 @@ jobs:
         run: node tools/build-gathering.mjs --check
       - name: Generated market item list matches the pinned game tables
         run: node tools/build-market.mjs --check
+      - name: Generated recipe catalog matches the pinned game tables
+        run: node tools/build-recipes.mjs --check
       - name: Unit tests
         run: node tests/run.mjs
 
