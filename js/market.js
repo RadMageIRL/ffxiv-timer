@@ -214,7 +214,12 @@
     // The column names over a list of rows, on screens wide enough for columns (a phone labels each figure instead).
     const headRow = (id) => el('div', { class: 'mk-row mk-head-row', id, 'aria-hidden': 'true' }, el('span'), el('span', null, 'Item'), el('span', null, 'Lowest NQ listing'), el('span', null, 'Lowest HQ listing'), el('span', null, 'Sold a day'), el('span', null, 'Listing age'));
 
-    $('market-app').replaceChildren(
+    // Market & Crafting's two parts, each with its own addresses: Prices (#market, #market/item/<id>) and Crafting
+    // (#market/craft...). Crafting's files load the first time it opens (js/crafting.js).
+    const tab = (href, key, label) => el('a', { class: 'mk-tab', href, 'data-mk-tab': key, 'data-mkkey': `tab:${key}` }, label);
+    const tabs = el('nav', { class: 'mk-tabs', 'aria-label': 'Market & Crafting' }, tab('#market', 'prices', 'Prices'), tab('#market/craft', 'craft', 'Crafting'));
+    const craftView = el('div', { class: 'cr', id: 'mk-craft-view', hidden: true });
+    const pricesView = el('div', { id: 'mk-prices-view' },
       el('div', { class: 'panel mk-controls' },
         el('div', { class: 'mk-head' },
           el('p', { class: 'mk-lede' }, 'Market board prices from Universalis: lowest listings, recent sales and sales per day, with the age of every price.'),
@@ -276,6 +281,7 @@
           el('li', null, 'A listing is an item offered for sale now; the buyer pays the market tax on top of its price. A sale is a purchase that happened. Sold a day is how many units changed hands a day lately.'),
           el('li', null, 'This page asks radmagelabs.com for prices, and radmagelabs.com asks Universalis. Your browser does not contact Universalis, and nothing about you is sent there. Prices are not saved; they last while this page is open.'),
           el('li', null, `Item names and categories come from the game's own tables for patch ${cat.source.patch}. FFXIV Timer is not affiliated with Universalis.`))));
+    $('market-app').replaceChildren(tabs, pricesView, craftView);
 
     const dialog = el('dialog', { id: 'mk-item', class: 'mk-dialog', 'aria-labelledby': 'mk-item-title' },
       el('form', { method: 'dialog', class: 'dialog-close' }, el('button', { class: 'ghost', 'aria-label': 'Close' }, '×')),
@@ -353,7 +359,7 @@
 
     /** Prices for what is shown, and for a price sort or Listed now every match up to SORT_CAP. `force` asks again even for current ones (Refresh). */
     function fetchNeeded(restart, force) {
-      if (!scope) return;
+      if (!scope || part !== 'prices') return;
       if (restart && viewCtl) viewCtl.abort();
       if (restart || !viewCtl || viewCtl.signal.aborted) viewCtl = new AbortController();
       const after = () => { resort(); draw(); };
@@ -372,16 +378,21 @@
     const homeIds = () => [...new Set([...watchIds(cat), ...favHome(favs)])];
     /** The home's prices, while it is on screen: Market Watch's and the favorites shown there, together (one request for up to 100). */
     function loadHome(force) {
-      if (!scope || !isHome() || view.hidden) return;
+      if (!scope || !isHome() || view.hidden || pricesView.hidden) return;
       if (!homeCtl || homeCtl.signal.aborted) homeCtl = new AbortController();
       loadPrices(homeIds(), homeCtl.signal, force).then((r) => { if (r) draw(); });
     }
     // A price keeps its Universalis times until a new answer replaces it; a failed refresh never touches it.
-    async function loadPrices(ids, signal, force) {
-      if (!scope) return null;
-      const s = scope, t = now();
-      const need = ids.filter((id) => { const c = cache.get(key(id, s)); return (force || !c || t - c.at >= REFETCH_MS) && !live(pending, key(id, s)); });
+    // Crafting passes opts: scope, a place other than the page's (Crafting Watch ranks a world's data center), and
+    // whole: when any id needs asking, ask for all of them, so a recipe's or a Crafting Watch batch's request is the
+    // same address for every visitor (one cache entry), whatever this tab already holds.
+    async function loadPrices(ids, signal, force, opts = {}) {
+      const s = opts.scope || scope;
+      if (!s) return null;
+      const t = now();
+      let need = ids.filter((id) => { const c = cache.get(key(id, s)); return (force || !c || t - c.at >= REFETCH_MS) && !live(pending, key(id, s)); });
       if (!need.length) return null;
+      if (opts.whole) need = ids.slice();
       const ks = need.map((id) => key(id, s));
       const own = hold(pending, ks, signal);
       drawSoon();
@@ -486,6 +497,7 @@
       // While a 429 or 503 holds the queue, the waiting text counts down.
       clearTimeout(pauseTimer);
       if (client.pausedUntil()) pauseTimer = setTimeout(drawSoon, 1000);
+      if (craft && part === 'craft') craft.draw();
     }
     const setText = (n, text) => { if (n.textContent !== text) n.textContent = text; };
     function scopeNote(s) {
@@ -593,6 +605,7 @@
       $('mk-scope').value = scope ? scope.id : '';
       apply('now');
       if (detail) loadDetail(detail.id, false);
+      if (craft) craft.placeChanged();
     }
 
     // ---- One item's details: "#market/item/<id>" ----
@@ -609,7 +622,8 @@
         el('p', { class: 'mk-actions' },
           el('button', { type: 'button', class: 'ghost small', 'data-mk-fav': String(id), 'data-mkkey': 'dlg:fav', 'aria-pressed': String(on) }, on ? 'Favorite (saved)' : 'Favorite'),
           el('button', { type: 'button', class: 'ghost small', 'data-mk-refresh-one': String(id), 'data-mkkey': 'dlg:refresh' }, 'Refresh'),
-          el('button', { type: 'button', class: 'ghost small', 'data-mk-link': String(id), 'data-mkkey': 'dlg:link' }, 'Copy link')),
+          el('button', { type: 'button', class: 'ghost small', 'data-mk-link': String(id), 'data-mkkey': 'dlg:link' }, 'Copy link'),
+          el('a', { class: 'ghost small mk-craft-link', href: `#market/craft/${id}`, 'data-mkkey': 'dlg:craft' }, 'Crafting cost')),
         // The same place as the page's Prices for, so a world and its data center can be compared from here.
         el('label', { class: 'inline-select mk-item-scope' }, el('span', null, 'Prices for'),
           el('select', { 'data-mk-scope': '', 'data-mkkey': 'dlg:scope' }, scopeOptions(!scope).map((n) => n))),
@@ -771,9 +785,61 @@
       if (back && o.el !== document.body) back.focus();
     });
 
-    /** What "#market..." asks for (js/router.js): the home and results, or one item's details. Called by app.js on every change of the address. */
+    // ---- Prices or Crafting ----
+
+    let part = /^craft/.test(root.XivRouter.modeOf(location.hash).view || '') ? 'craft' : 'prices';
+    let craft = null, craftLoading = null, craftHash = '#market/craft';
+    function showPart(next) {
+      const changed = next !== part;
+      part = next;
+      pricesView.hidden = next !== 'prices';
+      craftView.hidden = next !== 'craft';
+      for (const a of tabs.querySelectorAll('[data-mk-tab]')) { if (a.dataset.mkTab === next) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
+      for (const b of document.querySelectorAll('[data-market-jump]')) b.hidden = next !== 'prices';
+      for (const b of document.querySelectorAll('[data-craft-jump]')) if (next !== 'craft') b.hidden = true;
+      if (changed && next === 'prices') { fetchNeeded(false); draw(); }
+    }
+    // Crafting's files, from the lazy-scripts template like the market's own (so the build versions them), each
+    // once and in order; never with the timers or Prices.
+    function loadCrafting() {
+      if (!craftLoading) {
+        const boot = $('market-boot');
+        boot.textContent = 'Loading Crafting.';
+        boot.hidden = false;
+        craftLoading = Promise.all([...$('lazy-scripts').content.querySelectorAll('[data-lazy="recipes"], [data-lazy="craft-calc"], [data-lazy="crafting"], [data-lazy="crafting-css"]')].map((t) => new Promise((ok, fail) => {
+          const js = t.tagName === 'SCRIPT', ref = t.getAttribute(js ? 'src' : 'href');
+          if (document.querySelector(`[data-from="${ref}"]`)) { ok(); return; }
+          const n = el(js ? 'script' : 'link', js ? { src: ref, 'data-from': ref } : { rel: 'stylesheet', href: ref, 'data-from': ref });
+          n.async = false;
+          n.onload = ok; n.onerror = () => { n.remove(); (js ? fail : ok)(); };
+          document.head.append(n);
+        }))).then(() => { craft = root.XivCrafting.mount(craftApi); boot.hidden = true; return craft; }, (e) => {
+          craftLoading = null;
+          boot.textContent = 'Crafting could not load. Check your connection and open it again. Prices and the timers are not affected.';
+          throw e;
+        });
+      }
+      return craftLoading;
+    }
+    /** Moves within Market & Crafting: one history entry, then the view it names. */
+    function go(hash) {
+      try { history.pushState({ ffxivMarket: hash }, '', hash); } catch (e) { /* the view still changes */ }
+      route(hash);
+    }
+
+    /** What "#market..." asks for (js/router.js): Prices (home, results, one item's details) or Crafting. Called by app.js on every change of the address. */
     function route(hash) {
       const r = root.XivRouter.modeOf(hash);
+      if (r.view === 'craft-home' || r.view === 'craft-item' || r.view === 'craft-notice') {
+        if (dialog.open) { closingByHash = true; dialog.close(); }
+        say('');
+        craftHash = r.view === 'craft-notice' ? '#market/craft' : `#${String(hash).replace(/^#/, '')}`;
+        showPart('craft');
+        loadCrafting().then((c) => c.route(r), () => {});
+        return;
+      }
+      // An item's details open over whichever part is showing (Crafting links to them too).
+      if (r.view !== 'item') showPart('prices');
       if (r.view !== 'item') {
         if (dialog.open) { closingByHash = true; dialog.close(); }
         if (r.view === 'notice') say('That link to a market item could not be read. Nothing of yours was changed.');
@@ -840,9 +906,26 @@
       $('market-title').focus();
     }
 
+    // The tabs and Crafting's links move within Market & Crafting; a modified click is left to the browser.
+    const plainClick = (ev) => !ev.defaultPrevented && ev.button === 0 && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && !ev.altKey;
+    tabs.addEventListener('click', (ev) => {
+      const a = ev.target.closest('[data-mk-tab]');
+      if (!a || !plainClick(ev)) return;
+      ev.preventDefault();
+      const to = a.dataset.mkTab === 'craft' ? craftHash : '#market';
+      if (location.hash !== to) go(to); else route(to);
+    });
+    dialog.addEventListener('click', (ev) => {
+      const a = ev.target.closest ? ev.target.closest('a[href^="#market/craft/"]') : null;
+      if (!a || !plainClick(ev)) return;
+      ev.preventDefault();
+      closingByHash = true;
+      dialog.close();
+      go(a.getAttribute('href'));
+    });
     view.addEventListener('click', (ev) => {
       const a = ev.target.closest ? ev.target.closest('a[href^="#market/item/"]') : null;
-      if (a && !ev.defaultPrevented && ev.button === 0 && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && !ev.altKey) {
+      if (a && plainClick(ev)) {
         const id = Number(a.getAttribute('href').slice('#market/item/'.length));
         if (cat.byId.has(id)) {
           ev.preventDefault();
@@ -882,6 +965,7 @@
     });
 
     // Back on screen: prices no longer current are asked for again; the first time, the prefilled data center.
+    // Crafting looks after its own (app.js calls route next, which opens it).
     function shown() {
       if (view.hidden) return;
       if (!scope) {
@@ -889,6 +973,7 @@
         const s = dc ? cat.scopeById.get(`dc:${dc}`) : null;
         if (s && !$('mk-ask-dc').value) { $('mk-ask-dc').value = s.id; $('mk-ask-from').hidden = false; }
       }
+      if (/^craft/.test(root.XivRouter.modeOf(location.hash).view || '')) { if (craft) craft.shown(); return; }
       fetchNeeded(false);
       draw();
     }
@@ -904,13 +989,25 @@
     }
     setInterval(() => { if (!view.hidden && document.visibilityState === 'visible') tickAges(); }, 30000);
 
+    // What Crafting (js/crafting.js) gets: the same place, the same prices (one cache and one queue for both parts),
+    // and the page's ways of drawing and moving.
+    const craftApi = {
+      el, Store, now, copyText, canonical, when: ctx.when, cat, view: craftView,
+      scope: () => scope, setScope: (s) => setScope(s, true), scopeOptions, levelOf, worldName,
+      entry: (id, s) => cache.get(key(id, s)), pending: (id, s) => live(pending, key(id, s)), failure: (id, s) => failed.get(key(id, s)),
+      loadSet: (ids, signal, force, s) => loadPrices(ids, signal, force, { whole: true, scope: s }),
+      pausedUntil: () => client.pausedUntil(), stats: () => client.stats(),
+      go, freshness, ago, gil, perDay, plural, says, setText, ageCell, none, stat, longDate,
+    };
+
     syncControls();
     apply(false);
+    showPart(part);
     if (pendingRoute) { const p = pendingRoute; pendingRoute = ''; route(p); }
     return {
       route, shown,
       /** For the browser checks: what this tab holds, never the visitor's data beyond what is saved. */
-      debug: () => ({ listState: 'ready', home: isHome(), scope: scope ? scope.id : null, query: st.query, category: st.category, sort: st.sort, favOnly: st.favOnly, shown: st.shown, matches: matches.length, order: order.length, cached: cache.size, favorites: favs.slice(), detail: detail ? { id: detail.id, item: detail.item && detail.item.state } : null, stats: client.stats() }),
+      debug: () => ({ listState: 'ready', part, home: isHome(), scope: scope ? scope.id : null, query: st.query, category: st.category, sort: st.sort, favOnly: st.favOnly, shown: st.shown, matches: matches.length, order: order.length, cached: cache.size, favorites: favs.slice(), detail: detail ? { id: detail.id, item: detail.item && detail.item.state } : null, stats: client.stats(), craft: craft ? craft.debug() : null }),
     };
   }
 

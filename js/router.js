@@ -5,7 +5,10 @@
 // #market and the paths under it, strictly:
 //   #market                      Prices home
 //   #market/item/<id>            one item's details; id is 1 to 9 digits with no leading zero
+//   #market/craft                Crafting home
+//   #market/craft/<id>           Crafting for one item; id as for an item
 //   #market/<anything else>      Market & Crafting with a notice that the address is not known
+//                                (under #market/craft/, Crafting's own notice)
 // Anything else opens Timers & Weather, exactly as before, and changes nothing saved.
 (function (root) {
   'use strict';
@@ -16,6 +19,8 @@
     const h = String(hash || '').replace(/^#/, '');
     if (h !== 'market' && !h.startsWith('market/')) return { mode: 'timers' };
     if (h === 'market' || h === 'market/') return { mode: 'market', view: 'home' };
+    const c = craftRoute(h);
+    if (c) return c.view === 'craft-item' ? { mode: 'market', view: 'craft-item', id: c.id } : { mode: 'market', view: c.view === 'notice' ? 'craft-notice' : c.view };
     const m = ITEM.exec(h);
     if (m) return { mode: 'market', view: 'item', id: Number(m[1]) };
     return { mode: 'market', view: 'notice' };
@@ -27,8 +32,7 @@
     return '#market';
   }
 
-  // Crafting's addresses, prepared for v0.12.0 and not used by the page yet: until Crafting is built, modeOf
-  // above still opens these as an address Market & Crafting does not know.
+  // Crafting's addresses (v0.12.0), as modeOf above opens them:
   //   #market/craft                Crafting home (also with a trailing slash, as #market/ is)
   //   #market/craft/<id>           that item's recipes; id as in #market/item/<id>
   //   #market/craft/<anything else> a notice

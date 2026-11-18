@@ -949,7 +949,7 @@ test('crafting foundation: tests/crafting.mjs passes', () => {
   const m = /(\d+) passed, 0 failed/.exec(r.stdout);
   assert.ok(m && Number(m[1]) > 0, r.stdout);
 });
-// Crafting's money too: costs, the cheapest plan, profit, Crafting Watch and its requests.
+// Crafting's money too: costs, the cheapest plan, profit, Crafting Watch and its requests, saved preferences.
 test('crafting costs: tests/crafting-costs.mjs passes', () => {
   const r = spawnSync(process.execPath, [join(ROOT, 'tests', 'crafting-costs.mjs')], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
@@ -970,7 +970,8 @@ test('price function: tests/prices-function.mjs passes', () => {
 // Every key the page may keep in localStorage, under ffxiv-timer:v1:. Existing keys are never renamed or
 // reshaped (an older page must still read what a newer one saved); a new key is added here on purpose.
 // market (v0.11.0): the place prices are for, market favorites, the sort and the filters (js/market.js).
-const STORAGE_KEYS = ['favorites', 'finder', 'forecastZone', 'gathering', 'hour12', 'market', 'news', 'newsOpen', 'nodeFavorites', 'openGroups', 'remindLead', 'resets', 'theme'];
+// crafting (v0.12.0): the purchase tax assumption, HQ or NQ, and how materials are priced (js/crafting.js).
+const STORAGE_KEYS = ['crafting', 'favorites', 'finder', 'forecastZone', 'gathering', 'hour12', 'market', 'news', 'newsOpen', 'nodeFavorites', 'openGroups', 'remindLead', 'resets', 'theme'];
 const STORAGE_RESERVED = [];
 test('storage: the page keeps only the pinned keys, every one through store.js with a literal name', () => {
   const used = new Set();

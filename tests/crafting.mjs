@@ -1,6 +1,6 @@
 // Tests for Crafting's foundation (v0.12.0 Phase 1): the recipe catalog (js/recipes.js and its lock file, built by
 // tools/build-recipes.mjs), the vendor reading of the shop tables (tools/lib/shops.mjs), the timed-node mapping,
-// the calculation engine (js/craft-calc.js) and the prepared Crafting addresses (js/router.js craftRoute). Run alone
+// the calculation engine (js/craft-calc.js) and the Crafting addresses (js/router.js craftRoute). Run alone
 // with `node tests/crafting.mjs`, or through tests/run.mjs. No network.
 //
 // Expected values come from outside the code under test where they can: a second extraction of the game tables
@@ -474,7 +474,7 @@ test('timed nodes reuse the gathering engine: a mapped node\'s next window comes
 });
 
 // ---- prepared addresses ----
-test('Crafting addresses are prepared but not opened: craftRoute parses them strictly, modeOf still shows a notice', () => {
+test('Crafting addresses: craftRoute parses them strictly, and modeOf opens them (v0.12.0 Phase 2)', () => {
   assert.deepEqual(Router.craftRoute('#market/craft'), { view: 'craft-home' });
   assert.deepEqual(Router.craftRoute('#market/craft/'), { view: 'craft-home' });
   assert.deepEqual(Router.craftRoute('market/craft/5057'), { view: 'craft-item', id: 5057 });
@@ -485,16 +485,19 @@ test('Crafting addresses are prepared but not opened: craftRoute parses them str
   assert.equal(Router.craftHash({ view: 'craft-item', id: 5057 }), '#market/craft/5057');
   assert.equal(Router.craftHash({ view: 'craft-home' }), '#market/craft');
   for (const bad of [null, {}, { view: 'craft-item', id: 0 }, { view: 'craft-item', id: 1.5 }, { view: 'craft-item', id: 1e9 }]) assert.equal(Router.craftHash(bad), '#market/craft');
-  for (const h of ['#market/craft', '#market/craft/5057']) {
-    assert.deepEqual(Router.modeOf(h), { mode: 'market', view: 'notice' }, `${h} is not opened yet`);
-    assert.deepEqual(Router.craftRoute(Router.craftHash(Router.craftRoute(h))), Router.craftRoute(h));
-  }
+  assert.deepEqual(Router.modeOf('#market/craft'), { mode: 'market', view: 'craft-home' });
+  assert.deepEqual(Router.modeOf('#market/craft/'), { mode: 'market', view: 'craft-home' });
+  assert.deepEqual(Router.modeOf('#market/craft/5057'), { mode: 'market', view: 'craft-item', id: 5057 });
+  for (const h of ['#market/craft/0', '#market/craft/x', '#market/craft/5057/']) assert.deepEqual(Router.modeOf(h), { mode: 'market', view: 'craft-notice' }, h);
+  for (const h of ['#market/crafting', '#market/craftx']) assert.deepEqual(Router.modeOf(h), { mode: 'market', view: 'notice' }, `${h}: Prices' notice, as before`);
+  for (const h of ['#market/craft', '#market/craft/5057']) assert.deepEqual(Router.craftRoute(Router.craftHash(Router.craftRoute(h))), Router.craftRoute(h));
 });
 
 // ---- house rules ----
 test('no dash characters (U+2013 to U+2015) in the new files', () => {
   for (const f of ['js/recipes.js', 'js/craft-calc.js', 'js/router.js', 'tools/build-recipes.mjs', 'tools/verify-recipes.mjs', 'tools/lib/shops.mjs',
-    'tools/lib/compare-recipes.mjs', 'tools/lib/gamedata.mjs', 'tests/crafting.mjs', 'tests/fixtures/xivapi-recipes.json', 'data/recipes.lock.json']) {
+    'tools/lib/compare-recipes.mjs', 'tools/lib/gamedata.mjs', 'tests/crafting.mjs', 'tests/fixtures/xivapi-recipes.json', 'data/recipes.lock.json',
+    'js/crafting.js', 'css/crafting.css', 'tests/crafting-costs.mjs', 'tests/smoke-crafting.mjs']) {
     assert.doesNotMatch(readFileSync(join(ROOT, f), 'utf8'), DASH, f);
   }
 });

@@ -44,3 +44,5 @@ jobs:
         run: node tests/smoke.mjs
       - name: Market & Crafting browser tests in Chrome
         run: node tests/smoke-market.mjs
+      - name: Crafting browser tests in Chrome
+        run: node tests/smoke-crafting.mjs

@@ -50,6 +50,13 @@
 .mk-cat:hover { border-color: var(--accent); }
 .mk-cat-count { color: var(--muted); font-size: 12px; }
 
+/* Prices and Crafting: two links in the style of the mode pills, the one shown marked. */
+.mk-tabs { display: flex; gap: 2px; width: fit-content; max-width: 100%; margin: 0 0 12px; padding: 3px; border: 1px solid var(--line-2); border-radius: 999px; background: var(--bg-2); }
+.mk-tab { padding: 4px 16px; border-radius: 999px; color: var(--muted); text-decoration: none; font-size: 14px; white-space: nowrap; }
+.mk-tab:hover { color: var(--text); }
+.mk-tab[aria-current="page"] { background: var(--pressed-wash); color: var(--accent-2); }
+a.ghost { display: inline-block; text-decoration: none; color: inherit; }
+
 /* Rows: the same shape in Market Watch, favorites and results. */
 .mk-list { list-style: none; margin: 0; padding: 0; }
 .mk-row {

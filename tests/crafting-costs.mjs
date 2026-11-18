@@ -1,6 +1,6 @@
 // Tests for Crafting's money (v0.12.0 Phase 2): what a material is bought at, cash outlay and economic cost, the
 // cheapest buy-or-craft plan, profit estimates and their basis, the price requests a recipe and Crafting Watch
-// make (js/craft-calc.js). Run alone with `node tests/crafting-costs.mjs`,
+// make, and what Crafting saves (js/craft-calc.js, js/crafting.js). Run alone with `node tests/crafting-costs.mjs`,
 // or through tests/run.mjs. No network.
 //
 // Prices here are made up on purpose (quotes in js/craft-calc.js's shape), so every figure can be worked out by
@@ -15,6 +15,7 @@ const require = createRequire(import.meta.url);
 const D = require('../js/recipes.js');
 const C = require('../js/craft-calc.js');
 const M = require('../js/market-items.js');
+const Crafting = require('../js/crafting.js');
 const ITEMS = decodeItems(M.items);
 const ON = new Set(ITEMS.map((i) => i.id));
 const onBoard = (id) => ON.has(id);
@@ -278,6 +279,17 @@ test('Crafting Watch rows: each item at its cheapest recipe and plan, for one cr
     return C.costPlan(CAT, multi, r.yield, { ...o, buy: C.cheapest(CAT, multi, r.yield, o).buy }).perUnit;
   });
   close(row.cost, Math.min(...per), 'the cheapest recipe');
+});
+
+// ---- what Crafting saves ----
+test('saved preferences: tax 0 to 10, HQ or NQ, materials any or HQ; anything else falls back to the default', () => {
+  assert.deepEqual(Crafting.sanitizePrefs(null), { tax: 0, quality: 'hq', materials: 'any' });
+  assert.deepEqual(Crafting.sanitizePrefs({ tax: 5, quality: 'nq', materials: 'hq' }), { tax: 5, quality: 'nq', materials: 'hq' });
+  for (const bad of [{ tax: 11 }, { tax: -1 }, { tax: 2.5 }, { tax: '5' }, { quality: 'HQ' }, { materials: 'nq' }, [], 'x', 7]) {
+    const s = Crafting.sanitizePrefs(bad);
+    assert.ok(s.tax === 0 && s.quality === 'hq' && s.materials === 'any', JSON.stringify(bad));
+  }
+  assert.deepEqual(Object.keys(Crafting.sanitizePrefs({ tax: 1, extra: 'x', owned: [1, 2] })), ['tax', 'quality', 'materials'], 'nothing else is kept');
 });
 
 console.log(`${passed} passed, ${failed} failed`);
