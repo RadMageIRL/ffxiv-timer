@@ -463,7 +463,7 @@ input[type="search"]::placeholder { color: var(--placeholder); }
 .node-row .star { grid-column: 1; align-self: start; }
 .node-items .muted.small { white-space: nowrap; }
 .node-items { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 16px; }
-.node-items li { display: inline-flex; align-items: baseline; gap: 6px; }
+.node-items li { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .node-item { font-weight: 600; }
 .stars { color: var(--accent); letter-spacing: 1px; font-size: 13px; }
 .small { font-size: 12px; }

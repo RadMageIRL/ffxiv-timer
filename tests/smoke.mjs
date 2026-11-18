@@ -807,6 +807,46 @@ try {
     assert.match(await pagesSite.eval('__shared[0].url'), /^https:\/\/radmagelabs\.com\/ffxiv\/#zone=kozamauka&fz=/);
   });
 
+  // Found by CI (v0.11.0): with a wide font (Linux's DejaVu Sans) a long node item, its stars, level and
+  // Collectable badge ran past the right edge at 320 px, because each item could not wrap. Which nodes are
+  // listed depends on the time, so this shows the longest one on purpose, with a wide font pinned.
+  await test('timed gathering on narrow phones with a wide font: a long item wraps inside the screen; on a wide screen it stays on one line', async () => {
+    const WIDE_FONT = 'body { font-family: "DejaVu Sans", Verdana, sans-serif !important; }';
+    const show = async (page) => {
+      await page.eval(`document.head.append(Object.assign(document.createElement('style'), { textContent: ${JSON.stringify(WIDE_FONT)} }))`);
+      await page.eval("document.querySelector('[data-node-view=\"all\"]').click(); { const s = document.getElementById('node-search'); s.value = 'prime achondrite'; s.dispatchEvent(new Event('input')); }");
+      await page.waitFor("document.querySelectorAll('#node-list .node-row').length === 1 && /Prime Achondrite/.test(document.querySelector('#node-list .node-items').textContent)");
+    };
+    for (const theme of ['dark', 'light']) {
+      for (const width of [320, 360, 390]) {
+        const page = await chrome.newPage();
+        await page.viewport(width, 844, true);
+        await page.beforeLoad(`try { localStorage.setItem(${JSON.stringify(THEME_KEY)}, ${JSON.stringify(JSON.stringify(theme))}); } catch (e) {}`);
+        await page.goto(`${servers.proxy.origin}/ffxiv/`);
+        await page.waitFor(READY);
+        await show(page);
+        const where = `${theme} ${width}`;
+        const past = await page.eval("[...document.querySelectorAll('#node-list *')].filter(n => n.getBoundingClientRect().right > innerWidth + 1).map(n => n.tagName + '.' + n.className + ' ' + Math.round(n.getBoundingClientRect().right))");
+        assert.deepEqual(past, [], `${where}: node list past the right edge`);
+        assert.ok(await page.eval('document.documentElement.scrollWidth <= innerWidth'), `${where}: page scrolls sideways`);
+        assert.deepEqual(page.problems, [], where);
+        await page.eval('localStorage.clear()');
+        await page.close();
+      }
+    }
+    const page = await chrome.newPage();
+    await page.viewport(1440, 900);
+    await page.goto(`${servers.proxy.origin}/ffxiv/`);
+    await page.waitFor(READY);
+    await show(page);
+    // One line: every part of the item overlaps every other vertically (baseline alignment at different font
+    // sizes gives them different tops and bottoms on the same line).
+    const oneLine = await page.eval("[...document.querySelectorAll('#node-list .node-items li')].map(li => { const r = [...li.children].map(c => c.getBoundingClientRect()); return Math.max(...r.map(x => x.top)) < Math.min(...r.map(x => x.bottom)); })");
+    assert.ok(oneLine.length > 0 && oneLine.every(Boolean), `on a wide screen each item stays on one line: ${oneLine}`);
+    await page.eval('localStorage.clear()');
+    await page.close();
+  });
+
   await test('phone widths (320, 360, 390 px) in both themes: no sideways scrolling; the first header row as before; share and theme at the end of the section links', async () => {
     for (const theme of ['dark', 'light']) {
       for (const width of [320, 360, 390]) {
