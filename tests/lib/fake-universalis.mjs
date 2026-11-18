@@ -6,7 +6,7 @@
 //   const fake = fakeUniversalis();
 //   serve({ ..., handlers: [{ prefix: '/ffxiv/prices/', handle: fake.handle }] });
 //   fake.failNext({ status: 503 }, 2)    the next 2 price requests answer 503 (problem+json)
-//   fake.failNext({ status: 429 })       one rate-limited answer
+//   fake.failNext({ status: 429 })       one rate-limited answer ({ status: 429, retryAfter: 2 } adds Retry-After: 2)
 //   fake.failNext({ offline: true })     the connection drops with no answer
 //   fake.failNext({ mangle: true })      200 with a body cut short (not JSON)
 //   fake.failNext({ delay: 2000 })       the right answer, 2 s late
@@ -66,7 +66,7 @@ export function fakeUniversalis() {
 
   let failures = [], holding = false, held = [], emptyIds = new Set();
   const calls = [];
-  const json = (send, status, body, type = 'application/json; charset=utf-8') => send(status, typeof body === 'string' ? body : JSON.stringify(body), type);
+  const json = (send, status, body, type = 'application/json; charset=utf-8', headers = {}) => send(status, typeof body === 'string' ? body : JSON.stringify(body), type, headers);
 
   function answer(up) {
     const kind = scopeKind(up.kind === 'tax' ? String(up.world) : up.scope);
@@ -98,7 +98,7 @@ export function fakeUniversalis() {
     const f = failures.length ? failures.shift() : null;
     if (f && f.offline) { res.socket.destroy(); return undefined; }
     if (f && f.delay) await new Promise((ok) => setTimeout(ok, f.delay));
-    if (f && f.status) return json(send, f.status, { type: 'about:blank', title: 'Fake failure', status: f.status }, 'application/problem+json; charset=utf-8');
+    if (f && f.status) return json(send, f.status, { type: 'about:blank', title: 'Fake failure', status: f.status }, 'application/problem+json; charset=utf-8', f.retryAfter ? { 'retry-after': String(f.retryAfter) } : {});
     const a = answer(up);
     if (f && f.mangle) return json(send, 200, JSON.stringify(a.body).slice(0, 40));
     return json(send, a.status, a.body, a.type);
