@@ -244,14 +244,14 @@
           el('span', { class: 'mk-crumb', id: 'mk-crumb', tabindex: '-1' })),
         el('p', { class: 'mk-count', id: 'mk-count', role: 'status' }),
         el('p', { class: 'mk-scope-text', id: 'mk-scope-text' }),
-        el('p', { class: 'mk-prices', id: 'mk-prices' }, el('span', { id: 'mk-prices-text', role: 'status' }), ' ', el('button', { type: 'button', class: 'link-btn', id: 'mk-refresh', hidden: true }, 'Refresh prices'))),
+        el('p', { class: 'mk-prices', id: 'mk-prices' }, el('span', { id: 'mk-prices-text', role: 'status' }), el('span', { id: 'mk-prices-wait', 'aria-hidden': 'true' }), ' ', el('button', { type: 'button', class: 'link-btn', id: 'mk-refresh', hidden: true }, 'Refresh prices'))),
       el('div', { class: 'notice mk-notice', id: 'mk-link-notice', role: 'status', hidden: true }, el('span', { id: 'mk-link-notice-text' }), ' ', el('button', { type: 'button', class: 'link-btn', id: 'mk-link-dismiss' }, 'Dismiss')),
       el('div', { class: 'mk-home', id: 'mk-home' },
         el('section', { class: 'panel mk-watch', id: 'mk-watch', 'aria-labelledby': 'mk-watch-title' },
           el('div', { class: 'panel-head' }, el('h2', { id: 'mk-watch-title' }, 'Market Watch'),
             el('p', { class: 'hint' }, 'Familiar crystals, materia, consumables, dyes and crafting materials, in groups. A fixed list, not a ranking.')),
           el('div', { class: 'mk-chips', role: 'group', 'aria-label': 'Market Watch group', id: 'mk-watch-groups' }),
-          el('p', { class: 'mk-prices', id: 'mk-watch-prices' }, el('span', { id: 'mk-watch-text', role: 'status' }), ' ', el('button', { type: 'button', class: 'link-btn', id: 'mk-watch-refresh', hidden: true }, 'Refresh prices')),
+          el('p', { class: 'mk-prices', id: 'mk-watch-prices' }, el('span', { id: 'mk-watch-text', role: 'status' }), el('span', { id: 'mk-watch-wait', 'aria-hidden': 'true' }), ' ', el('button', { type: 'button', class: 'link-btn', id: 'mk-watch-refresh', hidden: true }, 'Refresh prices')),
           headRow('mk-watch-head'),
           el('ol', { class: 'mk-list', id: 'mk-watch-list', 'aria-label': 'Market Watch items' })),
         el('section', { class: 'panel mk-favhome', id: 'mk-favs-home', 'aria-labelledby': 'mk-favhome-title' },
@@ -548,15 +548,18 @@
       const missing = ids.filter((id) => failed.has(key(id)) && !cache.has(key(id))).length;
       const loaded = ids.filter((id) => cache.has(key(id))).length;
       const until = client.pausedUntil();
-      if (until && loading) parts.push(`Busy: the price service asked this page to wait, so it asks again in ${Math.max(1, Math.ceil((until - t) / 1000))} s. Prices already shown stay as they are.`);
+      // The wait is announced once; the seconds count down beside it, outside the live region, so a screen
+      // reader does not read out every second.
+      if (until && loading) parts.push('Busy: the price service asked this page to wait. Prices already shown stay as they are.');
       else if (loading) parts.push(`Loading prices for ${plural(loading, 'item', 'items')} in ${scope.name}...`);
       const whys = ids.map((id) => failed.get(key(id))).filter(Boolean);
       if (whys.length) {
         const why = whys.reduce((a, b) => (Prices.ERRORS.indexOf(a) <= Prices.ERRORS.indexOf(b) ? a : b));
         parts.push(`${says(why)}, so ${missing ? `${plural(missing, 'item has', 'items have')} no price here` : 'some prices could not be refreshed and show their last known values'}. Nothing is estimated in its place.`);
       }
-      if (loaded && !loading) parts.push(`Prices in ${scope.name}. Updated is when a player's game last sent Universalis this item's market board there.`);
+      if (loaded && !loading) parts.push(`Prices in ${scope.name}. Updated is when Universalis last received the market board of the world with the lowest listing.`);
       setText($(textId), parts.join(' '));
+      setText($(textId.replace('-text', '-wait')), until && loading ? ` Asking again in ${Math.max(1, Math.ceil((until - t) / 1000))} s.` : '');
       line.setAttribute('data-state', missing ? 'failed' : loading ? 'loading' : 'ok');
       btn.hidden = !ids.length || loading > 0;
       btn.textContent = missing ? 'Try again' : 'Refresh prices';
@@ -614,8 +617,10 @@
       // The age first and large: everything below is only as current as this.
       const newest = it && it.state === 'ok' ? Math.max(...[...it.data.uploads].filter(([w]) => scope.worldIds.includes(w)).map(([, v]) => v), it.data.lastUpload || 0) : row ? newestUpload(row) : null;
       const age = newest && newest > 0 ? newest : null;
+      // Not known yet is not the same as no time: until an answer comes, say it is coming.
+      const coming = !age && ((it && it.state === 'loading') || x.s === 'pending');
       out.push(el('p', { class: `mk-age-line is-${freshness(age, t)}` },
-        el('strong', null, age ? `Market data for ${scope.name}: updated ${detailFresh(age, t)}.` : `No market data time for ${scope.name}.`), ' ',
+        el('strong', null, age ? `Market data for ${scope.name}: updated ${detailFresh(age, t)}.` : coming ? `Loading market data for ${scope.name}...` : `No market data time for ${scope.name}.`), ' ',
         'Universalis has prices only from players\' market board visits, so a world can be far behind another.'));
       // The figures, NQ and HQ apart.
       const lv = level();
@@ -630,7 +635,7 @@
             stat('mk-stat-min', 'Lowest listing', m ? gil(m.price) : none('no listing now'), m ? `${scope.kind === 'world' ? scope.name : worldName(m.worldId) || 'a world'}, seen ${Number.isFinite(at) ? ago(t - at) : 'at an unknown time'}` : ''),
             stat('mk-stat-sale', 'Last sale', r ? gil(r.price) : none('no sale on record'), r ? `${worldName(r.worldId) || (scope.kind === 'world' ? scope.name : 'a world')}, ${Number.isFinite(r.at) ? ago(t - r.at) : 'at an unknown time'}` : ''),
             stat('mk-stat-avg', 'Average sale price', avg ? gil(avg) : none('none'), avg ? 'of recent completed sales' : ''),
-            stat('mk-stat-vel', 'Sold a day', v !== undefined ? perDay(v) : none('none'), v !== undefined ? 'units, lately' : '')));
+            stat('mk-stat-vel', 'Sold a day', v !== undefined ? perDay(v) : none('none'), v !== undefined ? 'counted in units, from recent sales' : '')));
       };
       out.push(el('div', { class: 'mk-sides' }, sideStats('nq', 'NQ (normal quality)'), sideStats('hq', 'HQ (high quality)')));
       if (row) out.push(placesTable(row, canHq));
@@ -660,9 +665,9 @@
     function listingsTable(data, t, canHq) {
       const rows = data.listings.slice(0, 20);
       return el('section', { class: 'mk-book' },
-        el('h3', null, `For sale now: listings (${data.listingsCount !== null ? plural(data.listingsCount, 'listing', 'listings') : plural(rows.length, 'listing', 'listings')}${data.unitsForSale !== null ? `, ${plural(data.unitsForSale, 'unit', 'units')}` : ''})`),
+        el('h3', { id: 'mk-listings-h' }, `For sale now: listings (${data.listingsCount !== null ? plural(data.listingsCount, 'listing', 'listings') : plural(rows.length, 'listing', 'listings')}${data.unitsForSale !== null ? `, ${plural(data.unitsForSale, 'unit', 'units')}` : ''})`),
         el('p', { class: 'hint' }, `Offers to sell in ${scope.name}, cheapest first (up to 20). Not sales: nobody has bought these yet. The buyer pays the market tax on top, included in the last column.`),
-        rows.length ? el('div', { class: 'table-wrap' }, el('table', { class: 'mk-table' },
+        rows.length ? el('div', { class: 'table-wrap' }, el('table', { class: 'mk-table', 'aria-labelledby': 'mk-listings-h' },
           el('thead', null, el('tr', null, el('th', { scope: 'col', class: 'num' }, 'Price each'), el('th', { scope: 'col', class: 'num' }, 'Qty'), canHq ? el('th', { scope: 'col' }, 'Quality') : null, scope.kind === 'world' ? null : el('th', { scope: 'col' }, 'World'), el('th', { scope: 'col' }, 'Seen'), el('th', { scope: 'col', class: 'num' }, 'Total with tax'))),
           el('tbody', null, rows.map((l) => el('tr', null,
             el('td', { class: 'num' }, gil(l.price)), el('td', { class: 'num' }, count(l.qty)), canHq ? el('td', null, l.hq ? 'HQ' : 'NQ') : null,
@@ -673,9 +678,9 @@
     function salesTable(data, t, canHq) {
       const rows = data.sales.slice(0, 20);
       return el('section', { class: 'mk-book' },
-        el('h3', null, 'Sold recently: completed sales'),
+        el('h3', { id: 'mk-sales-h' }, 'Sold recently: completed sales'),
         el('p', { class: 'hint' }, `Purchases that happened in ${scope.name}, newest first (up to 20), at the price paid before tax.`),
-        rows.length ? el('div', { class: 'table-wrap' }, el('table', { class: 'mk-table' },
+        rows.length ? el('div', { class: 'table-wrap' }, el('table', { class: 'mk-table', 'aria-labelledby': 'mk-sales-h' },
           el('thead', null, el('tr', null, el('th', { scope: 'col', class: 'num' }, 'Price each'), el('th', { scope: 'col', class: 'num' }, 'Qty'), canHq ? el('th', { scope: 'col' }, 'Quality') : null, scope.kind === 'world' ? null : el('th', { scope: 'col' }, 'World'), el('th', { scope: 'col' }, 'When'))),
           el('tbody', null, rows.map((s) => el('tr', null,
             el('td', { class: 'num' }, gil(s.price)), el('td', { class: 'num' }, count(s.qty)), canHq ? el('td', null, s.hq ? 'HQ' : 'NQ') : null,
@@ -724,9 +729,15 @@
       }
       await Promise.all(jobs);
     }
+    // Safari does not focus a link or button when it is clicked (focus stays where it was, often on the
+    // page's main area), so what was just clicked is kept too and wins: closing the details goes back to
+    // it however they were opened. Elsewhere the clicked link has the focus anyway.
+    let clicked = null;
+    view.addEventListener('click', (ev) => { clicked = { el: ev.target.closest && ev.target.closest('[data-mkkey]'), at: Date.now() }; }, true);
     function openItem(id) {
       if (!dialog.open) {
-        const a = document.activeElement;
+        let a = document.activeElement;
+        if (clicked && clicked.el && Date.now() - clicked.at < 2000) a = clicked.el;
         opener = { el: a, key: a && a.getAttribute ? a.getAttribute('data-mkkey') : null };
       }
       setText($('mk-item-status'), '');

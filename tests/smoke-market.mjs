@@ -184,6 +184,8 @@ try {
     assert.match(await text(page, '#mk-item .mk-age-line strong'), /^Market data for Aether: updated \d+ hours? ago \(/);
     assert.deepEqual(await page.eval("[...document.querySelectorAll('#mk-item .mk-side h3')].map(h => h.textContent)"), ['NQ (normal quality)', 'HQ (high quality)']);
     assert.deepEqual(await page.eval("[...document.querySelectorAll('#mk-item .mk-book h3')].map(h => h.textContent.replace(/\\(.*\\)/, '()'))"), ['For sale now: listings ()', 'Sold recently: completed sales']);
+    // Each table is named by its heading, for screen readers that list tables.
+    assert.deepEqual(await page.eval("[...document.querySelectorAll('#mk-item .mk-book table')].map(t => (document.getElementById(t.getAttribute('aria-labelledby')) || {}).textContent.split(':')[0])"), ['For sale now', 'Sold recently']);
     assert.match(await text(page, '#mk-item .mk-stat-min .mk-stat-v'), /^50 gil$/);
     assert.ok(prices.calls.some((c) => c.kind === 'item' && c.scope === 'Aether' && c.ids[0] === 5057));
     assert.ok(!prices.calls.some((c) => c.kind === 'tax'), 'no tax request at data center scope');
@@ -219,6 +221,37 @@ try {
     await page.waitFor(WATCH_PRICED);
     assert.ok(prices.calls.some((c) => c.kind === 'aggregated' && c.scope === 'North-America'));
     assert.match(await text(page, '#mk-scope-note'), /^Every data center in North America/);
+    assert.deepEqual(page.problems, []);
+  });
+
+  // Found in WebKit (Phase 3): Safari does not focus what is clicked, so closing the details lost the
+  // place. A script click does not focus either, so it stands in for Safari here.
+  await test('details opened by a click that leaves focus where it was (Safari): Escape returns focus to the item clicked', async () => {
+    prices.reset();
+    const page = await fresh('#market', { market: { scope: 'dc:aether' } });
+    await page.waitFor(`${MARKET_READY} && ${WATCH_PRICED}`);
+    const key = await page.eval("document.querySelectorAll('#mk-watch-list .mk-name')[2].getAttribute('data-mkkey')");
+    // As in WebKit: focus stays on the main area, and the link clicked does not take it.
+    await page.eval("document.getElementById('main').focus(); document.querySelectorAll('#mk-watch-list .mk-name')[2].click()");
+    await page.waitFor("document.getElementById('mk-item').open");
+    await page.key('Escape');
+    await page.waitFor("!document.getElementById('mk-item').open");
+    assert.equal(await page.eval("document.activeElement.getAttribute('data-mkkey')"), key);
+    assert.deepEqual(page.problems, []);
+  });
+
+  // Found against real data (Phase 3): while a new place's prices were on their way, the age line said
+  // "No market data time", as if Universalis had none.
+  await test('details: while a new place loads, the age line says it is loading, then gives the age', async () => {
+    prices.reset();
+    const page = await fresh('#market/item/5057', { market: { scope: 'dc:aether' } });
+    await page.waitFor("document.getElementById('mk-item') && document.getElementById('mk-item').open && document.querySelectorAll('#mk-item .mk-book table').length === 2");
+    prices.hold();
+    await page.eval("(() => { const s = document.querySelector('#mk-item [data-mk-scope]'); s.value = 'region:north-america'; s.dispatchEvent(new Event('change', { bubbles: true })); })()");
+    await page.waitFor("/North America/.test(document.querySelector('#mk-item .mk-age-line strong').textContent)");
+    assert.equal(await text(page, '#mk-item .mk-age-line strong'), 'Loading market data for North America...');
+    prices.release();
+    await page.waitFor("/^Market data for North America: updated /.test(document.querySelector('#mk-item .mk-age-line strong').textContent)");
     assert.deepEqual(page.problems, []);
   });
 
@@ -325,8 +358,14 @@ try {
     // 429: the page waits as told and says so, then asks again by itself.
     prices.failNext({ status: 429, retryAfter: 3 });
     await click(page, '#mk-watch-refresh');
-    await page.waitFor("/^Busy: the price service asked this page to wait, so it asks again in [1-9]\\d* s\\./.test(document.getElementById('mk-watch-text').textContent)");
+    // The live region says it once and keeps still; the seconds count down beside it, hidden from screen readers.
+    await page.waitFor("/^Busy: the price service asked this page to wait\\. Prices already shown stay as they are\\.$/.test(document.getElementById('mk-watch-text').textContent) && /^ Asking again in [1-9]\\d* s\\.$/.test(document.getElementById('mk-watch-wait').textContent)");
+    await page.eval("window.__live = []; new MutationObserver(() => window.__live.push(document.getElementById('mk-watch-text').textContent)).observe(document.getElementById('mk-watch-text'), { childList: true, characterData: true, subtree: true })");
+    assert.equal(await page.eval("document.getElementById('mk-watch-wait').getAttribute('aria-hidden')"), 'true');
     await page.waitFor("!/Busy|could not/.test(document.getElementById('mk-watch-text').textContent) && /^Prices in Aether/.test(document.getElementById('mk-watch-text').textContent)", 20000);
+    const live = await page.eval('window.__live');
+    assert.ok(!live.some((x) => /Busy/.test(x)), `the live region changed during the wait: ${JSON.stringify(live)}`);
+    assert.equal(await text(page, '#mk-watch-wait'), '', 'the countdown goes when the wait ends');
     // A broken answer: bad data, not "no data", and not asked again by itself (it would break the same way).
     prices.failNext({ mangle: true });
     await find(page, 'cloth');

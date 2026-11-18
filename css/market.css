@@ -17,6 +17,8 @@
 .mk-ask-row select { width: auto; min-width: 180px; }
 
 .mk-find { display: flex; align-items: center; gap: 8px; margin: 12px 0 8px; }
+/* The page's own Clear button is beside the box; Safari and Chrome would add a second clear control in it. */
+#mk-find::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
 .mk-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .mk-filters select { width: auto; max-width: 100%; min-height: 36px; padding: 4px 10px; }
 .mk-toggles { display: inline-flex; flex-wrap: wrap; gap: 6px; }
@@ -127,6 +129,8 @@
   .mk-scope select { flex: 1 1 auto; }
 }
 @media (max-width: 640px) {
+  /* The market's three section links fit beside share and the theme at 390 px. */
+  #market-jump button { padding-left: 8px; padding-right: 8px; }
   .mk-find .ghost { flex: none; }
   .mk-filters { gap: 6px 10px; }
   .mk-dialog { padding: 18px 16px; }
