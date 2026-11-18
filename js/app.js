@@ -128,6 +128,12 @@
     return days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days > 1 && days < 7 ? fmt('weekday').format(t) : fmt('day').format(t);
   }
   const usesHour12 = () => (state.hour12 == null ? !!new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hour12 : state.hour12);
+  // The button shows the format in use; its name starts with that same text, so speech input can say what it sees.
+  function showHourCycle() {
+    const b = $('hour-cycle'), v = usesHour12() ? '12h' : '24h';
+    setText(b, v);
+    b.setAttribute('aria-label', `${v} local time format`);
+  }
 
   // ---- URL hash and saved state ----
   const listParam = (p, name) => (p.get(name) || '').split(',').filter(Boolean);
@@ -1104,7 +1110,7 @@
     zoneOptions($('forecast-zone'), state.forecastZone);
     zoneOptions($('finder-zone'), state.finder.zone);
     setText($('data-patch'), DATA.source.patch);
-    setText($('hour-cycle'), usesHour12() ? '12h' : '24h');
+    showHourCycle();
     renderAbout();
     writeHash();
 
@@ -1229,7 +1235,7 @@
       state.hour12 = !usesHour12();
       Store.write('hour12', state.hour12);
       formats = null;
-      e.currentTarget.textContent = state.hour12 ? '12h' : '24h';
+      showHourCycle();
       lastPeriod = -1; tick(); renderNews();
     });
     for (const b of document.querySelectorAll('[data-jump]')) b.addEventListener('click', () => jump(b.dataset.jump));
@@ -1314,7 +1320,7 @@
     }
     // Expansions, in the game's release order.
     $('node-expansions').replaceChildren(...NODE_EXPANSIONS.map((x) => {
-      const b = el('button', { type: 'button', class: 'toggle', 'data-node-exp': x, title: x, 'aria-label': x, 'aria-pressed': String(g.expansions.includes(x)) }, EXPANSION_SHORT[x] || x);
+      const b = el('button', { type: 'button', class: 'toggle', 'data-node-exp': x, title: x, 'aria-label': EXPANSION_SHORT[x] ? `${EXPANSION_SHORT[x]}, ${x}` : x, 'aria-pressed': String(g.expansions.includes(x)) }, EXPANSION_SHORT[x] || x);
       b.addEventListener('click', () => { g.expansions = flip(g.expansions, x); b.setAttribute('aria-pressed', String(g.expansions.includes(x))); changed(); });
       return b;
     }));

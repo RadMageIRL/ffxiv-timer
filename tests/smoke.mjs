@@ -647,6 +647,28 @@ try {
     assert.deepEqual(page.problems, []);
   });
 
+  await test('the 12h and 24h button: its accessible name starts with the text it shows, before and after a switch, which is saved', async () => {
+    const page = await chrome.newPage();
+    await page.viewport(1440, 1000);
+    await page.goto(`${servers.github.origin}/ffxiv-timer/`);
+    await page.waitFor(READY);
+    await page.eval('localStorage.clear()');
+    const state = () => page.eval("(() => { const b = document.getElementById('hour-cycle'); return [b.textContent, b.getAttribute('aria-label')]; })()");
+    const [shown, name] = await state();
+    assert.ok(/^(12h|24h)$/.test(shown) && name === `${shown} local time format`, JSON.stringify([shown, name]));
+    await page.eval("document.getElementById('hour-cycle').click()");
+    const [after, afterName] = await state();
+    assert.notEqual(after, shown);
+    assert.equal(afterName, `${after} local time format`);
+    assert.equal(await page.eval(`localStorage.getItem('${PREFIX}hour12')`), String(after === '12h'));
+    // Every button with a name of its own says its visible text first (WCAG 2.5.3, axe label-content-name-mismatch),
+    // the Timed gathering range and expansion buttons included. A symbol (the × of Close) is not text to say.
+    const mismatched = await page.eval("[...document.querySelectorAll('button[aria-label]')].map(b => [b.textContent.trim(), b.getAttribute('aria-label')]).filter(([t, n]) => /[a-z0-9]/i.test(t) && !n.toLowerCase().startsWith(t.toLowerCase()))");
+    assert.deepEqual(mismatched, []);
+    assert.equal(await page.eval("document.querySelector('[data-node-exp=\"Shadowbringers\"]').getAttribute('aria-label')"), 'ShB, Shadowbringers');
+    await page.close();
+  });
+
   await test('the About dialog opens and lists sources', async () => {
     const page = await chrome.newPage();
     await page.viewport(1440, 1000);
@@ -809,8 +831,12 @@ try {
 
   // Found by CI (v0.11.0): with a wide font (Linux's DejaVu Sans) a long node item, its stars, level and
   // Collectable badge ran past the right edge at 320 px, because each item could not wrap. Which nodes are
-  // listed depends on the time, so this shows the longest one on purpose, with a wide font pinned.
-  await test('timed gathering on narrow phones with a wide font: a long item wraps inside the screen; on a wide screen it stays on one line', async () => {
+  // listed depends on the time, so this shows the longest one on purpose, with a wide font pinned. The node's status
+  // is longest in 12-hour time just before midnight, when its next window is the next day and the date is named
+  // ("Thu, Nov 19, 12:23 AM · in 24:50"); in v0.12.0's checks that ran 7 px past the edge at 320 px, so the clock,
+  // the time zone and the format are pinned there too.
+  await test('timed gathering on narrow phones with a wide font: a long item and the longest status wrap inside the screen; on a wide screen the item stays on one line', async () => {
+    const LATE = Date.parse('2026-11-18T23:58:30Z');
     const WIDE_FONT = 'body { font-family: "DejaVu Sans", Verdana, sans-serif !important; }';
     const show = async (page) => {
       await page.eval(`document.head.append(Object.assign(document.createElement('style'), { textContent: ${JSON.stringify(WIDE_FONT)} }))`);
@@ -821,11 +847,14 @@ try {
       for (const width of [320, 360, 390]) {
         const page = await chrome.newPage();
         await page.viewport(width, 844, true);
-        await page.beforeLoad(`try { localStorage.setItem(${JSON.stringify(THEME_KEY)}, ${JSON.stringify(JSON.stringify(theme))}); } catch (e) {}`);
+        await page.emulate({ timezone: 'UTC', locale: 'en-US' });
+        await page.startClockAt(LATE);
+        await page.beforeLoad(`try { localStorage.setItem(${JSON.stringify(THEME_KEY)}, ${JSON.stringify(JSON.stringify(theme))}); localStorage.setItem('${PREFIX}hour12', 'true'); } catch (e) {}`);
         await page.goto(`${servers.proxy.origin}/ffxiv/`);
         await page.waitFor(READY);
         await show(page);
         const where = `${theme} ${width}`;
+        assert.match(await page.eval("document.querySelector('#node-list .node-status').textContent"), /^Thu, Nov 19, 12:23 AM · in 2\d:\d\d$/, `${where}: the longest status`);
         const past = await page.eval("[...document.querySelectorAll('#node-list *')].filter(n => n.getBoundingClientRect().right > innerWidth + 1).map(n => n.tagName + '.' + n.className + ' ' + Math.round(n.getBoundingClientRect().right))");
         assert.deepEqual(past, [], `${where}: node list past the right edge`);
         assert.ok(await page.eval('document.documentElement.scrollWidth <= innerWidth'), `${where}: page scrolls sideways`);

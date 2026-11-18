@@ -606,7 +606,8 @@ dialog .cal-done { min-height: 1.5em; font-size: 13px; color: var(--muted); }
   .level-row input[type="number"] { width: 52px; }
   .my-level { gap: 4px 6px; }
   .node-when { grid-column: 2; align-items: flex-start; text-align: left; }
-  .node-times { white-space: normal; }
+  .node-times, .node-status { white-space: normal; }
+  .node-status .cd { white-space: nowrap; }
   .reset-row { grid-template-columns: 34px minmax(0, 1fr) auto; }
   .reset-row .star { grid-row: 1 / span 2; align-self: start; }
   .reset-what { grid-column: 2 / -1; }
