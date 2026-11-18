@@ -243,6 +243,9 @@ try {
     await page.waitFor("document.getElementById('mk-item').open");
     await page.key('Escape');
     await page.waitFor("!document.getElementById('mk-item').open");
+    // As in the keyboard test: the focus comes back in the dialog's close event, a task after open turns false (in
+    // v0.12.0's CI run on main the check came in between): wait up to 3 s for it, then require it.
+    await page.waitFor(`document.activeElement && document.activeElement.getAttribute('data-mkkey') === ${JSON.stringify(key)}`, 3000).catch(() => {});
     assert.equal(await page.eval("document.activeElement.getAttribute('data-mkkey')"), key);
     assert.deepEqual(page.problems, []);
   });
