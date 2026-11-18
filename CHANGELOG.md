@@ -50,6 +50,7 @@ Changed
   links take a row of their own, and on phones the mode buttons do.
 - On phones, where the section links scroll sideways, the edge with more links beyond it fades, so
   you can tell there are more. The fade clears while you move through them with the keyboard.
+- Stylesheets are sent without their comments, which makes the first load smaller.
 - At radmagelabs.com the page now comes with a Content-Security-Policy: it runs only its own
   scripts and connects only to its own site.
 - The search box placeholder in the dark theme is a little lighter, for contrast.

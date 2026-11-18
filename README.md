@@ -206,7 +206,8 @@ Every path inside the site is relative and all view state lives in the address a
 same files work under any base path and a reload never asks the server for a path that does not
 exist. `tools/build.mjs` makes a copy for a hosting target in `deploy/targets.json` and adds only
 what must be absolute: the canonical URL, a 404 page that sends visitors back to the app under the
-base path they came in on, and version stamps on every file.
+base path they came in on, and version stamps on every file. It also leaves the comments out of
+the stylesheets it copies (they stay in the source), so visitors download less.
 
 - `pages` is the deployed build. GitHub Pages serves it at `/ffxiv-timer/`, and radmagelabs.com
   proxies `/ffxiv/` to the same files.

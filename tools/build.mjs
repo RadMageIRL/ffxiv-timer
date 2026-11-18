@@ -62,6 +62,14 @@ function notFoundPage(bases) {
 `;
 }
 
+// A stylesheet as it is deployed: its comments stay in the source and are left out of the copy, so every
+// visitor downloads fewer bytes (style.css is part of the first load). Only comments and the lines they
+// leave empty go; a comment opener inside a quoted string would be cut wrongly, so that is refused.
+export function deployCss(css, file = 'stylesheet') {
+  if (/(["'])[^"'\n]*\/\*[^"'\n]*\1/.test(css)) throw new Error(`${file}: "/*" inside a string; the build cannot strip its comments safely`);
+  return css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/[ \t]+$/gm, '').replace(/\n{2,}/g, '\n').replace(/^\n/, '');
+}
+
 export function build(name, { outRoot = ROOT } = {}) {
   const t = TARGETS.targets[name];
   if (!t) throw new Error(`unknown target ${name}; known: ${Object.keys(TARGETS.targets).join(', ')}`);
@@ -77,8 +85,10 @@ export function build(name, { outRoot = ROOT } = {}) {
   for (const ref of files) {
     const src = join(ROOT, ref), dest = join(appDir, ref);
     mkdirSync(dirname(dest), { recursive: true });
-    cpSync(src, dest);
-    stamps[ref] = createHash('sha256').update(readFileSync(src)).digest('hex').slice(0, 10);
+    if (ref.endsWith('.css')) writeFileSync(dest, deployCss(readFileSync(src, 'utf8'), ref));
+    else cpSync(src, dest);
+    // The stamp is of the bytes deployed.
+    stamps[ref] = createHash('sha256').update(readFileSync(dest)).digest('hex').slice(0, 10);
   }
   html = html.replace(/\b(src|href)="([^"?#]+)"/g, (all, attr, ref) => (stamps[ref] ? `${attr}="${ref}?v=${stamps[ref]}"` : all));
 

@@ -699,6 +699,28 @@ test('the title, tagline, About and README all say the newest version in the cha
   assert.ok(html.includes(`<h2 id="about-title">FFXIV Timer v${version}</h2>`), 'About');
   assert.ok(readFileSync(join(ROOT, 'README.md'), 'utf8').startsWith(`# FFXIV Timer v${version}\n`), 'README');
 });
+// v0.11.0: stylesheets are deployed without their comments (style.css is on the first load). Everything
+// else in them must come through: the same rules and declarations, in order.
+test('build: stylesheets go out without comments and with every rule and declaration; the page and scripts as they are', async () => {
+  const { deployCss } = await import('../tools/build.mjs');
+  const tmp = mkdtempSync(join(tmpdir(), 'ffxiv-timer-css-'));
+  try {
+    const pages = build('pages', { outRoot: tmp });
+    const tokens = (css) => css.replace(/\s+/g, ' ').replace(/ ?([{};:,]) ?/g, '$1').trim();
+    for (const f of ['css/style.css', 'css/market.css']) {
+      const src = readFileSync(join(ROOT, f), 'utf8'), out = readFileSync(join(pages.appDir, f), 'utf8');
+      assert.ok(!out.includes('/*') && !out.includes('*/'), `${f} still has a comment`);
+      assert.ok(out.length < src.length, `${f}: ${out.length} of ${src.length} bytes`);
+      assert.equal(tokens(out), tokens(src.replace(/\/\*[\s\S]*?\*\//g, ' ')), `${f}: only comments and spacing differ`);
+      for (const ch of ['{', '}', ';']) assert.equal(out.split(ch).length, src.replace(/\/\*[\s\S]*?\*\//g, '').split(ch).length, `${f}: ${ch} count`);
+    }
+    for (const f of ['js/app.js', 'js/market.js']) assert.equal(readFileSync(join(pages.appDir, f), 'utf8'), readFileSync(join(ROOT, f), 'utf8'), `${f} as it is`);
+    assert.throws(() => deployCss('.a::before { content: "/* x */"; }'), /inside a string/);
+    assert.equal(deployCss('/* a */\n.a { color: red; } /* b */\n\n/* c\n d */\n.b { x: y; }\n'), '.a { color: red; }\n.b { x: y; }\n');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
 test('builds for GitHub Pages and RadMage Labs put the app at their base paths', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'ffxiv-timer-build-'));
   try {
