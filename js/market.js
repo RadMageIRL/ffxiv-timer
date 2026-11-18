@@ -68,7 +68,7 @@
     'hq-asc': { label: 'Lowest HQ listing, low to high', value: 'hq', dir: 'asc', what: 'lowest HQ listing', how: 'low to high', none: 'no HQ listing' },
     'hq-desc': { label: 'Lowest HQ listing, high to low', value: 'hq', dir: 'desc', what: 'lowest HQ listing', how: 'high to low', none: 'no HQ listing' },
     'sales-desc': { label: 'Sold a day, most first', value: 'sales', dir: 'desc', what: 'units sold a day', how: 'most first', none: 'no sales on record' },
-    'fresh-desc': { label: 'Updated, newest first', value: 'fresh', dir: 'desc', what: 'newest upload', how: 'newest first', none: 'no upload time' },
+    'fresh-desc': { label: 'Listing age, newest first', value: 'fresh', dir: 'desc', what: 'listing age', how: 'newest first', none: 'no upload time' },
     'level-desc': { label: 'Item level, highest first', level: true, dir: 'desc' },
     'level-asc': { label: 'Item level, lowest first', level: true, dir: 'asc' },
   };
@@ -212,7 +212,7 @@
       el('input', { id, type: 'number', min: '1', max: String(LEVEL_MAX), inputmode: 'numeric', placeholder: ph, 'aria-label': `${label} item level` }));
 
     // The column names over a list of rows, on screens wide enough for columns (a phone labels each figure instead).
-    const headRow = (id) => el('div', { class: 'mk-row mk-head-row', id, 'aria-hidden': 'true' }, el('span'), el('span', null, 'Item'), el('span', null, 'Lowest NQ listing'), el('span', null, 'Lowest HQ listing'), el('span', null, 'Sold a day'), el('span', null, 'Updated'));
+    const headRow = (id) => el('div', { class: 'mk-row mk-head-row', id, 'aria-hidden': 'true' }, el('span'), el('span', null, 'Item'), el('span', null, 'Lowest NQ listing'), el('span', null, 'Lowest HQ listing'), el('span', null, 'Sold a day'), el('span', null, 'Listing age'));
 
     $('market-app').replaceChildren(
       el('div', { class: 'panel mk-controls' },
@@ -449,7 +449,7 @@
         cell('mk-nq', 'Lowest NQ listing', 'NQ', priceKids(x, i, 'nq')),
         cell('mk-hq', 'Lowest HQ listing', 'HQ', priceKids(x, i, 'hq')),
         cell('mk-sold', 'Sold a day', 'Sold', x.s === 'loaded' ? [perDay(sold(x.e.row)) ? el('span', null, perDay(sold(x.e.row))) : none('no sales on record')] : []),
-        cell('mk-upd', 'Updated', 'Updated', x.s === 'loaded' ? [ageCell(at, t)] : []));
+        cell('mk-upd', 'Listing age', 'Listing age', x.s === 'loaded' ? [ageCell(at, t)] : []));
     }
 
     function draw() {
@@ -558,7 +558,9 @@
         const why = whys.reduce((a, b) => (Prices.ERRORS.indexOf(a) <= Prices.ERRORS.indexOf(b) ? a : b));
         parts.push(`${says(why)}, so ${missing ? `${plural(missing, 'item has', 'items have')} no price here` : 'some prices could not be refreshed and show their last known values'}. Nothing is estimated in its place.`);
       }
-      if (loaded && !loading) parts.push(`Prices in ${scope.name}. Updated is when Universalis last received the market board of the world with the lowest listing.`);
+      // Universalis's aggregated answers carry upload times only for the worlds holding the lowest listings,
+      // so a row's age is that world's, not the newest upload in the whole place (the details give that).
+      if (loaded && !loading) parts.push(`Prices in ${scope.name}. ${scope.kind === 'world' ? `Listing age is how long ago Universalis last received ${scope.name}'s market board.` : `Listing age is how long ago Universalis last received the market board of the world with the lowest listing shown, not the newest upload anywhere in ${scope.name}.`}`);
       setText($(textId), parts.join(' '));
       setText($(textId.replace('-text', '-wait')), until && loading ? ` Asking again in ${Math.max(1, Math.ceil((until - t) / 1000))} s.` : '');
       line.setAttribute('data-state', missing ? 'failed' : loading ? 'loading' : 'ok');

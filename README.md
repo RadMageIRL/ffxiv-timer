@@ -65,9 +65,10 @@ below up to Latest news) and **Market & Crafting** (market board prices).
   from the one chosen in Resets) and saves nothing until you choose. The home has Market Watch
   (commonly traded items in groups, priced in one request), your favorites and the market board's
   categories. Search covers all 16,845 items that can be sold on the market board and shows each
-  one's lowest NQ and HQ listing with its world, units sold a day, and Updated: when Universalis
-  last received the market board of the world with the lowest listing. Sorts and filters say what
-  they cover. An item's details give the data's age first, then NQ and HQ apart, current listings
+  one's lowest NQ and HQ listing with its world, units sold a day, and its listing age: how long
+  ago Universalis last received the market board of the world with the lowest listing shown (for a
+  data center or a region, not the newest upload anywhere in it). Sorts and filters say what they
+  cover. An item's details give the data's age first, then NQ and HQ apart, current listings
   apart from completed sales, and the market tax per city for a world. Ages under 6 hours read as
   current, under 3 days as recent, and older ones are marked old with their date. When the price
   service is busy or failing, the last prices stay on screen with their ages and nothing is

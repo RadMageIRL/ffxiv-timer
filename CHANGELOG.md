@@ -17,9 +17,10 @@ Added
   crafting materials), all priced in one request. Your newest favorites show beside it
   (Show all lists the rest; up to 500 are kept), and Browse lists the market board's categories.
 - Search across all 16,845 items that can be sold on the market board, by name or id, with each
-  item's lowest NQ and HQ listing and the world it is on, units sold a day, and Updated: when
-  Universalis last received the market board of the world with the lowest listing. Sort by best
-  match, name, lowest NQ or HQ listing, units sold a day, Updated or item level, and filter by
+  item's lowest NQ and HQ listing and the world it is on, units sold a day, and its listing age:
+  how long ago Universalis last received the market board of the world with the lowest listing
+  shown (for a data center or a region, not the newest upload anywhere in it). Sort by best
+  match, name, lowest NQ or HQ listing, units sold a day, listing age or item level, and filter by
   category, Can be HQ, Listed now and item level. Each sort and filter says which items it
   covers.
 - Item details: how old the data is comes first, then NQ and HQ apart (lowest listing, last

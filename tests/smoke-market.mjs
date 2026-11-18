@@ -169,10 +169,14 @@ try {
     await page.waitFor("document.querySelector('#mk-results .mk-name') && document.querySelector('#mk-results .mk-name').textContent === 'Iron Ingot'");
     await sleep(600);
     assert.ok(prices.calls.length - c1 <= 2, `typing asked ${prices.calls.length - c1} times`);
-    // Updated is Universalis's newest upload in Aether (Cactuar, 04:23:59 UTC in the captured answer), not
-    // when this page fetched the price (a moment ago).
+    // Listing age is the upload time Universalis gives for the world with the lowest listing (Cactuar,
+    // 04:23:59 UTC in the captured answer), not when this page fetched the price (a moment ago).
     await page.waitFor("document.querySelector('#mk-results [data-id=\"5057\"] .mk-age')");
     assert.equal(await text(page, '#mk-results [data-id="5057"] .mk-age'), '2 hours ago');
+    assert.equal(await page.eval("document.querySelector('#mk-results-wrap .mk-head-row span:last-child').textContent"), 'Listing age');
+    assert.equal(await text(page, '#mk-results [data-id="5057"] .mk-upd .visually-hidden'), 'Listing age: ');
+    await page.waitFor("/^Prices in Aether\\./.test(document.getElementById('mk-prices-text').textContent)");
+    assert.equal(await text(page, '#mk-prices-text'), 'Prices in Aether. Listing age is how long ago Universalis last received the market board of the world with the lowest listing shown, not the newest upload anywhere in Aether.');
     assert.equal(await page.eval("document.querySelector('#mk-results [data-id=\"5057\"] .mk-age').dataset.at"), String(Date.parse('2026-11-17T04:23:59.351Z')));
     // Details.
     const len = await page.eval('history.length');
@@ -214,6 +218,9 @@ try {
     assert.match(await text(page, '#mk-item .mk-tax'), /Limsa Lominsa5%/);
     assert.equal((await saved(page)).scope, 'world:63');
     assert.equal(await page.eval("document.getElementById('mk-scope').value"), 'world:63', 'the page follows');
+    // One world: the listing age is that world's.
+    await page.waitFor("/^Prices in Gilgamesh\\./.test(document.getElementById('mk-watch-text').textContent)");
+    assert.equal(await text(page, '#mk-watch-text'), "Prices in Gilgamesh. Listing age is how long ago Universalis last received Gilgamesh's market board.");
     await page.key('Escape');
     await page.waitFor("!document.getElementById('mk-item').open");
     assert.equal(await page.eval('location.hash'), '#market', 'opened by a link: closing goes to #market');
