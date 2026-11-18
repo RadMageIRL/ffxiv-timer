@@ -196,6 +196,7 @@ try {
     await page.waitFor('XivCrafting.current.debug().prefs.tax === 5');
     d = (await debug(page)).item;
     assert.ok(Math.abs(d.cash.total - 22.05) < 1e-9 && Math.abs(d.value.total - 42.05) < 1e-9, JSON.stringify([d.cash, d.value]));
+    assert.ok(Math.abs(d.strategies.find((s) => s[0] === 'finished')[2] - 600 * 1.05) < 1e-9, 'buying it finished pays the same assumed tax');
     assert.deepEqual(await saved(page, 'crafting'), { tax: 5, quality: 'hq', materials: 'any' });
     assert.match(await text(page, '#cr-tax-note'), /assumption/);
     await click(page, '[data-cquality="nq"]');
@@ -227,6 +228,8 @@ try {
     const tree = await text(page, '.cr-tree');
     assert.match(tree, /Clove Oil/);
     assert.match(await text(page, '#cr-list'), /Left over from whole crafts: .*Clove Oil/);
+    // Its HQ side has no sales at all: said, apart from the missing reference.
+    assert.match(await text(page, '.cr-warn'), /No HQ sales in the last 4 days that Universalis knows of/);
     const opens = await page.eval("[...document.querySelectorAll('.cr-open')].map(b => b.getAttribute('aria-expanded'))");
     assert.ok(opens.length >= 2 && opens.every((v) => v === 'true'));
     const path = await page.eval("document.querySelector('.cr-open').dataset.copen");
@@ -243,6 +246,10 @@ try {
     assert.match(copied, /Left over: 1 Clove Oil/);
     assert.match(copied, /https:\/\/radmagelabs\.com\/ffxiv\/#market\/craft\/2347$/);
     assert.equal(await text(page, '#cr-copy-status'), 'Copied the shopping list.');
+    // The next change clears it, so a redraw does not announce it again.
+    await change(page, '#cr-qty', '2');
+    await page.waitFor("XivCrafting.current.debug().item.quantity === 2");
+    assert.equal(await text(page, '#cr-copy-status'), '');
     assert.deepEqual(page.problems, []);
   });
 
@@ -269,6 +276,14 @@ try {
     assert.match(await text(page, '.cr-prices'), /not answering|could not/);
     assert.ok(page.problems.every((p) => /\b503\b/.test(p)), JSON.stringify(page.problems));
     assert.equal(new Set(prices.calls.map((c) => c.ids.join())).size, 1, 'every try the same address: the whole tree');
+    // Not on the board at that place (Universalis lists it in failedItems): missing too, and said so.
+    prices.reset(); priceRivets(); prices.missing([FIRE]);
+    const there = await fresh(`#market/craft/${RIVETS}`, AETHER);
+    await there.waitFor(ITEM_READY);
+    d = (await debug(there)).item;
+    assert.deepEqual([d.value, d.perUnit, d.profit.headline, d.materials.find((m) => m[0] === FIRE)], [{ total: 35, missing: 1 }, null, null, [FIRE, 2, null, 'missing']]);
+    assert.match(await text(there, '.cr-tree'), /not on the board there/);
+    assert.deepEqual(there.problems, []);
   });
 
   await test('not on the board and vendors: Haddock is never asked for and says why; a vendor price is unverified and outside every total; a quest vendor is conditional', async () => {
@@ -304,13 +319,72 @@ try {
     assert.deepEqual([dbg.watch.outputs, dbg.watch.chunks, dbg.watch.place], [132, [100, 100, 51], 'dc:aether']);
     assert.equal(dbg.watch.groups.reduce((a, b) => a + b, 0), 132);
     assert.match(await text(freshPage, '#cr-watch-text'), /among only the \d+ of 132 items/);
+    // While its first prices load, the list keeps the room of its first rows, so the page below does not jump.
+    prices.reset(); prices.hold();
+    const waiting = await fresh('#market/craft', AETHER);
+    await waiting.waitFor(`${CRAFT_READY} && document.getElementById('cr-watch-body').hasAttribute('data-loading')`);
+    const room = await waiting.eval("document.getElementById('cr-watch-body').getBoundingClientRect().height");
+    assert.ok(room >= 1000, `room kept while loading: ${room}`);
+    prices.release();
+    await waiting.waitFor("!!document.querySelector('#cr-watch-body .mk-row') && !document.getElementById('cr-watch-body').hasAttribute('data-loading')");
     // A world: its data center's batches, said so.
     prices.reset();
     const world = await fresh('#market/craft', { market: { scope: 'world:79' } });
     await world.waitFor("!!document.querySelector('#cr-watch-body .mk-row') && !document.querySelector('#cr-watch-prices[data-state=\"loading\"]')");
     assert.ok(prices.calls.every((c) => c.scope === 'Aether') && prices.calls.length === 3);
-    assert.match(await text(world, '#cr-watch-hint'), /for Cactuar it shows Aether, its data center/);
+    assert.match(await text(world, '#cr-watch-hint'), /^Data-center prices: .*for Cactuar it shows Aether, its data center, not Cactuar alone/);
+    assert.match(await text(world, '#cr-watch-text'), /in Aether \(data-center prices\), among only/);
+    assert.match(await text(world, '#cr-scope-note'), /^One world: Cactuar\. A recipe's materials are priced on Cactuar alone; Crafting Watch below uses Aether's data-center prices\.$/);
     assert.deepEqual(world.problems, []);
+  });
+
+  await test('Crafting Watch opens the recipe it ranked, follows Have marks under a purchase tax, and keeps one order for equal values', async () => {
+    // Double Duraluminum Ingot: the same materials on BSM (Fire Clusters) and on ARM (Ice Clusters). Ice is the cheap
+    // one here, so Crafting Watch prices the ARM recipe (37810), not the first in job order (BSM, 37809).
+    const INGOT = 49214, FIRE_C = 14, ICE_C = 15, EARTH_C = 17;
+    const WATCH = `${CRAFT_READY} && !!document.querySelector('#cr-watch-body .mk-row') && !document.querySelector('#cr-watch-prices[data-state="loading"]')`;
+    prices.reset();
+    prices.set(INGOT, agg([9000000, 8000000, 50], [9000000, 8000000, 50]));
+    prices.set(FIRE_C, agg([1000, 1000, 500])); prices.set(ICE_C, agg([1, 1, 500])); prices.set(EARTH_C, agg([100, 100, 500]));
+    const page = await fresh('#market/craft', { ...AETHER, crafting: { tax: 5, quality: 'hq', materials: 'any' } });
+    await page.waitFor(WATCH);
+    const row = `#cr-watch-body .cr-wrow[data-id="${INGOT}"]`;
+    const before = await text(page, `${row} .mk-meta`);
+    assert.match(before, /^ARM · sold as HQ · materials/);
+    // Each figure is named for a screen reader (the short labels are hidden from it).
+    assert.deepEqual(await page.eval(`[...document.querySelectorAll('${row} .mk-cell .visually-hidden')].map(n => n.textContent)`), ['Estimated profit each: ', 'Margin: ', 'Sold a day: ', 'Listing age: ']);
+    const order = await page.eval("[...document.querySelectorAll('#cr-watch-body .cr-wrow[data-id]')].map(n => n.dataset.id).join()");
+    // Sorting and the assumptions are worked out here: nothing is asked again.
+    const asked = prices.calls.length;
+    await change(page, '#cr-sort', 'margin');
+    await page.waitFor("/estimated margin/.test(document.getElementById('cr-watch-text').textContent)");
+    await click(page, '[data-cquality="nq"]');
+    await change(page, '#cr-tax', '0');
+    await change(page, '#cr-tax', '5');
+    await click(page, '[data-cquality="hq"]');
+    await change(page, '#cr-sort', 'profit');
+    await sleep(200);
+    assert.equal(prices.calls.length, asked, 'nothing asked again');
+    assert.equal(await page.eval("[...document.querySelectorAll('#cr-watch-body .cr-wrow[data-id]')].map(n => n.dataset.id).join()"), order, 'back to the same order');
+    await click(page, `${row} a`);
+    await page.waitFor(`${ITEM_READY} && XivCrafting.current.debug().id === ${INGOT}`);
+    assert.equal((await debug(page)).item.recipe, 37810, 'the ARM recipe, as ranked');
+    assert.equal(await page.eval("document.querySelector('[data-crecipe=\"37810\"]').checked"), true);
+    // Earth Clusters marked as had: with 5 % tax assumed, the materials are worth 3 x 100 x 0.05 = 15 gil less (an
+    // owned material counts at its listing, untaxed), in the recipe and in Crafting Watch alike.
+    const cost = (await debug(page)).item.perUnit;
+    await page.eval(`document.querySelector('[data-cown="${EARTH_C}"]').click()`);
+    await page.waitFor(`XivCrafting.current.debug().owned.includes(${EARTH_C})`);
+    assert.ok(Math.abs((await debug(page)).item.perUnit - (cost - 15)) < 1e-9);
+    await page.eval('history.back()');
+    await page.waitFor(`${WATCH} && location.hash === '#market/craft'`);
+    const after = await text(page, `${row} .mk-meta`);
+    assert.notEqual(after, before, 'Crafting Watch follows the Have marks');
+    // The same prices give the same order (ties by item id), however the page got there.
+    const again = await fresh('#market/craft', { ...AETHER, crafting: { tax: 5, quality: 'hq', materials: 'any' } });
+    await again.waitFor(WATCH);
+    assert.equal(await again.eval("[...document.querySelectorAll('#cr-watch-body .cr-wrow[data-id]')].map(n => n.dataset.id).join()"), order);
+    assert.deepEqual(page.problems, []);
   });
 
   await test('timed nodes: the next window from the gathering engine; Show in Timed gathering fills its search and switches with one history entry, saving nothing; a node not listed is explained and nothing changes', async () => {
@@ -362,6 +436,15 @@ try {
     await page.eval("document.querySelector('[data-share]').click()");
     await page.waitFor('window.__shared.length === 1');
     assert.equal(await page.eval('window.__shared[0].url'), `https://radmagelabs.com/ffxiv/#market/craft/${RIVETS}`);
+    // Over to Prices and back with the tabs: Crafting opens on the recipe it showed.
+    await click(page, '[data-mk-tab="prices"]');
+    await page.waitFor("!document.getElementById('mk-prices-view').hidden && location.hash === '#market'");
+    await click(page, '[data-mk-tab="craft"]');
+    await page.waitFor(`${ITEM_READY} && location.hash === '#market/craft/${RIVETS}'`);
+    await page.eval('history.back()');
+    await page.waitFor("location.hash === '#market' && !document.getElementById('mk-prices-view').hidden");
+    await page.eval('history.back()');
+    await page.waitFor(`${ITEM_READY} && location.hash === '#market/craft/${RIVETS}'`);
     await page.eval('history.back()');
     await page.waitFor("document.getElementById('mk-item').open");
     assert.deepEqual(page.problems, []);
@@ -401,13 +484,15 @@ try {
   });
 
   for (const theme of ['dark', 'light']) {
-    await test(`phones in the ${theme} theme: 320, 360 and 390 px, Crafting home and a recipe, no sideways scroll`, async () => {
+    await test(`phones in the ${theme} theme: 320, 360 and 390 px, Crafting home and two recipes, no sideways scroll, no table scrolling inside its frame`, async () => {
       prices.reset(); priceRivets();
       for (const width of [320, 360, 390]) {
-        for (const hash of ['#market/craft', `#market/craft/${RIVETS}`]) {
+        for (const hash of ['#market/craft', `#market/craft/${RIVETS}`, '#market/craft/2347']) {
           const page = await fresh(hash, { ...AETHER, theme }, { width, height: 800, mobile: true });
           await page.waitFor(hash === '#market/craft' ? `${CRAFT_READY} && !!document.querySelector('#cr-watch-body .mk-row')` : ITEM_READY);
           assert.ok(await noOverflow(page), `${width} px ${hash}`);
+          // The plans and the shopping list fit: nothing of them is cut off behind a sideways scroll.
+          assert.deepEqual(await page.eval("[...document.querySelectorAll('#mk-craft-view .table-wrap')].map(w => w.scrollWidth - w.clientWidth).filter(d => d > 1)"), [], `${width} px ${hash}: a table scrolls sideways`);
           if (shots && width === 390) await page.screenshot(join(shots, `phone-${theme}-${hash === '#market/craft' ? 'home' : 'recipe'}.png`), true);
           await page.close(); open.splice(open.indexOf(page), 1);
         }

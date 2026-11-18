@@ -173,7 +173,7 @@
       // The place's options are rebuilt only when the place changes, so a list being used stays as it is.
       if ((s ? s.id : '') !== scopeShown) { scopeShown = s ? s.id : ''; $('cr-scope').replaceChildren(...api.scopeOptions(!s)); }
       $('cr-scope').value = scopeShown;
-      setText($('cr-scope-note'), s ? (s.kind === 'world' ? `One world: ${s.name}. Materials are priced on ${s.name} alone.` : `Every world of ${s.name}: each material is priced at its cheapest world there, which may mean traveling.`) : 'Choose a data center, a world or a region to price recipes. The same choice as in Prices.');
+      setText($('cr-scope-note'), s ? (s.kind === 'world' ? `One world: ${s.name}. A recipe's materials are priced on ${s.name} alone${st.view === 'home' ? `; Crafting Watch below uses ${s.dcName}'s data-center prices` : ''}.` : `Every world of ${s.name}: each material is priced at its cheapest world there, which may mean traveling.`) : 'Choose a data center, a world or a region to price recipes. The same choice as in Prices.');
       for (const b of view.querySelectorAll('[data-cquality]')) b.setAttribute('aria-pressed', String(b.dataset.cquality === prefs.quality));
       $('cr-materials').value = prefs.materials;
       $('cr-tax').value = String(prefs.tax);
@@ -215,7 +215,8 @@
     // ---- Crafting Watch ----
 
     function watchState(wp) {
-      return remember(`watch|${wp.id}|${prefs.tax}|${prefs.quality}|${prefs.materials}|${stamp(watch.chunks.flat(), wp)}`, () => {
+      // Owned marks are in the key: with a purchase tax they change what a plan's materials are worth.
+      return remember(`watch|${wp.id}|${prefs.tax}|${prefs.quality}|${prefs.materials}|${[...owned].join()}|${stamp(watch.chunks.flat(), wp)}`, () => {
         const rows = Calc.watchRows(catalog, watch.outputs, opts(wp, { quality: prefs.quality, now: now(), staleMs: STALE_MS }));
         return { rows, at: now() };
       });
@@ -231,7 +232,7 @@
         return;
       }
       const wp = watchPlace();
-      setText($('cr-watch-hint'), `The current crafting tier: ${plural(watch.outputs.length, 'item', 'items')} made by level 100 recipes of 4 stars and by expert recipes, priced for one craft at the cheapest plan. A fixed list; the ranking is an estimate, not advice.${s.kind === 'world' ? ` Crafting Watch compares a data center or a region, so for ${s.name} it shows ${wp.name}, its data center.` : ''}`);
+      setText($('cr-watch-hint'), `${s.kind === 'world' ? `Data-center prices: Crafting Watch compares data centers and regions, so for ${s.name} it shows ${wp.name}, its data center, not ${s.name} alone. ` : ''}The current crafting tier: ${plural(watch.outputs.length, 'item', 'items')} made by level 100 recipes of 4 stars and by expert recipes, priced for one craft at the cheapest plan. A fixed list; the ranking is an estimate, not advice.`);
       $('cr-sort').value = st.sort;
       const ids = watch.chunks.flat();
       const loading = ids.some((id) => api.pending(id, wp)), failedN = ids.filter((id) => api.failure(id, wp) && !api.entry(id, wp)).length;
@@ -251,7 +252,7 @@
       const ranked = rows.filter((r) => r.group === 'ranked').sort(by(st.sort)), thin = rows.filter((r) => r.group === 'thin').sort(by(st.sort));
       const unpriced = rows.filter((r) => r.group === 'unpriced').length;
       setText($('cr-watch-text'), ranked.length || thin.length
-        ? `Ranked by ${WATCH_SORTS[st.sort].what} in ${wp.name}, among only the ${ranked.length} of ${watch.outputs.length} items with every price loaded, both a listing and a 4-day average sale, at least 1 sold a day, and listings and sales under 3 days old. ${thin.length ? `${plural(thin.length, 'item', 'items')} with thinner data ${thin.length === 1 ? 'follows' : 'follow'}, apart. ` : ''}${unpriced ? `${plural(unpriced, 'item is', 'items are')} not ranked: a price is missing.` : ''}`
+        ? `Ranked by ${WATCH_SORTS[st.sort].what} in ${wp.name}${s.kind === 'world' ? ' (data-center prices)' : ''}, among only the ${ranked.length} of ${watch.outputs.length} items with every price loaded, both a listing and a 4-day average sale, at least 1 sold a day, and listings and sales under 3 days old. ${thin.length ? `${plural(thin.length, 'item', 'items')} with thinner data ${thin.length === 1 ? 'follows' : 'follow'}, apart. ` : ''}${unpriced ? `${plural(unpriced, 'item is', 'items are')} not ranked: a price is missing.` : ''}`
         : loading ? '' : `Nothing can be ranked in ${wp.name} yet: ${plural(unpriced, 'item lacks', 'items lack')} a price.`);
       const head = el('div', { class: 'mk-row mk-head-row cr-wrow', 'aria-hidden': 'true' }, el('span', null, 'Item'), el('span', null, 'Estimated profit each'), el('span', null, 'Margin'), el('span', null, 'Sold a day'), el('span', null, 'Listing age'));
       const rowOf = (r) => {
@@ -259,14 +260,19 @@
         const flags = [r.lowVolume ? 'few sales' : null, r.stale ? 'old data' : null, p.basis !== 'lower' ? p.basis : null].filter(Boolean);
         return el('li', { class: `mk-row cr-wrow${r.group === 'thin' ? ' is-thin' : ''}`, 'data-id': String(r.item) },
           el('span', { class: 'mk-item' },
-            el('a', { class: 'mk-name', href: `#market/craft/${r.item}`, 'data-ckey': `watch:${r.item}` }, nameOf(r.item)),
+            el('a', { class: 'mk-name', href: `#market/craft/${r.item}`, 'data-ckey': `watch:${r.item}`, 'data-cpick': r.recipe ? String(r.recipe) : null }, nameOf(r.item)),
             el('span', { class: 'mk-meta' }, `${jobAbbr(r.job)} · sold as ${r.quality.toUpperCase()} · materials ${gil(r.cost)} each`, ...flags.map((f) => el('span', { class: 'badge tag cr-flag' }, f)))),
-          el('span', { class: 'mk-cell' }, el('span', { class: 'mk-k', 'aria-hidden': 'true' }, 'Profit'), el('span', { class: `mk-gil${h.profit < 0 ? ' cr-loss' : ''}` }, signedGil(gil, h.profit)), el('span', { class: 'mk-where' }, `vs ${gil(h.ref)}`)),
-          el('span', { class: 'mk-cell' }, el('span', { class: 'mk-k', 'aria-hidden': 'true' }, 'Margin'), pct(h.margin)),
-          el('span', { class: 'mk-cell' }, el('span', { class: 'mk-k', 'aria-hidden': 'true' }, 'Sold'), api.perDay(p.velocity) || api.none('no sales on record')),
-          el('span', { class: 'mk-cell' }, el('span', { class: 'mk-k', 'aria-hidden': 'true' }, 'Listing age'), Number.isFinite(at) ? api.ageCell(at, t) : api.none('no time')));
+          cell('Estimated profit each', 'Profit', el('span', { class: `mk-gil${h.profit < 0 ? ' cr-loss' : ''}` }, signedGil(gil, h.profit)), el('span', { class: 'mk-where' }, `vs ${gil(h.ref)}`)),
+          cell('Margin', 'Margin', pct(h.margin)),
+          cell('Sold a day', 'Sold', api.perDay(p.velocity) || api.none('no sales on record')),
+          cell('Listing age', 'Listing age', Number.isFinite(at) ? api.ageCell(at, t) : api.none('no time')));
       };
+      // Each figure named for a screen reader, as in Prices; the short label shows only on a phone, so it is hidden.
+      const cell = (label, short, ...kids) => el('span', { class: 'mk-cell' }, el('span', { class: 'visually-hidden' }, `${label}: `), el('span', { class: 'mk-k', 'aria-hidden': 'true' }, short), ...kids);
       const shownRanked = ranked.slice(0, st.watchShown);
+      // While its first prices load, the list keeps the room its first rows will take (css/crafting.css), so the
+      // page below does not jump when they come.
+      body.toggleAttribute('data-loading', loading && !ranked.length && !thin.length);
       body.replaceChildren(
         ranked.length ? head : el('span'),
         ranked.length ? el('ol', { class: 'mk-list', 'aria-label': 'Crafting Watch, ranked' }, shownRanked.map(rowOf)) : el('span'),
@@ -407,6 +413,7 @@
         if (!Number.isFinite(cost)) warn.push(`The material cost is not complete (${plural(x.plan.value.missing, 'price', 'prices')} missing), so no profit is estimated.`);
         if (p.basis && p.basis !== 'lower') warn.push(`The estimate rests on ${BASIS[p.basis]}.`);
         if (p.velocity !== null && p.velocity < 1) warn.push(`Few ${Q} sales: under 1 a day lately. A listing may wait a long time.`);
+        else if (p.velocity === null && x.root.state === 'loaded') warn.push(`No ${Q} sales in the last 4 days that Universalis knows of. A listing may wait a long time.`);
         if (p.listing && Number.isFinite(p.listing.at) && t - p.listing.at > STALE_MS) warn.push('The lowest listing is old data: it may be gone.');
         if (x.plan.oldest !== null && t - x.plan.oldest > STALE_MS) warn.push('Some material prices are old data.');
       }
@@ -496,7 +503,7 @@
             el('th', { scope: 'col', class: 'num' }, 'Each'), el('th', { scope: 'col' }, 'Where'), el('th', { scope: 'col', class: 'num' }, 'You pay'))),
           el('tbody', null, rows.map((l) => el('tr', { 'data-id': String(l.item) },
             el('td', null, el('input', { type: 'checkbox', checked: l.owned ? true : null, 'data-cown': String(l.item), 'data-ckey': `own:${l.item}`, 'aria-label': `I have or will gather ${nameOf(l.item)}` })),
-            el('th', { scope: 'row' }, nameOf(l.item), l.craftable ? el('span', { class: 'badge tag' }, 'bought, could be crafted') : null),
+            el('th', { scope: 'row' }, nameOf(l.item), l.craftable ? el('span', { class: 'badge tag' }, 'could be crafted') : null),
             el('td', { class: 'num' }, l.quantity.toLocaleString('en-US')),
             el('td', { class: 'num' }, l.unit ? `${gil(l.unit.price)}${canBeHq(l.item) ? ` ${l.unit.quality.toUpperCase()}` : ''}` : api.none(WHY[l.why] || 'no price')),
             el('td', null, where(l.unit)),
@@ -565,10 +572,22 @@
     $('cr-q').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { clearTimeout(typing); st.query = ev.target.value; st.shown = PAGE; search(); draw(); } });
     view.addEventListener('click', async (ev) => {
       const a = ev.target.closest ? ev.target.closest('a[href^="#market/craft"]') : null;
-      if (a && !ev.defaultPrevented && ev.button === 0 && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && !ev.altKey) { ev.preventDefault(); api.go(a.getAttribute('href')); return; }
+      if (a && !ev.defaultPrevented && ev.button === 0 && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && !ev.altKey) {
+        ev.preventDefault();
+        // From Crafting Watch: open the recipe its row was priced with (an item with several recipes).
+        const pick = Number(a.dataset.cpick), item = Number(a.getAttribute('href').split('/')[2]);
+        if (pick && craftable.has(item) && catalog.recipesFor(item).some((r) => r.id === pick)) {
+          const v = stateOf(item);
+          if (v.recipe !== pick) { v.recipe = pick; v.force.clear(); v.closed.clear(); }
+        }
+        api.go(a.getAttribute('href'));
+        return;
+      }
       const b = ev.target.closest ? ev.target.closest('button') : null;
       if (!b) return;
       const d = b.dataset, v = st.id !== null ? stateOf(st.id) : null;
+      // "Copied" is about the list as it was: any other change clears it, so a redraw does not say it again.
+      if (d.ccopy === undefined) st.status = '';
       if (d.cquality) { prefs = { ...prefs, quality: d.cquality }; savePrefs(); draw(); }
       else if (b.id === 'cr-q-clear') { st.query = ''; $('cr-q').value = ''; search(); draw(); $('cr-q').focus(); }
       else if (b.id === 'cr-more') { st.shown += PAGE; draw(); }
@@ -586,6 +605,7 @@
     });
     view.addEventListener('change', (ev) => {
       const n = ev.target, v = st.id !== null ? stateOf(st.id) : null;
+      st.status = '';
       if (n.id === 'cr-scope') { const s = cat.scopeById.get(n.value); if (s) api.setScope(s); }
       else if (n.id === 'cr-materials') { prefs = { ...prefs, materials: n.value === 'hq' ? 'hq' : 'any' }; savePrefs(); draw(); }
       else if (n.id === 'cr-tax') { const k = Number(n.value); if (Number.isInteger(k) && k >= 0 && k <= TAX_MAX) { prefs = { ...prefs, tax: k }; savePrefs(); } draw(); }

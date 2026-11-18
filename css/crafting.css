@@ -10,6 +10,8 @@
 .cr-flag { color: var(--warn); border-color: var(--warn-line); }
 .cr-loss { color: var(--warn); }
 .cr-sub { margin: 16px 0 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+/* Loading: the room of the head row and the first 20 rows, so what is below stays put when they arrive. */
+#cr-watch-body[data-loading] { min-height: calc(25px + 20 * 58px); }
 
 .cr-item { display: grid; gap: 14px; }
 .cr-item > p, .cr-item > fieldset { margin: 0; }
@@ -54,6 +56,8 @@
 .cr-shop tbody th .badge { margin-left: 6px; }
 .cr-shop tfoot th { text-align: right; }
 .cr-shop tfoot th, .cr-shop tfoot td { color: var(--text); font-weight: 600; border-bottom: 0; }
+/* A label beside a control stays on one line (on a phone the HQ and NQ switch takes the rest of the row). */
+.cr-assume .inline-select > span:first-child { white-space: nowrap; }
 
 @media (max-width: 980px) {
   .cr-home { grid-template-columns: minmax(0, 1fr); }
@@ -67,7 +71,14 @@
   .mk-row.cr-wrow > :nth-child(4) { grid-area: c; }
   .mk-row.cr-wrow > :nth-child(5) { grid-area: d; }
   .mk-row.cr-result { grid-template-columns: minmax(0, 1fr); grid-template-areas: "item"; }
+  /* On a phone what is below starts off screen, so no room is kept. */
+  #cr-watch-body[data-loading] { min-height: 0; }
   .cr-line { grid-template-columns: minmax(0, 1fr) auto; }
   .cr-info { grid-column: 1 / -1; padding-left: 32px; }
   .cr-tree .cr-tree { margin-left: 6px; padding-left: 10px; }
+}
+@media (max-width: 360px) {
+  /* The shopping list's six columns within 320 px: closer cells, and the tag under the name. */
+  .cr-shop td, .cr-shop th { padding-left: 3px; padding-right: 3px; }
+  .cr-shop tbody th .badge { display: table; margin: 4px 0 0; border-radius: var(--radius-sm); }
 }

@@ -12,6 +12,7 @@
 //   fake.failNext({ delay: 2000 })       the right answer, 2 s late
 //   fake.hold() / fake.release()         answers wait until released (aborts show as status 0)
 //   fake.empty(ids)                      these items have no data (empty objects)
+//   fake.missing(ids)                    these items land in failedItems (not on the board at that place)
 //   fake.set(id, result)                 this aggregated result for the item at every place (Crafting's tests set
 //                                        exact prices; result in Universalis's shape, itemId filled in)
 //   fake.calls                           every request that reached "upstream": { kind, scope, ids, at }
@@ -66,7 +67,7 @@ export function fakeUniversalis() {
   const tax = fixture('tax-gilgamesh');
   const notFound = fixture('error-unknown-scope');
 
-  let failures = [], holding = false, held = [], emptyIds = new Set(), overrides = new Map();
+  let failures = [], holding = false, held = [], emptyIds = new Set(), missingIds = new Set(), overrides = new Map();
   const calls = [];
   const json = (send, status, body, type = 'application/json; charset=utf-8', headers = {}) => send(status, typeof body === 'string' ? body : JSON.stringify(body), type, headers);
 
@@ -76,7 +77,7 @@ export function fakeUniversalis() {
     if (up.kind === 'aggregated') {
       const results = [], failedItems = [];
       for (const id of up.ids) {
-        if (!onBoard.has(id)) { failedItems.push(id); continue; }
+        if (!onBoard.has(id) || missingIds.has(id)) { failedItems.push(id); continue; }
         if (emptyIds.has(id)) { results.push({ itemId: id, nq: { ...EMPTY_SIDE }, hq: { ...EMPTY_SIDE } }); continue; }
         const r = overrides.has(id) ? { ...overrides.get(id), itemId: id } : aggById[kind].get(id) || { ...template(kind), itemId: id };
         results.push(r);
@@ -113,7 +114,8 @@ export function fakeUniversalis() {
     hold() { holding = true; },
     release() { holding = false; const h = held; held = []; for (const r of h) r(); },
     empty(ids) { for (const id of ids) emptyIds.add(Number(id)); },
+    missing(ids) { for (const id of ids) missingIds.add(Number(id)); },
     set(id, result) { overrides.set(Number(id), result); },
-    reset() { failures = []; holding = false; this.release(); emptyIds = new Set(); overrides = new Map(); calls.length = 0; },
+    reset() { failures = []; holding = false; this.release(); emptyIds = new Set(); missingIds = new Set(); overrides = new Map(); calls.length = 0; },
   };
 }
