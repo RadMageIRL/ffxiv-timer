@@ -5,8 +5,10 @@
 // the captured answers in tests/fixtures/universalis/, in memory or from a local HTTP server.
 import assert from 'node:assert/strict';
 import { createServer, request as httpRequest } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as ALLOW from '../radmagelabs/api/_ffxiv-prices/allow.mjs';
@@ -16,6 +18,7 @@ import diagnostics from 'node:diagnostics_channel';
 import { allowFrom, createLimiter, createPricesHandler, DEFAULTS, ID_CEILING, routeOf, USER_AGENT } from '../radmagelabs/api/_ffxiv-prices/handler.mjs';
 import { decodeItems } from '../tools/build-market.mjs';
 import { FRAGMENT, mergeLabsConfig, mergeLabsText } from '../tools/labs-function.mjs';
+import { build } from '../tools/build.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const M = createRequire(import.meta.url)('../js/market-items.js');
@@ -590,10 +593,12 @@ test('vercel.json merge: the price rewrite goes just before the /ffxiv/ catch-al
   const merged = mergeLabsConfig(labs);
   assert.deepEqual(merged.rewrites.map((r) => r.source), ['/ffxi/:path*', '/ffxiv/news/topics.xml', '/ffxiv/prices/:path*', '/ffxiv/', '/ffxiv/:path*', '/d4/news.json']);
   assert.deepEqual(merged.redirects, labs.redirects);
-  assert.deepEqual(merged.headers, labs.headers);
+  assert.deepEqual(merged.headers, [...FRAGMENT.headers, ...labs.headers]);
   assert.deepEqual(merged.functions, FRAGMENT.functions);
   assert.deepEqual(Object.keys(merged), ['$schema', 'functions', 'redirects', 'rewrites', 'headers']);
   assert.throws(() => mergeLabsConfig(merged), /already/);
+  assert.throws(() => mergeLabsConfig({ ...labs, headers: [FRAGMENT.headers[0], ...labs.headers] }), /already has header rules/);
+  assert.throws(() => mergeLabsConfig({ ...labs, headers: undefined }), /no "headers" list/);
   assert.deepEqual(FRAGMENT.rewrites, [{ source: '/ffxiv/prices/:path*', destination: '/api/ffxiv-prices' }]);
   assert.ok(FRAGMENT.functions['api/ffxiv-prices.mjs'].maxDuration >= Math.ceil((DEFAULTS.rate.maxWaitMs + DEFAULTS.timeoutMs) / 1000), 'the function may run as long as a wait plus a timeout');
 });
@@ -609,20 +614,66 @@ test('vercel.json merge on the text: only the added lines change, in the file\'s
     '    { "source": "/ffxiv/news/news.xml", "destination": "https://na.finalfantasyxiv.com/lodestone/news/news.xml" },',
     '    { "source": "/ffxiv/", "destination": "https://radmageirl.github.io/ffxiv-timer/" },',
     '    { "source": "/ffxiv/:path*", "destination": "https://radmageirl.github.io/ffxiv-timer/:path*" }',
+    '  ],',
+    '  "headers": [',
+    '    {',
+    '      "source": "/ffxiv/news/:feed",',
+    '      "headers": [',
+    '        { "key": "CDN-Cache-Control", "value": "max-age=600" }',
+    '      ]',
+    '    }',
     '  ]',
     '}',
     '',
   ].join('\n');
   const merged = mergeLabsText(text);
   const added = merged.split('\n').filter((l) => !text.split('\n').includes(l));
+  const csp = JSON.stringify(FRAGMENT.headers[0].headers[0].value);
   assert.deepEqual(added, [
     '  "functions": {',
     '    "api/ffxiv-prices.mjs": { "maxDuration": 20 }',
     '  },',
     '    { "source": "/ffxiv/prices/:path*", "destination": "/api/ffxiv-prices" },',
+    '      "source": "/ffxiv/",',
+    `      "headers": [{ "key": "Content-Security-Policy", "value": ${csp} }]`,
+    '    },',
+    '      "source": "/ffxiv/index.html",',
+    `      "headers": [{ "key": "Content-Security-Policy", "value": ${csp} }]`,
+    '    },',
   ]);
-  assert.equal(merged.split('\n').length, text.split('\n').length + 4);
+  assert.equal(merged.split('\n').length, text.split('\n').length + 12, '4 lines for the function, 8 for the two header rules');
   assert.deepEqual(JSON.parse(merged), mergeLabsConfig(JSON.parse(text)));
+});
+
+// ---- the page's Content-Security-Policy, sent by radmagelabs.com with the page ----
+// The page's two inline scripts (the slash fix and the theme) run because their hashes are listed, and
+// no other inline script would. The build must leave them byte for byte as they are, or on
+// radmagelabs.com the page would lose the slash fix and open dark for a visitor who chose light.
+test('page CSP: one policy for /ffxiv/ and /ffxiv/index.html; connects only to its own site; every inline script listed by hash, also after the build', () => {
+  assert.deepEqual(FRAGMENT.headers.map((h) => h.source), ['/ffxiv/', '/ffxiv/index.html']);
+  const values = FRAGMENT.headers.map((h) => { assert.deepEqual(h.headers.map((x) => x.key), ['Content-Security-Policy']); return h.headers[0].value; });
+  assert.equal(new Set(values).size, 1, 'the same policy on both');
+  const dir = Object.fromEntries(values[0].split(';').map((d) => d.trim().split(/\s+/)).map(([k, ...v]) => [k, v]));
+  assert.deepEqual(Object.keys(dir), ['default-src', 'script-src', 'style-src', 'img-src', 'connect-src', 'base-uri', 'form-action', 'frame-ancestors']);
+  assert.deepEqual(dir['default-src'], ["'none'"]);
+  assert.deepEqual(dir['connect-src'], ["'self'"], 'prices and news only from the page\'s own site');
+  assert.deepEqual(dir['img-src'], ["'self'"]);
+  assert.deepEqual(dir['style-src'], ["'self'", "'unsafe-inline'"], 'style attributes in the page and set by the code');
+  for (const k of ['base-uri', 'form-action', 'frame-ancestors']) assert.deepEqual(dir[k], ["'none'"], k);
+  assert.equal(dir['script-src'][0], "'self'");
+  const inline = (html) => [...html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)]
+    .filter((m) => !/\bsrc=/.test(m[1] || '') && !/type="application\/ld\+json"/.test(m[1] || ''))
+    .map((m) => `'sha256-${createHash('sha256').update(m[2], 'utf8').digest('base64')}'`);
+  const source = inline(readFileSync(join(ROOT, 'index.html'), 'utf8'));
+  assert.equal(source.length, 2, 'the slash fix and the theme');
+  assert.deepEqual(dir['script-src'].slice(1), source, 'every inline script, and only those, by hash; no unsafe-inline, eval or other sites');
+  const out = mkdtempSync(join(tmpdir(), 'ffxiv-csp-'));
+  try {
+    build('pages', { outRoot: out });
+    const built = readFileSync(join(out, 'dist', 'pages', 'index.html'), 'utf8');
+    assert.deepEqual(inline(built), source, 'the build leaves the inline scripts as they are');
+    assert.doesNotMatch(built, /\son[a-z]+=["']/i, 'no inline event handlers');
+  } finally { rmSync(out, { recursive: true, force: true }); }
 });
 
 test('allow list: a damaged list stops the function from starting; an unexpected error is a plain 500, uncached', async () => {

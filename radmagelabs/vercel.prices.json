@@ -4,5 +4,15 @@
   },
   "rewrites": [
     { "source": "/ffxiv/prices/:path*", "destination": "/api/ffxiv-prices" }
+  ],
+  "headers": [
+    {
+      "source": "/ffxiv/",
+      "headers": [{ "key": "Content-Security-Policy", "value": "default-src 'none'; script-src 'self' 'sha256-UP5cs/uLpNMlAh0NVzGwae2vZ3gKrgrgFIG7RbwJsXc=' 'sha256-S4xeB5sePjADr/LXJYbpdmpNvQ7M0H1j0htX0lxKBBs='; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" }]
+    },
+    {
+      "source": "/ffxiv/index.html",
+      "headers": [{ "key": "Content-Security-Policy", "value": "default-src 'none'; script-src 'self' 'sha256-UP5cs/uLpNMlAh0NVzGwae2vZ3gKrgrgFIG7RbwJsXc=' 'sha256-S4xeB5sePjADr/LXJYbpdmpNvQ7M0H1j0htX0lxKBBs='; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" }]
+    }
   ]
 }
