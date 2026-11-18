@@ -52,5 +52,18 @@ Reset times in js/resets.js
   was compared once with PaissaDB (https://github.com/zhudotexe/FFXIV_PaissaDB); nothing from it is
   stored here.
 
+Game data in js/market-items.js and radmagelabs/api/_ffxiv-prices/allow.mjs
+  Names, item levels, HQ flags and market board categories of the items that can be sold on the
+  market board, and the names of the data centers and worlds, from the same xivapi/ffxiv-datamining
+  commit (Item, ItemSearchCategory, World and WorldDCGroupType), under the same Materials Usage
+  Policy. data/market-items.lock.json records every sheet's SHA-256.
+
+Market board prices (Market & Crafting)
+  Prices, listings, completed sales, upload times and tax rates come, when the page runs, from
+  Universalis (https://universalis.app), which collects them from players' market board visits.
+  radmagelabs.com asks Universalis for them; nothing from Universalis is stored in this repository
+  except answers captured once on 2026-11-17 for the tests, in tests/fixtures/universalis/ (see its
+  manifest.json), with no player, retainer or listing names or ids.
+
 Icons
   The weather icons and the crystal mark are original to this project. No game images are used.

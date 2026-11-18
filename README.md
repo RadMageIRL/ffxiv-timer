@@ -1,8 +1,8 @@
 # FFXIV Timer v0.10.0
 
-Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. It is a static
-page: no account, no backend and nothing to install. Your settings stay in your browser; the only
-request beyond the page itself is Latest news, and only once you open it.
+Eorzea Time, weather forecasts, weather transitions, resets, timed gathering nodes and market board
+prices for FINAL FANTASY XIV. No account and nothing to install. Your settings stay in your browser;
+the page asks for nothing beyond itself until you open Latest news or Market & Crafting.
 
 ![FFXIV Timer at ET 12:05 on the 17th Sun of the 4th Umbral Moon: rain in Middle La Noscea, snow in Urqopacha and blizzards in Eureka Pagos, with the next weather changes and sunset in the Upcoming timeline](screenshots/ffxiv-timer.png)
 
@@ -12,6 +12,9 @@ The build is made to be served at two addresses, with the first as the canonical
 - https://radmageirl.github.io/ffxiv-timer/
 
 ## What it does
+
+The page has two modes, switched with the buttons at the top: **Timers & Weather** (everything
+below up to Latest news) and **Market & Crafting** (market board prices).
 
 - **Eorzea clock.** ET time, the Eorzean date (sun and moon), local time, day or night, and
   countdowns to the next bell, the next weather change and the next sunrise or sunset.
@@ -56,6 +59,26 @@ The build is made to be served at two addresses, with the first as the canonical
   open. If a refresh fails, the last headlines stay up and it tries again shortly. A headline the
   Lodestone files under Maintenance is flagged on the bar for 7 days, even while it is closed,
   from the headlines this browser already has; the flag asks for nothing.
+
+- **Market & Crafting.** Market board prices from [Universalis](https://universalis.app) for a
+  data center, a world or a region. The first visit asks which data center to show (prefilled
+  from the one chosen in Resets) and saves nothing until you choose. The home has Market Watch
+  (commonly traded items in groups, priced in one request), your favorites and the market board's
+  categories. Search covers all 16,845 items that can be sold on the market board and shows each
+  one's lowest NQ and HQ listing with its world, units sold a day, and Updated: when Universalis
+  last received the market board of the world with the lowest listing. Sorts and filters say what
+  they cover. An item's details give the data's age first, then NQ and HQ apart, current listings
+  apart from completed sales, and the market tax per city for a world. Ages under 6 hours read as
+  current, under 3 days as recent, and older ones are marked old with their date. When the price
+  service is busy or failing, the last prices stay on screen with their ages and nothing is
+  estimated. Each item has its own address (`#market/item/<id>`). The page asks radmagelabs.com
+  for prices and radmagelabs.com asks Universalis, so your browser never contacts Universalis; at
+  the GitHub Pages address Market & Crafting links to the same view at radmagelabs.com instead.
+- **Light and dark.** The moon and sun button switches to a light theme and back. Dark is the
+  default, and the choice is saved only once you make it.
+- **Share.** A link to radmagelabs.com/ffxiv/ with what the page shows now (the part of the
+  address after `#`), through your device's share sheet where there is one, otherwise copied.
+  Nothing else goes with it.
 
 Zones without a verified weather table are named as not supported. They never get a guess.
 
@@ -115,6 +138,11 @@ moment always gives the same answer, in every time zone.
 - Calendar files are read back by a strict reader in the tests, in five time zones, and sample
   files were read with two independent iCalendar libraries (ical.js and Python icalendar) with no
   differences.
+- The market's item list is the game's own (every item with a market board category), and
+  Universalis lists the same 16,845 items for 7.58. The price client and the page are tested
+  against Universalis answers captured once, and against a fake Universalis that answers slowly,
+  wrongly, with 429 and 503, or not at all. Before release the page was also run against live
+  Universalis answers through an isolated copy of the radmagelabs.com price function.
 
 ### In the game and in calendar apps (not done yet)
 
@@ -136,14 +164,18 @@ To see it the way each host serves it, run `node tools/serve.mjs` (Node 22 or la
 - http://127.0.0.1:8017/ffxiv/ (the same build as radmagelabs.com serves it)
 
 Under `/ffxiv/` and `/dev/` the local server fetches the Lodestone news feeds the way the
-radmagelabs.com rewrites do; under `/ffxiv-timer/` they are missing, as on GitHub Pages.
+radmagelabs.com rewrites do; under `/ffxiv-timer/` they are missing, as on GitHub Pages. Market
+prices come from the radmagelabs.com price function, which the local server does not run; the
+browser tests use a fake Universalis instead (`tests/lib/fake-universalis.mjs`).
 
 ## Tests
 
 ```
-node tests/run.mjs        # unit tests: clock, weather, transitions, resets, calendar files, data, build
-node tests/smoke.mjs      # browser and base-path tests in headless Chrome (CHROME_PATH if needed)
-node tools/screenshot.mjs # retake screenshots/ffxiv-timer.png at a fixed moment
+node tests/run.mjs            # unit tests: clock, weather, transitions, resets, calendar files, data,
+                              # build, the market's search and price client, the price function
+node tests/smoke.mjs          # browser and base-path tests in headless Chrome (CHROME_PATH if needed)
+node tests/smoke-market.mjs   # Market & Crafting in headless Chrome, against a fake Universalis
+node tools/screenshot.mjs     # retake screenshots/ffxiv-timer.png at a fixed moment
 ```
 
 Neither installs anything. The browser tests serve the built site under `/ffxiv-timer/`, through
@@ -158,6 +190,7 @@ node tools/build-weather.mjs --check   # fail if js/weather-data.js is out of da
 node tools/verify-weather.mjs          # compare every supported zone with XIVAPI
 node tools/build-gathering.mjs         # regenerate js/gathering-data.js (and --check)
 node tools/verify-gathering.mjs        # compare every node with XIVAPI and the wiki
+node tools/build-market.mjs            # regenerate js/market-items.js and the price function's allow list (and --check)
 ```
 
 Supported zones are listed in `data/supported-zones.json` by their game territory id. To add one:
@@ -186,6 +219,16 @@ Latest news reads `news/topics.xml` and `news/news.xml` next to the page. The Lo
 cross-origin reads, so radmagelabs.com rewrites those two paths under `/ffxiv/` to them. GitHub
 Pages cannot, so at `/ffxiv-timer/` the bar links to the Lodestone instead.
 
+Market prices are read from `prices/` next to the page. On radmagelabs.com that path is a small
+function, kept in this repository under `radmagelabs/` and copied into the radmagelabs.com
+project at release: it checks each path against the items, places and worlds the page can ask
+for, asks Universalis with fixed headers and nothing from the visitor, keeps only the price
+fields (no player, retainer or listing names or ids), and lets Vercel's CDN keep good answers
+for 2 to 5 minutes (tax rates for an hour). `radmagelabs/vercel.prices.json` holds its rewrite and the page's
+Content-Security-Policy, which radmagelabs.com sends with the page: it runs only the page's own
+scripts and connects only to its own site. GitHub Pages runs no function, so there Market &
+Crafting is a link to radmagelabs.com.
+
 Settings and starred zones are saved in the browser under keys starting with `ffxiv-timer:`. Each
 address is its own browser origin, so the two addresses keep separate settings.
 
@@ -203,7 +246,16 @@ js/format.js            countdown text and URL keys
 js/store.js             saved settings
 js/icons.js             weather icons
 js/news.js              Lodestone headlines: feed parsing and link checks
+js/resets.js            daily and weekly resets
+js/ics.js               calendar files (loaded on first use)
 js/app.js               the page logic
+js/router.js            the address after # for both modes (loaded with the market)
+js/market-items.js      generated market item list (loaded with the market)
+js/market-catalog.js    item search
+js/prices.js            the price client: pacing, retries, waits
+js/market.js            Market & Crafting
+css/market.css          Market & Crafting styles (loaded with the market)
+radmagelabs/            the radmagelabs.com price function and its rules
 data/                   which zones and nodes are supported
 deploy/targets.json     hosting targets and base paths
 tools/                  data generator, data check, build, local server, screenshot
@@ -215,7 +267,8 @@ tests/                  unit tests, browser tests, fixtures
 
 The code is MIT licensed (see `LICENSE`). `NOTICE` lists what the license does not cover.
 
-FINAL FANTASY XIV &copy; SQUARE ENIX. Zone and weather names and weather percentages come from the
-game and are used under the FINAL FANTASY XIV Materials Usage Policy. FFXIV Timer is a free fan
+FINAL FANTASY XIV &copy; SQUARE ENIX. Zone, weather and item names and weather percentages come from
+the game and are used under the FINAL FANTASY XIV Materials Usage Policy. Market prices come from
+[Universalis](https://universalis.app), which collects them from players' market board visits. FFXIV Timer is a free fan
 tool and is not affiliated with or endorsed by Square Enix. The icons are original; no game images
 are used.
