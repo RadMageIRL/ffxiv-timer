@@ -3,6 +3,54 @@
 Every version of FFXIV Timer and what changed in it, newest first. Dates are the day I released
 each one.
 
+## v0.11.0 (2026-11-17)
+
+Added
+- Market & Crafting: a second mode beside Timers & Weather, switched with the two buttons at the
+  top. Each switch is one step in the browser's history, so Back returns to where you were, and
+  the timers keep running while the market is open. It shows market board prices from
+  Universalis (universalis.app) for a data center, a world or a region, and has its own section
+  links: Market Watch, Favorites and Browse.
+- The first visit to Market & Crafting asks which data center to show, prefilled from the one
+  chosen in Resets. Nothing is saved until you choose.
+- Market Watch: commonly traded items in groups (crystals, materia, medicine, meals, dyes and
+  crafting materials), all priced in one request. Your newest favorites show beside it
+  (Show all lists the rest; up to 500 are kept), and Browse lists the market board's categories.
+- Search across all 16,845 items that can be sold on the market board, by name or id, with each
+  item's lowest NQ and HQ listing and the world it is on, units sold a day, and Updated: when
+  Universalis last received the market board of the world with the lowest listing. Sort by best
+  match, name, lowest NQ or HQ listing, units sold a day, Updated or item level, and filter by
+  category, Can be HQ, Listed now and item level. Each sort and filter says which items it
+  covers.
+- Item details: how old the data is comes first, then NQ and HQ apart (lowest listing, last
+  sale, average sale price, units sold a day), the lowest listing by place, the current listings
+  apart from completed sales (up to 20 of each), and the market tax in each city when a world is
+  chosen. From the details you can change the place, add a favorite, refresh, and copy a link.
+  Each item has its own address, so Back closes the details and a link opens them.
+- Ages: data under 6 hours old reads as current, under 3 days as recent, and anything older is
+  marked old with its date. An age is always Universalis's own time for the data, never when the
+  page fetched it.
+- When the price service asks the page to wait, it waits as long as asked and says so; when
+  prices cannot be loaded, the last ones stay on screen with their ages and the page says why.
+  Nothing is ever estimated.
+- The page asks radmagelabs.com for prices and radmagelabs.com asks Universalis, so your browser
+  does not contact Universalis and nothing about you is sent there. Your place, favorites, sort
+  and filters stay in this browser; prices are not saved. At radmageirl.github.io, Market &
+  Crafting links to the same view at radmagelabs.com/ffxiv/ and asks for nothing.
+- A light theme: the moon and sun button at the top switches between dark, still the default,
+  and light. The choice is saved in this browser only once you make it, and applies before the
+  page first appears.
+- Share, in the header and in About: a link to radmagelabs.com/ffxiv/ with what the page shows
+  now, through your device's share sheet where there is one, otherwise copied. Nothing else goes
+  with it.
+
+Changed
+- The header: the two mode buttons sit beside the title. From 641 to 1360 pixels wide the section
+  links take a row of their own, and on phones the mode buttons do.
+- At radmagelabs.com the page now comes with a Content-Security-Policy: it runs only its own
+  scripts and connects only to its own site.
+- The search box placeholder in the dark theme is a little lighter, for contrast.
+
 ## v0.10.0 (2026-11-16)
 
 Added

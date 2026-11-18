@@ -1,4 +1,4 @@
-# FFXIV Timer v0.10.0
+# FFXIV Timer v0.11.0
 
 Eorzea Time, weather forecasts, weather transitions, resets, timed gathering nodes and market board
 prices for FINAL FANTASY XIV. No account and nothing to install. Your settings stay in your browser;
