@@ -58,6 +58,16 @@ Game data in js/market-items.js and radmagelabs/api/_ffxiv-prices/allow.mjs
   commit (Item, ItemSearchCategory, World and WorldDCGroupType), under the same Materials Usage
   Policy. data/market-items.lock.json records every sheet's SHA-256.
 
+Game data in js/recipes.js
+  Recipes whose result can be sold on the market board (ingredients, amounts, yields, jobs, recipe
+  levels, stars, flags, master recipe books and stat minimums), which ingredients an NPC sells for
+  gil with the price the game lists for them (shown on the page as unverified), and which
+  ingredients the supported timed nodes give, from the same xivapi/ffxiv-datamining commit
+  (Recipe, RecipeLevelTable, SecretRecipeBook, ClassJob, Item, GilShop, GilShopItem, ENpcBase,
+  TopicSelect, PreHandler, CustomTalk, CustomTalkNestHandlers, GatheringItem and
+  GatheringPointBase), under the same Materials Usage Policy. data/recipes.lock.json records every
+  sheet's SHA-256. Checked against XIVAPI on a sample of recipes (tests/fixtures/xivapi-recipes.json).
+
 Market board prices (Market & Crafting)
   Prices, listings, completed sales, upload times and tax rates come, when the page runs, from
   Universalis (https://universalis.app), which collects them from players' market board visits.

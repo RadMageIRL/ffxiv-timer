@@ -1,7 +1,7 @@
-# FFXIV Timer v0.11.0
+# FFXIV Timer v0.12.0
 
-Eorzea Time, weather forecasts, weather transitions, resets, timed gathering nodes and market board
-prices for FINAL FANTASY XIV. No account and nothing to install. Your settings stay in your browser;
+Eorzea Time, weather forecasts, weather transitions, resets, timed gathering nodes, market board
+prices and crafting costs for FINAL FANTASY XIV. No account and nothing to install. Your settings stay in your browser;
 the page asks for nothing beyond itself until you open Latest news or Market & Crafting.
 
 ![FFXIV Timer at ET 12:05 on the 17th Sun of the 4th Umbral Moon: rain in Middle La Noscea, snow in Urqopacha and blizzards in Eureka Pagos, with the next weather changes and sunset in the Upcoming timeline](screenshots/ffxiv-timer.png)
@@ -14,7 +14,7 @@ The build is made to be served at two addresses, with the first as the canonical
 ## What it does
 
 The page has two modes, switched with the buttons at the top: **Timers & Weather** (everything
-below up to Latest news) and **Market & Crafting** (market board prices).
+below up to Latest news) and **Market & Crafting** (market board prices and crafting costs).
 
 - **Eorzea clock.** ET time, the Eorzean date (sun and moon), local time, day or night, and
   countdowns to the next bell, the next weather change and the next sunrise or sunset.
@@ -75,6 +75,26 @@ below up to Latest news) and **Market & Crafting** (market board prices).
   estimated. Each item has its own address (`#market/item/<id>`). The page asks radmagelabs.com
   for prices and radmagelabs.com asks Universalis, so your browser never contacts Universalis; at
   the GitHub Pages address Market & Crafting links to the same view at radmagelabs.com instead.
+- **Crafting.** The second part of Market & Crafting (`#market/craft`). Search the 9,490 market
+  items that the game's 9,644 recipes make (patch 7.58), choose a recipe where several make the
+  item, set a quantity, and see the whole tree down to the raw materials, with Buy or Craft at
+  every step. The demand from every branch is added up before rounding to whole crafts, and what
+  a craft makes beyond the need is listed as left over. Plans side by side: the item bought
+  finished, crafted with every direct material bought, crafted at every step, the cheapest plan
+  (every buy-or-craft combination is tried) and your own, each with what you pay and what the
+  materials are worth. Materials are priced at their lowest listing (the cheaper of NQ and HQ, or
+  HQ only if you choose), plus a purchase tax you set (0% unless you change it). What one sells
+  for comes from its lowest listing and its 4-day average sale on the quality you sell as, with
+  units sold a day and the estimated profit and margin against both. A shopping list adds up
+  what to buy, with Have marks for what you already have or will gather and Copy. Materials from
+  a supported timed node show when it is next up, with a link to Timed gathering. Crafting Watch
+  ranks the 132 items made by level 100 recipes of 4 stars and by expert recipes; thinner data
+  (few sales, old prices, one reference) is listed apart and anything unpriced is left out. Each
+  recipe has its own address (`#market/craft/<id>`), and an item's details in Prices link to it.
+  A recipe asks for its whole tree's prices in one request and Crafting Watch in three fixed
+  ones, the same for every visitor; changing a quantity, step or assumption asks for nothing.
+  What is saved: HQ or NQ, how materials are priced and the purchase tax, once you change them.
+  Have marks, quantities and choices last only while the page is open.
 - **Light and dark.** The moon and sun button switches to a light theme and back. Dark is the
   default, and the choice is saved only once you make it.
 - **Share.** A link to radmagelabs.com/ffxiv/ with what the page shows now (the part of the
@@ -82,6 +102,23 @@ below up to Latest news) and **Market & Crafting** (market board prices).
   Nothing else goes with it.
 
 Zones without a verified weather table are named as not supported. They never get a guess.
+
+## What a crafting estimate leaves out
+
+- A profit is an estimate, never a promise. Market listings are offers, not completed sales, and
+  buying many may take more than the cheapest listing holds. The 4-day average sale price is of
+  sales that already happened.
+- An HQ estimate assumes you reach HQ, which depends on your stats, gear and crafting actions.
+- Materials you gather or already own still count at their market value: using one means not
+  selling it. Have marks take them out of what you pay, not out of what the materials are worth.
+- NPC vendor prices come from the game's data and are not verified, so they are shown but never
+  used in a total or a choice. Costs in currencies other than gil (tomestones, scrips, seals) are
+  not counted.
+- When you choose a world, Crafting Watch uses that world's data center's prices (it ranks data
+  centers and regions, so it stays within a fixed number of requests); a recipe uses the world's
+  own prices.
+- No seller fee is taken off a sale. Universalis describes the market tax as paid by the buyer;
+  that has not been checked in the game.
 
 ## How the forecast works
 
@@ -107,9 +144,10 @@ time; the date here counts suns (days) and moons (32 suns each) from that zero.
 
 ## Where the data comes from
 
-Weather tables and gathering nodes are generated from the game's own data tables for patch 7.58
-(TerritoryType, WeatherRate, Weather, PlaceName, ExVersion, GatheringPoint,
-GatheringPointBase, GatheringItem, GatheringRarePopTimeTable and related tables), read from a
+Weather tables, gathering nodes, market items and recipes are generated from the game's own data
+tables for patch 7.58 (TerritoryType, WeatherRate, Weather, PlaceName, ExVersion, GatheringPoint,
+GatheringPointBase, GatheringItem, GatheringRarePopTimeTable, Item, ItemSearchCategory, Recipe,
+RecipeLevelTable, SecretRecipeBook, the gil shop tables and related tables), read from a
 pinned commit of [xivapi/ffxiv-datamining](https://github.com/xivapi/ffxiv-datamining) with every
 file's SHA-256 checked. `NOTICE` lists every source. All calculations are deterministic: the same
 moment always gives the same answer, in every time zone.
@@ -144,13 +182,21 @@ moment always gives the same answer, in every time zone.
   against Universalis answers captured once, and against a fake Universalis that answers slowly,
   wrongly, with 429 and 503, or not at all. Before release the page was also run against live
   Universalis answers through an isolated copy of the radmagelabs.com price function.
+- The recipe catalog is checked against a sample of 87 recipes read from XIVAPI (ingredients,
+  amounts, yields, jobs, levels and flags), and the build must reproduce it byte for byte from the
+  pinned tables. The tests check every craftable item's tree, rounding and shared intermediates
+  against hand-worked cases, and the cheapest plan against a brute-force search on real recipe
+  trees. Before release, a second calculator written apart from the page's code, reading the raw
+  game tables, agreed with every recipe, every tree and over 11,000 random price cases, and with
+  the page's figures on live prices.
 
 ### In the game and in calendar apps (not done yet)
 
 Nobody has yet compared these forecasts and node times with what the game itself shows (a
 Skywatcher NPC, the weather on the minimap, a node appearing). Until that happens they are
 computed from the game's data, not observed. The reset times marked "time unverified" have not
-been checked in the game either. Calendar files have not yet been imported into Google Calendar,
+been checked in the game either, nor have NPC vendor prices or whether a seller pays a fee on a
+market sale. Calendar files have not yet been imported into Google Calendar,
 Outlook or Apple Calendar. Differences are welcome as
 [issues](https://github.com/RadMageIRL/ffxiv-timer/issues).
 
@@ -173,9 +219,11 @@ browser tests use a fake Universalis instead (`tests/lib/fake-universalis.mjs`).
 
 ```
 node tests/run.mjs            # unit tests: clock, weather, transitions, resets, calendar files, data,
-                              # build, the market's search and price client, the price function
+                              # build, the market's search and price client, the price function,
+                              # the recipe catalog and crafting costs
 node tests/smoke.mjs          # browser and base-path tests in headless Chrome (CHROME_PATH if needed)
-node tests/smoke-market.mjs   # Market & Crafting in headless Chrome, against a fake Universalis
+node tests/smoke-market.mjs   # Market & Crafting's Prices in headless Chrome, against a fake Universalis
+node tests/smoke-crafting.mjs # Crafting in headless Chrome, against the same fake Universalis
 node tools/screenshot.mjs     # retake screenshots/ffxiv-timer.png at a fixed moment
 ```
 
@@ -192,6 +240,8 @@ node tools/verify-weather.mjs          # compare every supported zone with XIVAP
 node tools/build-gathering.mjs         # regenerate js/gathering-data.js (and --check)
 node tools/verify-gathering.mjs        # compare every node with XIVAPI and the wiki
 node tools/build-market.mjs            # regenerate js/market-items.js and the price function's allow list (and --check)
+node tools/build-recipes.mjs           # regenerate js/recipes.js and data/recipes.lock.json (and --check)
+node tools/verify-recipes.mjs          # compare the sampled recipes with XIVAPI
 ```
 
 Supported zones are listed in `data/supported-zones.json` by their game territory id. To add one:
@@ -255,10 +305,14 @@ js/router.js            the address after # for both modes (loaded with the mark
 js/market-items.js      generated market item list (loaded with the market)
 js/market-catalog.js    item search
 js/prices.js            the price client: pacing, retries, waits
-js/market.js            Market & Crafting
+js/market.js            Market & Crafting: Prices, the tabs and Crafting's loader
 css/market.css          Market & Crafting styles (loaded with the market)
+js/recipes.js           generated recipe catalog (loaded when Crafting first opens)
+js/craft-calc.js        crafting quantities and costs, no page and no network
+js/crafting.js          Crafting
+css/crafting.css        Crafting styles (loaded when Crafting first opens)
 radmagelabs/            the radmagelabs.com price function and its rules
-data/                   which zones and nodes are supported
+data/                   which zones and nodes are supported, and the market and recipe lock files
 deploy/targets.json     hosting targets and base paths
 tools/                  data generator, data check, build, local server, screenshot
 screenshots/            the README screenshot

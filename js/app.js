@@ -1030,12 +1030,14 @@
     const src = DATA.source;
     const zonesByExpansion = EXPANSIONS.map((x) => `${x}: ${ZONES.filter((z) => z.expansion === x).map((z) => z.name).join(', ')}`);
     $('about-body').replaceChildren(
-      el('p', null, 'Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV, and market board prices. Free, no account and nothing to install. Your stars and settings stay in this browser; the only requests beyond the page itself are Latest news and Market & Crafting prices, each only once you open it.'),
+      el('p', null, 'Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV, with market board prices and crafting costs. Free, no account and nothing to install. Your stars and settings stay in this browser; the only requests beyond the page itself are Latest news and Market & Crafting prices, each only once you open it.'),
       el('h3', null, 'Share'),
       el('p', null, "Share gives out a link to radmagelabs.com/ffxiv/ with the part of this page's address after the # sign, so it opens on the forecast zone and transition search you have now. Nothing else goes with it: not your stars, your settings or anything about you, and the page itself sends nothing anywhere. Where your device has a share sheet it opens, and you choose where the link goes; otherwise the link is copied."),
       el('p', null, el('button', { type: 'button', class: 'ghost small', 'data-share': true }, 'Share FFXIV Timer')),
       el('h3', null, 'Market & Crafting'),
-      el('p', null, 'Market & Crafting, at the top, shows market board prices from Universalis (universalis.app) for a data center, a world or a region, each with its age. radmagelabs.com asks Universalis for them, so your browser does not contact it. Your choices and favorites stay in this browser; prices are not saved. At radmageirl.github.io it links to radmagelabs.com/ffxiv/.'),
+      el('p', null, 'Market & Crafting, at the top, has two parts. Prices shows market board prices from Universalis (universalis.app) for a data center, a world or a region, each with its age. Crafting shows what a recipe takes, down to the raw materials, and what it may earn: buy or craft at each step, the cheapest plan, a shopping list to copy, and when the timed node for a material is next up. radmagelabs.com asks Universalis for the prices, so your browser does not contact it. Your place, favorites and Crafting assumptions stay in this browser; prices and Have marks are not saved. At radmageirl.github.io it links to radmagelabs.com/ffxiv/.'),
+      el('h3', null, 'Crafting estimates'),
+      el('p', null, 'Materials are priced at their lowest listing, which is an offer, not a sale; buying many may take more than the cheapest listing holds. Estimated profit compares that cost with the lowest listing and with the average of the last 4 days of sales, on the same quality. It is an estimate, not a promise: reaching HQ depends on you, materials you gather or own still count at their market value, NPC vendor prices are shown as unverified and never used, costs in currencies other than gil are not counted, and no seller fee is taken off (not yet checked in the game). Crafting Watch ranks the current crafting tier; for a world it uses that world\'s data center.'),
       el('h3', null, 'Light and dark'),
       el('p', null, 'The moon and sun button at the top switches between the dark theme, the default, and a light one. Your choice is saved in this browser once you make it; until then nothing is saved.'),
       el('h3', null, 'How the forecast works'),
@@ -1052,19 +1054,20 @@
       el('h3', null, 'Add to calendar'),
       el('p', null, 'The calendar buttons in Upcoming, Resets, Timed gathering and Weather transitions make a calendar file (.ics) of the times you choose, with an alarm if you want one. The calendar tool loads from this site the first time you use it; the file itself is made in your browser, nothing is sent anywhere and nothing about it is saved. Each entry is written in UTC, so your calendar shows it in your own time zone. The file does not update itself: download a new one after a patch.'),
       el('h3', null, 'Where the data comes from'),
-      el('p', null, `Weather tables and gathering nodes come from the game's own data tables for patch ${src.patch}, as exported by the ${src.dataset} project (commit ${src.commit.slice(0, 10)}). Calculations are deterministic: the same moment always gives the same answer.`),
+      el('p', null, `Weather tables, gathering nodes, market items and recipes come from the game's own data tables for patch ${src.patch}, as exported by the ${src.dataset} project (commit ${src.commit.slice(0, 10)}). Calculations are deterministic: the same moment always gives the same answer.`),
       el('h3', null, 'Checked against reference data'),
       el('ul', { class: 'about-list' },
         el('li', null, 'Every weather table and every gathering node matches a second, independent extraction of the game data from XIVAPI.'),
         el('li', null, 'The weather calculation gives the same result as two independent implementations at tens of thousands of moments.'),
-        el('li', null, 'Every gathering node matches the node tables players keep on the FFXIV wiki: zone, spawn times, coordinates, item level and stars, and folklore tome.')),
+        el('li', null, 'Every gathering node matches the node tables players keep on the FFXIV wiki: zone, spawn times, coordinates, item level and stars, and folklore tome.'),
+        el('li', null, 'A sample of 87 recipes matches XIVAPI: ingredients, amounts, yields, jobs, levels and flags.')),
       el('h3', null, 'Not yet checked in the game'),
       el('p', null, 'Forecasts and node times have not yet been compared with what the game itself shows (a Skywatcher, the weather on the minimap, a node appearing). They are computed from the game’s data, not observed. If you see a difference, ',
         el('a', { href: 'https://github.com/RadMageIRL/ffxiv-timer/issues', rel: 'noopener' }, 'please report it'), '.'),
       el('h3', null, 'Latest news'),
       el('p', null, 'The news bar starts closed and loads nothing until you open it. Opening it asks this site for the newest headlines from the official Lodestone (na.finalfantasyxiv.com); radmagelabs.com fetches them from the Lodestone, so your browser does not contact Square Enix. Only titles, dates and links are shown, and every link goes to the Lodestone. Headlines are refreshed every 15 minutes while the bar is open; if a refresh fails, the last ones stay up and it tries again shortly. At radmageirl.github.io the bar links to the Lodestone instead. A headline the Lodestone files under Maintenance is flagged on the bar for 7 days after it is posted, even while the bar is closed, using headlines this browser already has (from the last day); the flag never asks for anything. Maintenance times are in the Lodestone articles, not in the headlines, so open the notice for the details.'),
       el('h3', null, 'Credits'),
-      el('p', null, 'FINAL FANTASY XIV © SQUARE ENIX. Zone and weather names are game text, used under the FINAL FANTASY XIV Materials Usage Policy. FFXIV Timer is a free fan tool and is not affiliated with or endorsed by Square Enix. Icons are original.'),
+      el('p', null, 'FINAL FANTASY XIV © SQUARE ENIX. Zone, weather and item names are game text, used under the FINAL FANTASY XIV Materials Usage Policy. FFXIV Timer is a free fan tool and is not affiliated with or endorsed by Square Enix. Icons are original.'),
       el('p', null, 'Code is MIT licensed: ', el('a', { href: 'https://github.com/RadMageIRL/ffxiv-timer', rel: 'noopener' }, 'github.com/RadMageIRL/ffxiv-timer'), '.'));
   }
 

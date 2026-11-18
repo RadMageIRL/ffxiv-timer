@@ -3,6 +3,62 @@
 Every version of FFXIV Timer and what changed in it, newest first. Dates are the day I released
 each one.
 
+## v0.12.0 (2026-11-18)
+
+Added
+- Crafting: the second part of Market & Crafting, beside Prices, with its own addresses
+  (`#market/craft` and `#market/craft/<item id>`) and section links. Its files load the first
+  time it opens, never with the timers or with Prices.
+- Recipe search across the 9,490 market items that the game's 9,644 recipes make (patch 7.58), by
+  name or id, with each item's jobs, levels and stars.
+- The recipe view: job, level, stars, yield, expert and specialist marks, master book and stat
+  minimums; a choice of recipe where several make the item, each with its cost; a quantity from 1
+  to 9,999; and the tree of everything it takes down to the raw materials, with Buy or Craft at
+  every step and steps that open and close. The demand from every branch is added up before
+  rounding to whole crafts, and what a craft makes beyond the need is listed as left over.
+- Buy or craft, side by side: the item bought finished, crafted with every direct material
+  bought, crafted at every step, the cheapest plan (the page tries every buy-or-craft
+  combination), and your own plan once you choose steps yourself. Each shows what you pay and
+  what the materials are worth, so materials you own or gather are never free.
+- Material prices: each material's lowest listing in the place you chose, the cheaper of NQ and HQ
+  (or HQ only, if you choose), with its world and listing age, plus a purchase tax you set
+  yourself (0% unless you change it). A missing price is never taken as zero: a total without it
+  reads "at least" and says how many prices it lacks.
+- What one sells for and may earn, on the quality you sell as (HQ or NQ, remembered): its lowest
+  listing, its 4-day average sale, units sold a day and the last sale, with the estimated profit
+  and margin against each, and which one the headline rests on.
+- A shopping list of everything the plan has you buy or gather, added up across every branch, with
+  Have marks for what you already have or will gather (kept only while the page is open) and Copy.
+- Materials that a supported timed node gives show when it is next up, with a link that opens
+  Timed gathering on it.
+- Crafting Watch: the 132 items made by level 100 recipes of 4 stars and by expert recipes, ranked
+  by estimated profit per item (or by margin, units sold a day or listing age). Only items with
+  every price, both a listing and a 4-day average sale, at least one sale a day and data under 3
+  days old are ranked; thinner data is listed apart and anything unpriced is left out. For a world
+  it uses that world's data center's prices, and says so.
+- An item's details in Prices link to its Crafting cost; for an item no recipe makes, Crafting
+  says so.
+- Prices come from the same cache as Prices: one request for a recipe's whole tree and three fixed
+  ones for Crafting Watch, the same for every visitor, so the CDN answers most of them. Changing a
+  quantity, recipe, step or assumption asks for nothing.
+
+What the estimates leave out
+- A profit is an estimate, not a promise. Listings are offers, not completed sales, and buying
+  many may take more than the cheapest listing holds; the 4-day average is of past sales.
+- Whether a craft comes out HQ depends on the crafter.
+- Materials you gather or already own still count at their market value: using one means not
+  selling it.
+- Crafting Watch uses a data center's prices when you choose a world.
+- NPC vendor prices from the game's data are shown as unverified and never used in a total, and
+  costs in currencies other than gil are not counted.
+- No seller fee is taken off a sale: Universalis describes the market tax as paid by the buyer,
+  which I have not checked in the game.
+
+Changed
+- About and the README describe Crafting and what its estimates leave out.
+- The 12h/24h button's accessible name now starts with the text it shows, so speech input can use
+  it.
+
 ## v0.11.0 (2026-11-17)
 
 Added
