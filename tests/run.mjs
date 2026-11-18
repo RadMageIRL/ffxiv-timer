@@ -911,7 +911,7 @@ test('market groundwork: tests/market.mjs passes', () => {
 });
 
 // ---- Market & Crafting's page code ----
-// Its own test file too (search and the price client on a fake clock), which also runs alone.
+// Its own test file too (search, the price client on a fake clock, freshness, what is saved), which also runs alone.
 test('market page code: tests/market-app.mjs passes', () => {
   const r = spawnSync(process.execPath, [join(ROOT, 'tests', 'market-app.mjs')], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
@@ -931,8 +931,9 @@ test('price function: tests/prices-function.mjs passes', () => {
 // ---- saved settings ----
 // Every key the page may keep in localStorage, under ffxiv-timer:v1:. Existing keys are never renamed or
 // reshaped (an older page must still read what a newer one saved); a new key is added here on purpose.
-const STORAGE_KEYS = ['favorites', 'finder', 'forecastZone', 'gathering', 'hour12', 'news', 'newsOpen', 'nodeFavorites', 'openGroups', 'remindLead', 'resets', 'theme'];
-const STORAGE_RESERVED = ['market']; // v0.11.0: market scope, favorites, sort and filters
+// market (v0.11.0): the place prices are for, market favorites, the sort and the filters (js/market.js).
+const STORAGE_KEYS = ['favorites', 'finder', 'forecastZone', 'gathering', 'hour12', 'market', 'news', 'newsOpen', 'nodeFavorites', 'openGroups', 'remindLead', 'resets', 'theme'];
+const STORAGE_RESERVED = [];
 test('storage: the page keeps only the pinned keys, every one through store.js with a literal name', () => {
   const used = new Set();
   for (const f of readdirSync(join(ROOT, 'js'))) {

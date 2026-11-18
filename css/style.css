@@ -182,6 +182,14 @@ a { color: var(--accent-2); }
 .theme-toggle .theme-moon, :root[data-theme="light"] .theme-toggle .theme-sun { background: var(--panel-2); color: var(--accent-2); }
 :root[data-theme="light"] .theme-toggle .theme-moon { background: none; color: inherit; }
 
+/* The two modes, as tall as the other header buttons. The market's own styles: css/market.css. */
+.modes { display: inline-flex; flex: none; padding: 2px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-2); }
+.mode-btn { border: 0; background: none; border-radius: 999px; padding: 4px 12px; cursor: pointer; color: var(--muted); white-space: nowrap; }
+.mode-btn:hover { color: var(--text); }
+.mode-btn[aria-pressed="true"] { background: var(--pressed-wash); color: var(--accent-2); }
+.market-title { margin: 0 0 12px; font-size: 20px; font-weight: 650; outline: none; }
+.market-view { min-height: 60vh; }
+
 main { padding: 20px var(--gutter) 8px; max-width: 1360px; margin: 0 auto; outline: none; }
 
 .panel {
@@ -543,20 +551,27 @@ dialog .cal-warn, dialog .cal-uncertain { margin: 0 0 6px; color: var(--warn); f
 dialog .cal-done { min-height: 1.5em; font-size: 13px; color: var(--muted); }
 
 /* ---- narrow screens ---- */
+/* Tablets: the section links get a row of their own under the brand and the modes. */
+@media (min-width: 641px) and (max-width: 1200px) {
+  .topbar { flex-wrap: wrap; row-gap: 6px; }
+  .modes { margin-right: auto; }
+  .jump { order: 5; flex: 1 1 100%; margin-left: -12px; }
+}
 @media (max-width: 980px) {
   .grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: none; grid-template-rows: none; }
   #now, #timeline, #resets, #gathering, #forecast, #finder { grid-area: auto; }
 }
 @media (max-width: 640px) {
   body { font-size: 14px; }
-  /* Two rows as before: the brand with 12h and About, then the section links, now with share and the
-     theme at their end. The ::after item breaks the row; the 6px between the rows moved from the row gap
-     to the second row's margin, so the break itself adds no height. */
+  /* Three rows: the brand with 12h and About; the modes; the section links with share and the theme.
+     The ::after item breaks the row with no height of its own (the rows' 6px are margins). */
   .topbar { flex-wrap: wrap; gap: 0 10px; padding-top: 8px; padding-bottom: 8px; }
   .topbar::after { content: ""; order: 3; flex-basis: 100%; }
   .jump { order: 4; flex: 1 1 0; min-width: 0; margin: 6px 0 0 -8px; }
   .top-actions { margin-left: auto; }
   .view-tools { order: 5; margin: 6px 0 0; }
+  .modes { order: 3; flex: 1 1 100%; margin-top: 6px; }
+  .mode-btn { flex: 1 1 0; padding: 3px 8px; font-size: 13px; }
   .share-btn { display: inline-flex; align-items: center; padding: 6px 8px; }
   .tagline-share { display: none; }
   .panel { padding: 14px; }

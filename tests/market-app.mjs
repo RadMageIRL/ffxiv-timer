@@ -1,15 +1,17 @@
-// Tests for Market & Crafting's page code: the item list's search (js/market-catalog.js), and the price
-// client and its parsers (js/prices.js) over captured Universalis answers and on a fake clock. Run
-// alone with `node tests/market-app.mjs`, or through tests/run.mjs. No network.
+// Tests for Market & Crafting's page code: the item list's search (js/market-catalog.js), the price
+// client and its parsers (js/prices.js) over captured Universalis answers and on a fake clock, and the
+// market's own rules (js/market.js): freshness, what is saved, what a sort says it covers, Market
+// Watch, budgets. Run alone with `node tests/market-app.mjs`, or through tests/run.mjs. No network.
 //
 // Expected values come from outside this code where they can: the captured answers in
 // tests/fixtures/universalis/, the price function's allow list (the scopes it accepts), the contract's
-// limits, and the plan's thresholds (V0.11.0 section 5: 100 ids a request).
+// limits, and the plan's thresholds (V0.11.0 section 5: 6 hours, 3 days, 100 ids a request).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import zlib from 'node:zlib';
 import * as ALLOW from '../radmagelabs/api/_ffxiv-prices/allow.mjs';
 import { FORBIDDEN_KEYS, keysDeep, MAX_IDS, upstreamFor } from '../radmagelabs/api/_ffxiv-prices/contract.mjs';
 
@@ -18,6 +20,7 @@ const require = createRequire(import.meta.url);
 const ITEMS = require('../js/market-items.js');
 const Catalog = require('../js/market-catalog.js');
 const Prices = require('../js/prices.js');
+const Market = require('../js/market.js');
 const uni = (name) => JSON.parse(readFileSync(join(ROOT, 'tests', 'fixtures', 'universalis', `${name}.json`), 'utf8'));
 const CAT = Catalog.parse(ITEMS).catalog;
 const idx = (id) => CAT.byId.get(id);
@@ -370,15 +373,82 @@ test('client: an aggregated answer missing an id it was asked for is bad data fo
   for (const call of w.calls.slice(1)) assert.ok(call.url.split('/').pop().split(',').length <= 100);
 });
 
+// ---- the market's own rules ----
+test('market: freshness from Universalis times: current under 6 hours, recent under 3 days, then old; no time is "none"', () => {
+  const h = 3600000;
+  assert.equal(Market.freshness(NOW - 6 * h + 1, NOW), 'current');
+  assert.equal(Market.freshness(NOW - 6 * h, NOW), 'recent');
+  assert.equal(Market.freshness(NOW - 72 * h + 1, NOW), 'recent');
+  assert.equal(Market.freshness(NOW - 72 * h, NOW), 'old');
+  assert.equal(Market.freshness(null, NOW), 'none');
+  assert.equal(Market.freshness(NaN, NOW), 'none');
+  assert.deepEqual([30000, 60000, 59 * 60000, 3600000, 47 * h, 48 * h, 59 * 24 * h, 90 * 24 * h, 800 * 24 * h].map((ms) => Market.ago(ms)),
+    ['just now', '1 minute ago', '59 minutes ago', '1 hour ago', '47 hours ago', '2 days ago', '59 days ago', '3 months ago', '2 years ago']);
+  assert.deepEqual([null, 0, 0.4, 665.6].map(Market.perDay), [null, 'none lately', 'under 1 a day', '666 a day']);
+  assert.equal(Market.gil(1234567.4), '1,234,567 gil');
+});
+
+test('market: what is saved is cleaned on reading: known places, favorites on the board once each and at most 500, known sorts, levels 1 to 999', () => {
+  const s = (raw) => Market.sanitizeSaved(raw, CAT);
+  assert.deepEqual(s(null), { present: false, scope: null, favorites: [], lost: 0, sort: 'relevance', hq: false, listed: false, minLevel: null, maxLevel: null });
+  const r = s({ scope: 'dc:aether', favorites: [5057, 5057, 2, -1, 1.5, '3', 999999, 1], sort: 'hq-asc', hq: true, listed: 'yes', minLevel: 0, maxLevel: 770 });
+  assert.deepEqual(r, { present: true, scope: 'dc:aether', favorites: [5057, 2], lost: 2, sort: 'hq-asc', hq: true, listed: false, minLevel: null, maxLevel: 770 });
+  for (const bad of ['Aether', 'dc:nowhere', 'world:9999', 7, ['dc:aether']]) assert.equal(s({ scope: bad }).scope, null, String(bad));
+  assert.equal(s({ sort: 'toString' }).sort, 'relevance');
+  assert.equal(s({ sort: '__proto__' }).sort, 'relevance');
+  const ids = CAT.ids.slice(0, 600);
+  assert.deepEqual(s({ favorites: ids }).favorites, ids.slice(0, 500));
+  for (const raw of ['x', 5, [], { favorites: 'x' }]) assert.deepEqual(s(raw).favorites, []);
+});
+
+test('market: a price sort says what it covers: all matches, or only those whose prices are loaded, and where', () => {
+  const base = { matches: 120, ranked: 0, noValue: 0, unpriced: 0, loading: false, failed: false, listed: false, hiddenUnlisted: 0, scopeName: 'Aether' };
+  assert.equal(Market.scopeText({ ...base, sort: 'relevance' }), 'Best matches first, then by name.');
+  assert.equal(Market.scopeText({ ...base, sort: 'nq-asc', ranked: 110, noValue: 10 }), 'Ranked by lowest NQ listing in Aether, low to high, among all 120 matching items. 10 items with no NQ listing come after the ranked ones.');
+  assert.equal(Market.scopeText({ ...base, sort: 'sales-desc', ranked: 40, unpriced: 80, loading: true }), 'Ranked by units sold a day in Aether, most first, among only the 40 of 120 matching items whose prices are loaded. Loading the other prices...');
+  assert.match(Market.scopeText({ ...base, sort: 'hq-desc', matches: 4000, ranked: 50, unpriced: 3950 }), /narrow the search to 1,000 items or fewer\.$/);
+  assert.equal(Market.scopeText({ ...base, sort: 'name', listed: true, hiddenUnlisted: 3, unpriced: 2 }), 'Sorted by name. Listed now: 3 items with no listing in Aether are hidden; 2 items are not loaded yet, so not checked.');
+  assert.equal(Market.scopeText({ ...base, sort: 'level-desc' }), 'Sorted by item level, highest first.');
+});
+
+test('market: Market Watch is the reviewed draft (80 items in 13 groups), all on the board, one request a place even with 8 favorites', () => {
+  const ids = Market.watchIds(CAT);
+  assert.equal(ids.length, 80);
+  assert.equal(new Set(ids).size, 80);
+  assert.equal(Market.WATCH.length, 13);
+  assert.ok(ids.length + Market.FAV_HOME <= MAX_IDS);
+  assert.deepEqual(Market.favHome([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]), [10, 9, 8, 7, 6, 5, 4, 3]);
+});
+
 // ---- the files ----
 test('files: the market asks only its own site (prices/), and the browser never names Universalis as an address to fetch', () => {
-  for (const f of ['prices.js', 'market-catalog.js', 'app.js']) {
+  for (const f of ['market.js', 'prices.js', 'market-catalog.js', 'app.js']) {
     const src = readFileSync(join(ROOT, 'js', f), 'utf8').replace(/^\s*\/\/.*$/gm, '');
     assert.doesNotMatch(src, /https?:\/\/universalis/i, `${f} names an address at Universalis`);
     assert.doesNotMatch(src, /new XMLHttpRequest|navigator\.sendBeacon|new WebSocket|new EventSource/, f);
   }
   const prices = readFileSync(join(ROOT, 'js', 'prices.js'), 'utf8');
   assert.match(prices, /base: 'prices\/'/);
+  assert.equal((readFileSync(join(ROOT, 'js', 'market.js'), 'utf8').match(/fetch\(/g) || []).length, 1, 'one fetch, handed to the client');
+});
+
+test('files: css/market.css uses only the theme tokens, so both themes apply to it', () => {
+  const css = readFileSync(join(ROOT, 'css', 'market.css'), 'utf8');
+  assert.deepEqual(css.split('\n').filter((l) => /#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(l)), []);
+  const tokens = new Set([...readFileSync(join(ROOT, 'css', 'style.css'), 'utf8').matchAll(/(--[\w-]+):/g)].map((m) => m[1]));
+  for (const m of css.matchAll(/var\((--[\w-]+)/g)) assert.ok(tokens.has(m[1]), `${m[1]} is not a token`);
+});
+
+test('files: the first market visit stays inside its budget (200 KB gzipped: item list, code and styles), and none of it loads with the timers', () => {
+  const files = ['js/router.js', 'js/market-items.js', 'js/market-catalog.js', 'js/prices.js', 'js/market.js', 'css/market.css'];
+  const gz = files.map((f) => zlib.gzipSync(readFileSync(join(ROOT, f)), { level: 9 }).length);
+  const total = gz.reduce((a, b) => a + b, 0);
+  assert.ok(total <= 200 * 1024, `${(total / 1024).toFixed(1)} KB`);
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  const lazy = html.slice(html.indexOf('<template id="lazy-scripts">'), html.indexOf('</template>'));
+  for (const f of files) assert.ok(lazy.includes(`"${f}"`), `${f} waits in the lazy template`);
+  const eager = html.replace(lazy, '').replace(/<!--[\s\S]*?-->/g, '');
+  for (const f of files) assert.ok(!eager.includes(f), `${f} is not part of the first load`);
 });
 
 await Promise.all(pending);

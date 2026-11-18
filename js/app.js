@@ -143,12 +143,18 @@
       };
     }
   }
-  function writeHash() {
+  // The address of Timers & Weather: forecast zone and transition search.
+  function timersHash() {
     const f = state.finder, parts = [`zone=${encodeURIComponent(state.forecastZone)}`, `fz=${encodeURIComponent(f.zone)}`];
     if (f.prev.length) parts.push(`prev=${f.prev.map((id) => slug(wxName(id))).join(',')}`);
     if (f.to.length) parts.push(`to=${f.to.map((id) => slug(wxName(id))).join(',')}`);
     if (f.bells.length) parts.push(`bells=${f.bells.join(',')}`);
-    const hash = `#${parts.join('&')}`;
+    return `#${parts.join('&')}`;
+  }
+  // Not while the market shows: it owns the address (#market...) then.
+  function writeHash() {
+    if (mode !== 'timers') return;
+    const f = state.finder, hash = timersHash();
     if (location.hash !== hash) history.replaceState(null, '', hash);
     Store.write('forecastZone', state.forecastZone);
     Store.write('finder', f);
@@ -959,15 +965,71 @@
     else toast('Copying did not work here', `The link is ${url}`);
   }
 
+  // ---- two modes: Timers & Weather (the default) and Market & Crafting ("#market") ----
+  // One view shows at a time, each keeps its place, and the timers (reminders too) run on under the
+  // market. A pill click adds one history entry. The market's files load the first time it opens.
+  // Prices are asked for only under /ffxiv/ over HTTP(S), as radmagelabs.com serves it; elsewhere
+  // (GitHub Pages, a file, the source tree) a notice links to the same view there, and nothing loads.
+  let mode = 'timers', market = null, marketLoading = null;
+  const place = { timers: 0, market: 0 };
+  const isMarket = (hash) => /^#market(\/|$)/.test(hash); // js/router.js has the full rule
+  const PRICES_HERE = /^https?:$/.test(location.protocol) && /\/ffxiv\/(index\.html)?$/.test(location.pathname);
+  function loadMarket() {
+    if (!marketLoading) {
+      const boot = $('market-boot');
+      boot.textContent = 'Loading Market & Crafting.';
+      boot.hidden = false;
+      $('market-retry').hidden = true;
+      // In parallel, run in order, each once.
+      marketLoading = Promise.all([...$('lazy-scripts').content.querySelectorAll('[data-lazy^="market"], [data-lazy="router"], [data-lazy="prices"]')].map((t) => new Promise((ok, fail) => {
+        const js = t.tagName === 'SCRIPT', ref = t.getAttribute(js ? 'src' : 'href');
+        if (document.querySelector(`[data-from="${ref}"]`)) { ok(); return; }
+        const n = el(js ? 'script' : 'link', js ? { src: ref, 'data-from': ref } : { rel: 'stylesheet', href: ref, 'data-from': ref });
+        n.async = false;
+        n.onload = ok; n.onerror = () => { n.remove(); (js ? fail : ok)(); };
+        document.head.append(n);
+      }))).then(() => (market = window.XivMarket.mount({ el, Store, copyText, now: () => Date.now(), canonical: Format.CANONICAL, view: $('market-view'), resetsDc: () => state.resetsDc, when: (t) => localWhen(t, Date.now()) })), (e) => {
+        marketLoading = null;
+        boot.textContent = 'Market & Crafting could not load. Check your connection and try again. The timers are not affected.';
+        $('market-retry').hidden = false;
+        throw e;
+      });
+      marketLoading.then(() => { boot.hidden = true; }, () => {});
+    }
+    return marketLoading;
+  }
+  function showMode(next) {
+    if (next !== mode) {
+      const hadFocus = $(`${mode}-view`).contains(document.activeElement);
+      place[mode] = window.scrollY;
+      mode = next;
+      for (const k of ['timers', 'market']) $(`${k}-view`).hidden = $(`${k}-jump`).hidden = next !== k;
+      if (!PRICES_HERE) $('market-jump').hidden = true;
+      for (const b of document.querySelectorAll('[data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === next));
+      if (next === 'timers') { lastPeriod = -1; tick(); }
+      window.scrollTo(0, place[next]);
+      // Focus left in the hidden view goes to the pill.
+      if (hadFocus) document.querySelector(`[data-mode="${next}"]`).focus({ preventScroll: true });
+    }
+    if (next !== 'market') return;
+    if (PRICES_HERE) { loadMarket().then((m) => { m.shown(); m.route(location.hash); }, () => {}); return; }
+    const url = Format.shareUrl(isMarket(location.hash) ? location.hash : '#market');
+    $('market-boot').replaceChildren('Prices load at radmagelabs.com/ffxiv/. Open this view there: ', el('a', { href: url }, url),
+      '. This copy of FFXIV Timer asks for no prices; the timers work the same in both places.');
+    $('market-boot').hidden = false;
+  }
+
   // ---- about ----
   function renderAbout() {
     const src = DATA.source;
     const zonesByExpansion = EXPANSIONS.map((x) => `${x}: ${ZONES.filter((z) => z.expansion === x).map((z) => z.name).join(', ')}`);
     $('about-body').replaceChildren(
-      el('p', null, 'Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV. Free, no account and nothing to install. Your stars and settings stay in this browser; the only request beyond the page itself is Latest news, and only once you open it.'),
+      el('p', null, 'Eorzea Time, weather forecasts and weather transitions for FINAL FANTASY XIV, and market board prices. Free, no account and nothing to install. Your stars and settings stay in this browser; the only requests beyond the page itself are Latest news and Market & Crafting prices, each only once you open it.'),
       el('h3', null, 'Share'),
       el('p', null, "Share gives out a link to radmagelabs.com/ffxiv/ with the part of this page's address after the # sign, so it opens on the forecast zone and transition search you have now. Nothing else goes with it: not your stars, your settings or anything about you, and the page itself sends nothing anywhere. Where your device has a share sheet it opens, and you choose where the link goes; otherwise the link is copied."),
       el('p', null, el('button', { type: 'button', class: 'ghost small', 'data-share': true }, 'Share FFXIV Timer')),
+      el('h3', null, 'Market & Crafting'),
+      el('p', null, 'Market & Crafting, at the top, shows market board prices from Universalis (universalis.app) for a data center, a world or a region, each with its age. radmagelabs.com asks Universalis for them, so your browser does not contact it. Your choices and favorites stay in this browser; prices are not saved. At radmageirl.github.io it links to radmagelabs.com/ffxiv/.'),
       el('h3', null, 'Light and dark'),
       el('p', null, 'The moon and sun button at the top switches between the dark theme, the default, and a light one. Your choice is saved in this browser once you make it; until then nothing is saved.'),
       el('h3', null, 'How the forecast works'),
@@ -1033,6 +1095,8 @@
   function init() {
     applyTheme(savedTheme());
     readHash();
+    // "#market..." opens the market.
+    if (isMarket(location.hash)) showMode('market');
     const region = $('region-filter');
     region.append(...EXPANSIONS.map((x) => el('optgroup', { label: x },
       el('option', { value: `x:${x}` }, `All of ${x}`),
@@ -1187,7 +1251,27 @@
     const about = $('about');
     $('about-open').addEventListener('click', () => about.showModal());
     about.addEventListener('click', (e) => { if (e.target === about) about.close(); });
+    // A pill: one history entry. Timers & Weather gets back the address of what it shows.
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-mode]');
+      if (!b || b.dataset.mode === mode) return;
+      const next = b.dataset.mode === 'market' ? 'market' : 'timers';
+      try { history.pushState({ ffxivMode: next }, '', next === 'market' ? '#market' : timersHash()); } catch (err) { /* the switch still works */ }
+      showMode(next);
+      writeHash();
+    });
+    $('market-retry').addEventListener('click', () => { if (!market) showMode('market'); });
+    // Skip to content, in the market: its search (or its heading while it loads).
+    document.querySelector('.skip').addEventListener('click', (e) => {
+      if (mode !== 'market') return;
+      e.preventDefault();
+      const find = $('mk-find');
+      (find && find.getClientRects().length ? find : $('market-title')).focus();
+    });
     window.addEventListener('hashchange', () => {
+      if (isMarket(location.hash)) { showMode('market'); return; }
+      if (market) market.route(location.hash); // closes an item's details
+      showMode('timers');
       readHash();
       $('forecast-zone').value = BY_KEY.has(state.forecastZone) ? state.forecastZone : '';
       $('finder-zone').value = BY_KEY.has(state.finder.zone) ? state.finder.zone : '';

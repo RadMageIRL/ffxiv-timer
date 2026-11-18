@@ -1,0 +1,134 @@
+/* Market & Crafting. Loaded with js/market.js the first time it opens. Every color is one of the tokens in
+   css/style.css, so the light theme applies here too. */
+
+.mk-controls { margin-bottom: 12px; }
+.mk-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.mk-lede { margin: 0; color: var(--muted); font-size: 14px; flex: 1 1 320px; }
+.mk-scope { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); flex: 0 1 340px; min-width: 0; }
+.mk-scope > span { white-space: nowrap; }
+.mk-scope select { min-width: 0; color: var(--text); }
+#mk-scope-note { margin: 6px 0 0; }
+
+/* The first visit: where to look, before any price is asked for. */
+.mk-ask { margin: 12px 0 4px; padding: 14px 16px; border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--gold-wash); }
+.mk-ask h2 { margin: 0 0 6px; font-size: 16px; }
+.mk-ask p { margin: 0 0 8px; }
+.mk-ask-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.mk-ask-row select { width: auto; min-width: 180px; }
+
+.mk-find { display: flex; align-items: center; gap: 8px; margin: 12px 0 8px; }
+.mk-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.mk-filters select { width: auto; max-width: 100%; min-height: 36px; padding: 4px 10px; }
+.mk-toggles { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.mk-toggles .toggle { min-height: 34px; padding: 4px 12px; font-size: 13px; }
+.mk-levels { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.mk-level { display: inline-flex; align-items: center; gap: 6px; }
+.mk-level input { width: 68px; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: var(--radius-sm); padding: 4px 8px; min-height: 34px; color: var(--text); }
+
+.mk-status { margin: 0 2px 10px; font-size: 13px; color: var(--muted); }
+.mk-status p { margin: 0 0 4px; }
+.mk-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mk-crumb { color: var(--text); font-weight: 600; outline: none; }
+.mk-crumb:focus-visible { outline: 2px solid var(--focus); }
+.mk-prices[data-state="failed"] { color: var(--warn); }
+.mk-notice { margin: 0 0 12px; }
+
+.mk-home { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); grid-template-areas: "watch watch" "favs browse"; align-items: start; }
+.mk-watch { grid-area: watch; }
+.mk-favhome { grid-area: favs; }
+.mk-browse { grid-area: browse; }
+.mk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.mk-chips .toggle { min-height: 32px; padding: 3px 12px; font-size: 13px; }
+.mk-watch .mk-prices, .mk-favhome .mk-prices { margin: 0 0 6px; font-size: 13px; color: var(--muted); }
+
+.mk-groups { display: grid; gap: 12px; }
+.mk-group h3 { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-2); }
+.mk-cats { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.mk-cat { display: inline-flex; align-items: baseline; gap: 6px; border: 1px solid var(--line-2); background: var(--bg-2); border-radius: 999px; padding: 4px 12px; cursor: pointer; font-size: 13px; }
+.mk-cat:hover { border-color: var(--accent); }
+.mk-cat-count { color: var(--muted); font-size: 12px; }
+
+/* Rows: the same shape in Market Watch, favorites and results. */
+.mk-list { list-style: none; margin: 0; padding: 0; }
+.mk-row {
+  display: grid; grid-template-columns: 36px minmax(0, 2.3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) minmax(0, .8fr);
+  align-items: center; gap: 4px 12px; padding: 8px 4px; border-top: 1px solid var(--line); min-height: 58px;
+}
+.mk-list .mk-row:first-child { border-top: 0; }
+.mk-head-row { min-height: 0; padding-top: 0; padding-bottom: 6px; border-top: 0; border-bottom: 1px solid var(--line-2); color: var(--muted); font-size: 12px; }
+.mk-item { display: flex; flex-direction: column; min-width: 0; }
+.mk-name { color: var(--text); font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.mk-name:hover { color: var(--accent-2); text-decoration: underline; text-underline-offset: 3px; }
+.mk-meta { color: var(--muted); font-size: 12.5px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.mk-note { color: var(--warn); font-size: 12.5px; }
+.mk-cell { display: flex; flex-direction: column; min-width: 0; font-size: 14px; }
+.mk-k { display: none; }
+.mk-gil { font-weight: 600; }
+.mk-where { color: var(--muted); font-size: 12.5px; }
+.mk-none { color: var(--muted); font-size: 13px; }
+.mk-age { font-size: 13px; }
+.mk-age.is-current { color: var(--unspoiled-text); }
+.mk-age.is-recent { color: var(--text); }
+.mk-age.is-old { color: var(--warn); }
+.mk-age.is-none { color: var(--muted); }
+.mk-row.is-old { background: linear-gradient(90deg, var(--warn-wash), transparent 60%); border-radius: var(--radius-sm); }
+.mk-row .star { width: 34px; height: 34px; }
+.mk-more-line { margin: 10px 0 0; }
+.mk-about { margin-top: 14px; }
+.mk-about h2 { margin: 0 0 8px; font-size: 15px; }
+.mk-about .about-list { color: var(--muted); font-size: 13.5px; }
+
+/* One item's details. */
+.mk-dialog { width: min(900px, calc(100vw - 32px)); }
+#mk-item-title { outline: none; } /* focused when the details open, so a screen reader starts there; not a control */
+.mk-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px !important; }
+.mk-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px !important; }
+.mk-item-scope { margin: 0 0 12px; flex-wrap: wrap; }
+.mk-item-scope select { width: auto; max-width: 100%; min-height: 36px; padding: 4px 10px; }
+.mk-age-line { margin: 0 0 14px !important; padding: 10px 12px; border-left: 3px solid var(--line-2); background: var(--bg-2); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 14px; color: var(--muted); }
+.mk-age-line strong { color: var(--text); font-size: 15px; display: block; }
+.mk-age-line.is-current { border-left-color: var(--unspoiled-text); }
+.mk-age-line.is-recent { border-left-color: var(--accent); }
+.mk-age-line.is-old { border-left-color: var(--warn); }
+.mk-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.mk-side h3 { margin: 0 0 6px !important; }
+.mk-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mk-stat { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); min-width: 0; }
+.mk-stat-k { color: var(--muted); font-size: 12px; }
+.mk-stat-v { font-size: 17px; font-weight: 650; }
+.mk-stat-sub { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.mk-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.mk-table caption { text-align: left; color: var(--accent-2); font-weight: 600; padding: 4px 0 6px; }
+.mk-table th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line-2); }
+.mk-table tbody th { color: var(--text); font-size: 13.5px; }
+.mk-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.mk-table .num { text-align: right; }
+.mk-book { margin-top: 14px; }
+.mk-book .hint { margin: 0 0 6px; }
+.mk-tax { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 4px 16px; font-size: 13.5px; }
+.mk-tax li { display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding: 3px 0; }
+.mk-credit { margin-top: 14px !important; }
+.mk-item-status { min-height: 1.5em; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.table-wrap { overflow-x: auto; }
+
+@media (max-width: 980px) {
+  .mk-home { grid-template-columns: minmax(0, 1fr); grid-template-areas: "watch" "favs" "browse"; }
+}
+@media (max-width: 760px) {
+  .mk-head-row { display: none !important; }
+  /* A row on a phone: the star and the name across, then the four figures two by two, each labeled. */
+  .mk-row { grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "star item item" ". nq hq" ". sold upd"; gap: 4px 10px; align-items: start; }
+  .mk-row .star { grid-area: star; align-self: start; }
+  .mk-item { grid-area: item; }
+  .mk-nq { grid-area: nq; } .mk-hq { grid-area: hq; } .mk-sold { grid-area: sold; } .mk-upd { grid-area: upd; }
+  .mk-k { display: block; color: var(--muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+  .mk-stats { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .mk-scope { flex: 1 1 100%; }
+  .mk-scope select { flex: 1 1 auto; }
+}
+@media (max-width: 640px) {
+  .mk-find .ghost { flex: none; }
+  .mk-filters { gap: 6px 10px; }
+  .mk-dialog { padding: 18px 16px; }
+  .mk-table td, .mk-table th { padding-left: 5px; padding-right: 5px; }
+}

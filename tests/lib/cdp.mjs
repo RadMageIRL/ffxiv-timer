@@ -89,7 +89,10 @@ export async function launchChrome() {
     async newPage() {
       const { targetId } = await conn.send('Target.createTarget', { url: 'about:blank' });
       const { sessionId } = await conn.send('Target.attachToTarget', { targetId, flatten: true });
-      return makePage(conn, sessionId);
+      const page = await makePage(conn, sessionId);
+      // Closes this tab (another open tab of the same site would otherwise hear its storage changes).
+      page.close = async () => { try { await conn.send('Target.closeTarget', { targetId }); } catch (e) { /* already gone */ } };
+      return page;
     },
     async close() {
       try { await Promise.race([conn.send('Browser.close'), sleep(3000)]); } catch (e) { /* already gone */ }
@@ -168,6 +171,8 @@ async function makePage(conn, sessionId) {
       await send('Input.dispatchKeyEvent', { type: 'keyDown', ...base, ...(text ? { text } : {}) });
       await send('Input.dispatchKeyEvent', { type: 'keyUp', ...base });
     },
+    // Slows the page's CPU by this factor (1 is normal), as Chrome's performance panel does.
+    async cpuThrottle(rate) { await send('Emulation.setCPUThrottlingRate', { rate }); },
     async viewport(width, height, mobile = false) {
       await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: mobile ? 2 : 1, mobile });
     },

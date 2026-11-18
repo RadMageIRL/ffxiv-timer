@@ -40,3 +40,5 @@ jobs:
           node-version: 24
       - name: Browser and base-path tests in Chrome
         run: node tests/smoke.mjs
+      - name: Market & Crafting browser tests in Chrome
+        run: node tests/smoke-market.mjs

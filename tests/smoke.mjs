@@ -997,11 +997,13 @@ try {
     assert.deepEqual(page.problems, []);
   });
 
-  // ---- Market & Crafting groundwork (v0.11.0 Phase 0): nothing visible yet ----
+  // ---- Market & Crafting stays out of the timers (tests/smoke-market.mjs tests the market itself) ----
   await test('everything above, on every host: no price request and no market file was ever asked for', async () => {
     const all = Object.values(servers).flatMap((s) => s.requests);
     assert.ok(all.length > 100, `requests seen: ${all.length}`);
-    assert.deepEqual(all.filter((r) => /\/prices\/|market-items\.js|router\.js/.test(r.path)), []);
+    // The market's files (js/router.js among them) and its prices load only when Market & Crafting is
+    // opened, which nothing above does.
+    assert.deepEqual(all.filter((r) => /\/prices\/|market-items\.js|market-catalog\.js|\/prices\.js|\/market\.js|market\.css|router\.js/.test(r.path)), []);
     assert.equal(prices.calls.length, 0);
   });
 
