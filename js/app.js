@@ -1233,6 +1233,11 @@
       lastPeriod = -1; tick(); renderNews();
     });
     for (const b of document.querySelectorAll('[data-jump]')) b.addEventListener('click', () => jump(b.dataset.jump));
+    // Section links too wide for the screen scroll sideways: mark each edge with more beyond it, for the fade.
+    const edges = (j) => { const x = j.scrollLeft, m = j.scrollWidth - j.clientWidth; j.toggleAttribute('data-l', x > 1); j.toggleAttribute('data-r', x < m - 1); };
+    // A frame later: changing the page inside the observer's own callback makes WebKit report a loop.
+    const sized = new ResizeObserver((es) => requestAnimationFrame(() => es.forEach((e) => edges(e.target))));
+    for (const j of document.querySelectorAll('.jump')) { j.addEventListener('scroll', () => edges(j), { passive: true }); sized.observe(j); }
     $('theme-toggle').addEventListener('click', () => {
       const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
       Store.write('theme', next);

@@ -159,8 +159,13 @@ a { color: var(--accent-2); }
 /* A button that reads as a link (share, in the tagline). */
 .link-btn { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
 .link-btn:hover { color: var(--accent); text-decoration-style: solid; }
-.jump { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+.jump { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; scrollbar-width: none; scroll-padding-inline: 12px; }
 .jump::-webkit-scrollbar { display: none; }
+/* Links scrolled out of view: the edge they are beyond fades (app.js marks it), unless a key moves focus there. */
+.jump[data-r] { mask-image: linear-gradient(90deg, black calc(100% - 28px), transparent); }
+.jump[data-l] { mask-image: linear-gradient(90deg, transparent, black 28px); }
+.jump[data-l][data-r] { mask-image: linear-gradient(90deg, transparent, black 28px, black calc(100% - 28px), transparent); }
+.jump:has(:focus-visible) { mask-image: none !important; }
 .jump button, .ghost {
   background: transparent; border: 1px solid transparent; border-radius: 999px;
   padding: 6px 12px; cursor: pointer; color: var(--muted); white-space: nowrap;

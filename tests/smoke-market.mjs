@@ -492,10 +492,14 @@ try {
 
   // Found in Phase 3: with the modes in the one-row header, 1201 to about 1320 px hid Transitions (the
   // links' scrollbar is hidden, so nothing showed it was there). The links now take their own row up to 1360.
+  // The system font differs by platform (Segoe UI here, often DejaVu Sans on Linux, SF Pro on a Mac), and the
+  // one-row header has about 5 % to spare at 1361 px. So the strict check uses Arial, which Windows has and
+  // whose metric twin Liberation Sans Linux has; with the system font, links may overflow only with the fade.
   await test('header: from 1361 px every section link is in view on one row, in both modes; from 641 to 1360 px they have a row of their own', async () => {
     const page = await fresh('#market', { market: { scope: 'dc:aether' } }, { width: 1361 });
     await page.waitFor(`${MARKET_READY} && ${WATCH_PRICED}`);
-    const measure = () => page.eval("(() => { const j = [...document.querySelectorAll('.topbar .jump')].find((n) => n.getClientRects().length); return { h: Math.round(document.querySelector('.topbar').getBoundingClientRect().height), hidden: j.scrollWidth - j.clientWidth, linksTop: Math.round(j.getBoundingClientRect().top), modesTop: Math.round(document.querySelector('.modes').getBoundingClientRect().top) }; })()");
+    await page.eval("document.head.append(Object.assign(document.createElement('style'), { id: 'arial', textContent: 'body { font-family: Arial, \"Liberation Sans\", sans-serif; }' }))");
+    const measure = () => page.eval("(() => { const j = [...document.querySelectorAll('.topbar .jump')].find((n) => n.getClientRects().length); return { h: Math.round(document.querySelector('.topbar').getBoundingClientRect().height), hidden: j.scrollWidth - j.clientWidth, fade: j.hasAttribute('data-r'), linksTop: Math.round(j.getBoundingClientRect().top), modesTop: Math.round(document.querySelector('.modes').getBoundingClientRect().top) }; })()");
     for (const mode of ['market', 'timers']) {
       if (mode === 'timers') { await click(page, '[data-mode="timers"]'); await page.waitFor(READY); }
       for (const w of [1361, 1440, 1920]) {
@@ -513,6 +517,43 @@ try {
         assert.equal(m.hidden, 0, `${mode} at ${w}: ${m.hidden} px of section links hidden`);
       }
     }
+    // This platform's own font: anything that does not fit shows the fade.
+    await page.eval("document.getElementById('arial').remove()");
+    for (const w of [641, 1360, 1361, 1440]) {
+      await page.viewport(w, 900);
+      await sleep(100);
+      const m = await measure();
+      assert.ok(m.hidden === 0 || m.fade, `system font at ${w}: ${m.hidden} px hidden and no fade`);
+    }
+    assert.deepEqual(page.problems, []);
+  });
+
+  // Asked for in the RC review: on phones the timers' section links scroll sideways with no scrollbar, so
+  // the edge with more links beyond it fades; a key moving focus there clears the fade.
+  await test('header on a phone: section links that do not fit fade at the edge they are beyond, follow the scroll, and clear for the keyboard', async () => {
+    const page = await fresh('', {}, { width: 390, height: 844, mobile: true });
+    await page.waitFor(READY);
+    await page.waitFor("document.getElementById('timers-jump').hasAttribute('data-r')");
+    const state = () => page.eval("(() => { const j = document.getElementById('timers-jump'), cs = getComputedStyle(j); return { l: j.hasAttribute('data-l'), r: j.hasAttribute('data-r'), mask: cs.maskImage || cs.webkitMaskImage || 'none', max: j.scrollWidth - j.clientWidth }; })()");
+    let s = await state();
+    assert.ok(s.max > 0, 'the links overflow at 390 px');
+    assert.deepEqual([s.l, s.r, /gradient/.test(s.mask)], [false, true, true], JSON.stringify(s));
+    await page.eval("document.getElementById('timers-jump').scrollLeft = 10000");
+    await page.waitFor("document.getElementById('timers-jump').hasAttribute('data-l') && !document.getElementById('timers-jump').hasAttribute('data-r')");
+    await page.eval("document.getElementById('timers-jump').scrollLeft = 0");
+    await page.waitFor("!document.getElementById('timers-jump').hasAttribute('data-l') && document.getElementById('timers-jump').hasAttribute('data-r')");
+    // Keyboard: Tab through the links to the last; each comes into view and the fade is gone while one has focus.
+    await page.eval("document.querySelector('#timers-jump button').focus()");
+    for (let i = 0; i < 5; i++) await page.key('Tab');
+    assert.equal(await page.eval('document.activeElement.textContent'), 'Transitions');
+    s = await state();
+    assert.equal(s.mask, 'none', 'no fade while a key has focus there');
+    assert.ok(await page.eval("(() => { const b = document.activeElement.getBoundingClientRect(), j = document.getElementById('timers-jump').getBoundingClientRect(); return b.left >= j.left - 1 && b.right <= j.right + 1; })()"), 'the focused link is in view');
+    // Still plain buttons, all six in the tab order.
+    assert.deepEqual(await page.eval("[...document.querySelectorAll('#timers-jump button')].map((b) => b.tabIndex)"), [0, 0, 0, 0, 0, 0]);
+    // Wide screens: everything fits, so no fade.
+    await page.viewport(1440, 900);
+    await page.waitFor("!document.getElementById('timers-jump').hasAttribute('data-r') && !document.getElementById('timers-jump').hasAttribute('data-l')");
     assert.deepEqual(page.problems, []);
   });
 
