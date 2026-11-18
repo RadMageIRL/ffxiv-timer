@@ -27,7 +27,26 @@
     return '#market';
   }
 
-  const Router = { modeOf, marketHash };
+  // Crafting's addresses, prepared for v0.12.0 and not used by the page yet: until Crafting is built, modeOf
+  // above still opens these as an address Market & Crafting does not know.
+  //   #market/craft                Crafting home (also with a trailing slash, as #market/ is)
+  //   #market/craft/<id>           that item's recipes; id as in #market/item/<id>
+  //   #market/craft/<anything else> a notice
+  // Anything that is not under #market/craft gives null.
+  const CRAFT_ITEM = /^market\/craft\/([1-9][0-9]{0,8})$/;
+  function craftRoute(hash) {
+    const h = String(hash || '').replace(/^#/, '');
+    if (h !== 'market/craft' && !h.startsWith('market/craft/')) return null;
+    if (h === 'market/craft' || h === 'market/craft/') return { view: 'craft-home' };
+    const m = CRAFT_ITEM.exec(h);
+    return m ? { view: 'craft-item', id: Number(m[1]) } : { view: 'notice' };
+  }
+  function craftHash(view) {
+    if (view && view.view === 'craft-item' && Number.isInteger(view.id) && view.id > 0 && view.id < 1e9) return `#market/craft/${view.id}`;
+    return '#market/craft';
+  }
+
+  const Router = { modeOf, marketHash, craftRoute, craftHash };
   if (typeof module === 'object' && module.exports) module.exports = Router;
   else root.XivRouter = Router;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
