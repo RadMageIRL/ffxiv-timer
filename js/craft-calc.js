@@ -242,7 +242,230 @@
     return p.ok ? p.steps.slice(1).map((s) => s.item) : [];
   }
 
-  const CraftCalc = { FORMAT, MAX_QUANTITY, MAX_DEPTH, ERRORS, createCatalog, selectRecipe, expand, decisionPoints };
+  // ---- Costs: prices in, gil out (still pure) ----
+  //
+  // A quote is what the page knows of one item's market at one place, built by the page from Universalis answers:
+  //   { state: 'loaded', nq, hq, avg: { nq, hq }, velocity: { nq, hq }, recent: { nq, hq } }
+  // nq and hq: the lowest listing { price, worldId, at } (at: when Universalis last received that world's board) or
+  // null; avg: the 4-day average sale price or null; velocity: units sold a day over 4 days or null; recent: the last
+  // sale { price, at } or null. Any other state means no price: 'off-board' (not on the market board, so never asked
+  // for), 'no-scope', 'idle', 'pending', 'failed', 'missing' (not on the board at that place), 'empty' (no data).
+  //
+  // The rules:
+  // - A material is bought at its lowest listing: the cheaper of NQ and HQ (an HQ item can always stand in for NQ),
+  //   or with materials 'hq' only the HQ listing of a material that can be HQ. Listings only: vendor prices from the
+  //   game data are unverified and never enter a total or a choice.
+  // - Cash outlay is what has to be bought: every material not marked as owned (gathered or already in hand), at
+  //   its listing plus the assumed purchase tax. Economic cost is the market value of every material the plan uses:
+  //   the cash outlay plus what the owned ones would cost at their listings. Nothing is free.
+  // - A missing price is never zero: a total that lacks one says how many it lacks.
+  // - The cheapest plan is the one with the fewest missing prices, then the lowest economic cost, found by trying
+  //   every buy-or-craft combination of the free steps (at most CHEAPEST_EXHAUSTIVE of them; 7.58 has at most 14).
+
+  const CHEAPEST_EXHAUSTIVE = 16;
+  const QUALITIES = ['nq', 'hq'];
+
+  /** The listing a material would be bought at, or null: { price, quality, worldId, at }. */
+  function buyAt(quote, materials, canHq) {
+    if (!quote || quote.state !== 'loaded') return null;
+    const pick = (q) => (quote[q] && Number.isFinite(quote[q].price) && quote[q].price > 0 ? { ...quote[q], quality: q } : null);
+    if (materials === 'hq' && canHq) return pick('hq');
+    const nq = pick('nq'), hq = canHq ? pick('hq') : null;
+    return nq && hq ? (hq.price < nq.price ? hq : nq) : nq || hq;
+  }
+  /** Why a material has no price, in one word (see the quote states), or null when it has one. */
+  function noPriceWhy(quote, materials, canHq) {
+    if (!quote) return 'idle';
+    if (quote.state !== 'loaded') return quote.state;
+    return materials === 'hq' && canHq ? 'no-hq-listing' : 'no-listing';
+  }
+  const taxRate = (o) => (Number.isFinite(o.tax) && o.tax > 0 ? o.tax : 0);
+
+  /**
+   * What a plan costs. options: expand's options plus { quote: (id) => quote, canBeHq: (id) => boolean,
+   * materials: 'any' | 'hq', tax: a fraction (0.05 for 5 %), owned: Set of item ids }. Answers expand's errors, or
+   *   { ok: true, plan, lines, cash: { total, missing }, value: { total, missing }, oldest, perUnit }
+   * lines: one per material to acquire { item, quantity, craftable, owned, unit, cash, value, why }, where unit is
+   * the listing used (null with why when there is none), cash what buying it takes (0 when owned) and value its
+   * market value in the plan; either is null when unknown. totals add up the known ones; missing counts the rest.
+   * oldest: the oldest listing time used. perUnit: value per item made, or null when anything is missing.
+   */
+  function costPlan(catalog, item, quantity, options = {}) {
+    const plan = expand(catalog, item, quantity, options);
+    if (!plan.ok) return plan;
+    const tax = taxRate(options), owned = options.owned || new Set();
+    const quote = options.quote || (() => null), canBeHq = options.canBeHq || (() => false);
+    const cash = { total: 0, missing: 0 }, value = { total: 0, missing: 0 };
+    let oldest = null;
+    const lines = plan.materials.map((m) => {
+      const q = quote(m.item), hq = canBeHq(m.item), unit = buyAt(q, options.materials, hq), own = owned.has(m.item);
+      const v = unit ? m.quantity * unit.price * (own ? 1 : 1 + tax) : null;
+      const c = own ? 0 : v;
+      if (c === null) cash.missing++; else cash.total += c;
+      if (v === null) value.missing++; else value.total += v;
+      if (unit && Number.isFinite(unit.at) && (oldest === null || unit.at < oldest)) oldest = unit.at;
+      return { item: m.item, quantity: m.quantity, craftable: m.craftable, owned: own, unit, cash: c, value: v, why: unit ? null : noPriceWhy(q, options.materials, hq) };
+    });
+    return { ok: true, plan, lines, cash, value, oldest, perUnit: value.missing ? null : value.total / quantity };
+  }
+
+  /**
+   * The cheapest buy-or-craft plan. options as costPlan, plus force: Map(item id -> 'buy' | 'craft') for steps the
+   * player has decided. Answers expand's errors, or { ok: true, buy: [item ids], value, missing, evaluated, exhaustive }
+   * where value is the plan's economic cost over the prices known and missing how many prices it lacks.
+   */
+  function cheapest(catalog, item, quantity, options = {}) {
+    const full = expand(catalog, item, quantity, { recipes: options.recipes, jobs: options.jobs });
+    if (!full.ok) return full;
+    const tax = taxRate(options), owned = options.owned || new Set();
+    const quote = options.quote || (() => null), canBeHq = options.canBeHq || (() => false);
+    const force = options.force || new Map();
+    const steps = full.steps, leaves = full.materials.map((m) => m.item);
+    const N = steps.length, L = leaves.length;
+    const at = new Map(steps.map((s, k) => [s.item, k]));
+    leaves.forEach((id, k) => at.set(id, N + k));
+    // The unit economic price of buying each item (NaN when there is none), and each step's recipe as flat arrays.
+    const price = new Float64Array(N + L);
+    const ids = steps.map((s) => s.item).concat(leaves);
+    ids.forEach((id, k) => { const u = buyAt(quote(id), options.materials, canBeHq(id)); price[k] = u ? u.price * (owned.has(id) ? 1 : 1 + tax) : NaN; });
+    const yields = steps.map((s) => catalog.recipe(s.recipe).yield);
+    const kids = steps.map((s) => catalog.recipe(s.recipe).ingredients.map((g) => [at.get(g.item), g.amount]));
+    const free = [], fixedBuy = new Set();
+    for (let k = 1; k < N; k++) { const f = force.get(steps[k].item); if (f === 'buy') fixedBuy.add(k); else if (f !== 'craft') free.push(k); }
+    const need = new Float64Array(N + L), bought = new Uint8Array(N);
+    function evaluate() {
+      need.fill(0); need[0] = quantity;
+      let total = 0, missing = 0;
+      for (let k = 0; k < N; k++) {
+        const q = need[k];
+        if (!q) continue;
+        if (bought[k]) { if (Number.isNaN(price[k])) missing++; else total += q * price[k]; continue; }
+        const c = Math.ceil(q / yields[k]);
+        for (const [j, a] of kids[k]) need[j] += c * a;
+      }
+      for (let j = N; j < N + L; j++) if (need[j]) { if (Number.isNaN(price[j])) missing++; else total += need[j] * price[j]; }
+      return [missing, total];
+    }
+    const better = (a, b) => !b || a[0] < b[0] || (a[0] === b[0] && a[1] < b[1] - 1e-9);
+    const set = (mask) => { bought.fill(0); for (const k of fixedBuy) bought[k] = 1; free.forEach((k, b) => { if (mask[b]) bought[k] = 1; }); };
+    let best = null, bestMask = null, evaluated = 0;
+    const exhaustive = free.length <= CHEAPEST_EXHAUSTIVE;
+    if (exhaustive) {
+      for (let m = 0; m < 2 ** free.length; m++) {
+        const mask = free.map((_, b) => (m >> b) & 1);
+        set(mask); const r = evaluate(); evaluated++;
+        if (better(r, best)) { best = r; bestMask = mask; }
+      }
+    } else {
+      // Past the limit (never in 7.58): start from each step's cheaper way per unit, worked out from the bottom up
+      // (rounding and shared steps aside), then flip one step at a time, in passes, while that helps.
+      const unit = new Float64Array(N + L).fill(Infinity), buyIt = new Uint8Array(N);
+      for (let j = N; j < N + L; j++) if (!Number.isNaN(price[j])) unit[j] = price[j];
+      for (let k = N - 1; k >= 0; k--) {
+        let made = 0;
+        for (const [j, a] of kids[k]) made += a * unit[j];
+        made /= yields[k];
+        const bought = Number.isNaN(price[k]) ? Infinity : price[k];
+        if (k > 0 && bought < made) { unit[k] = bought; buyIt[k] = 1; } else unit[k] = made;
+      }
+      let mask = free.map((k) => buyIt[k]);
+      set(mask); best = evaluate(); bestMask = mask; evaluated++;
+      for (let improved = true; improved;) {
+        improved = false;
+        for (let b = 0; b < free.length; b++) {
+          const m = bestMask.slice(); m[b] ^= 1;
+          set(m); const r = evaluate(); evaluated++;
+          if (better(r, best)) { best = r; bestMask = m; improved = true; }
+        }
+      }
+    }
+    set(bestMask);
+    const buy = []; for (let k = 1; k < N; k++) if (bought[k]) buy.push(steps[k].item);
+    return { ok: true, buy, value: best[1], missing: best[0], evaluated, exhaustive };
+  }
+
+  /**
+   * What a finished item sells for and what crafting it may earn, per unit, on one quality side. quote: the item's;
+   * cost: the material cost of one (economic, from costPlan's perUnit) or null. Answers
+   *   { listing, average, velocity, recent, estimates: { listing, average }, headline, basis }
+   * listing: the lowest listing { price, worldId, at } or null; average: the 4-day average sale price or null.
+   * estimates.listing and .average: { ref, profit, margin } against each, or null. headline: the lower of the two
+   * when both are there (basis 'lower'), else the one there is (basis 'listing only' or 'sales only'), else null
+   * (basis null). An estimate is never a promise: listings are offers, not sales.
+   */
+  function profitOf(quote, quality, cost) {
+    const q = QUALITIES.includes(quality) ? quality : 'nq';
+    const loaded = quote && quote.state === 'loaded';
+    const listing = loaded && quote[q] && quote[q].price > 0 ? quote[q] : null;
+    const average = loaded && Number.isFinite(quote.avg[q]) && quote.avg[q] > 0 ? quote.avg[q] : null;
+    const velocity = loaded && Number.isFinite(quote.velocity[q]) ? quote.velocity[q] : null;
+    const recent = loaded ? quote.recent[q] || null : null;
+    const est = (ref) => (ref && Number.isFinite(cost) ? { ref, profit: ref - cost, margin: (ref - cost) / ref } : null);
+    const estimates = { listing: est(listing && listing.price), average: est(average) };
+    let headline = null, basis = null;
+    if (estimates.listing && estimates.average) { headline = estimates.listing.ref <= estimates.average.ref ? estimates.listing : estimates.average; basis = 'lower'; }
+    else if (estimates.listing) { headline = estimates.listing; basis = 'listing only'; }
+    else if (estimates.average) { headline = estimates.average; basis = 'sales only'; }
+    return { listing, average, velocity, recent, estimates, headline, basis };
+  }
+
+  /**
+   * The market ids a recipe view prices, sorted: the item and every market item under it, with every recipe for
+   * every step counted, so changing a job, a recipe or buy-or-craft never needs another request. onBoard: (id) =>
+   * boolean; anything not on the market board is never asked for.
+   */
+  function priceIds(catalog, item, onBoard) {
+    const seen = new Set([item]), stack = [item];
+    while (stack.length) for (const r of catalog.recipesFor(stack.pop())) for (const g of r.ingredients) if (!seen.has(g.item)) { seen.add(g.item); stack.push(g.item); }
+    return [...seen].filter(onBoard).sort((a, b) => a - b);
+  }
+
+  /**
+   * Crafting Watch's shortlist: the current crafting tier, every market item made by a level 100 recipe of 4 stars or
+   * an expert recipe, and the fixed requests that price it: the sorted market ids of all their trees, 100 to a
+   * request. The same for every visitor, so each request is one shared cache entry per place.
+   */
+  function watchList(catalog, onBoard) {
+    const outputs = catalog.outputs().filter((id) => onBoard(id) && catalog.recipesFor(id).some((r) => r.level === 100 && (r.stars >= 4 || r.expert)));
+    const all = new Set();
+    for (const id of outputs) for (const x of priceIds(catalog, id, onBoard)) all.add(x);
+    const sorted = [...all].sort((a, b) => a - b), chunks = [];
+    for (let i = 0; i < sorted.length; i += 100) chunks.push(sorted.slice(i, i + 100));
+    return { outputs, chunks };
+  }
+
+  /**
+   * One Crafting Watch row per output: the cheapest of its recipes (at the cheapest plan, for one craft), what it
+   * may earn, and how much to trust that. options as costPlan, plus quality: 'hq' | 'nq' (an item that cannot be HQ
+   * is always NQ), now, staleMs (default 3 days), minDaily (default 1). group: 'ranked' (every price there, both
+   * references, sells at least minDaily a day, listing and last sale newer than staleMs), 'thin' (priced, but some
+   * of that is not so), or 'unpriced' (a material or both references missing): never ranked.
+   */
+  function watchRows(catalog, outputs, options = {}) {
+    const staleMs = options.staleMs || 3 * 86400000, minDaily = options.minDaily === undefined ? 1 : options.minDaily;
+    const canBeHq = options.canBeHq || (() => false), quote = options.quote || (() => null), t = options.now;
+    return outputs.map((item) => {
+      const quality = options.quality === 'hq' && canBeHq(item) ? 'hq' : 'nq';
+      let best = null;
+      for (const r of catalog.recipesFor(item)) {
+        const o = { ...options, recipes: { [item]: r.id }, jobs: [r.job], force: undefined };
+        const c = cheapest(catalog, item, r.yield, o);
+        if (!c.ok) continue;
+        const p = costPlan(catalog, item, r.yield, { ...o, buy: c.buy });
+        if (!best || (p.value.missing < best.cost.value.missing) || (p.value.missing === best.cost.value.missing && p.value.total < best.cost.value.total)) best = { recipe: r, cost: p };
+      }
+      const perUnit = best && best.cost.perUnit;
+      const profit = profitOf(quote(item), quality, perUnit);
+      const stale = !profit.listing || !Number.isFinite(profit.listing.at) || t - profit.listing.at > staleMs
+        || !profit.recent || !Number.isFinite(profit.recent.at) || t - profit.recent.at > staleMs
+        || (best && best.cost.oldest !== null && t - best.cost.oldest > staleMs);
+      const lowVolume = profit.velocity === null || profit.velocity < minDaily;
+      const group = !best || perUnit === null || !profit.headline ? 'unpriced' : profit.basis === 'lower' && !stale && !lowVolume ? 'ranked' : 'thin';
+      return { item, quality, recipe: best ? best.recipe.id : null, job: best ? best.recipe.job : null, cost: perUnit, buy: best ? best.cost.plan.materials.filter((m) => m.craftable).map((m) => m.item) : [], profit, stale, lowVolume, group };
+    });
+  }
+
+  const CraftCalc = { FORMAT, MAX_QUANTITY, MAX_DEPTH, ERRORS, CHEAPEST_EXHAUSTIVE, createCatalog, selectRecipe, expand, decisionPoints, buyAt, costPlan, cheapest, profitOf, priceIds, watchList, watchRows };
   if (typeof module === 'object' && module.exports) module.exports = CraftCalc;
   else root.XivCraft = CraftCalc;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

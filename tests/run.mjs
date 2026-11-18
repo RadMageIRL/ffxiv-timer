@@ -949,6 +949,13 @@ test('crafting foundation: tests/crafting.mjs passes', () => {
   const m = /(\d+) passed, 0 failed/.exec(r.stdout);
   assert.ok(m && Number(m[1]) > 0, r.stdout);
 });
+// Crafting's money too: costs, the cheapest plan, profit, Crafting Watch and its requests.
+test('crafting costs: tests/crafting-costs.mjs passes', () => {
+  const r = spawnSync(process.execPath, [join(ROOT, 'tests', 'crafting-costs.mjs')], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const m = /(\d+) passed, 0 failed/.exec(r.stdout);
+  assert.ok(m && Number(m[1]) > 0, r.stdout);
+});
 
 // ---- the radmagelabs.com price function ----
 // Its own test file too (privacy, cache headers, failures, rate limits), which also runs alone.
