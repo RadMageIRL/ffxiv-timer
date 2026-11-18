@@ -13,7 +13,7 @@ Added
   links: Market Watch, Favorites and Browse.
 - The first visit to Market & Crafting asks which data center to show, prefilled from the one
   chosen in Resets. Nothing is saved until you choose.
-- Market Watch: commonly traded items in groups (crystals, materia, medicine, meals, dyes and
+- Market Watch: 75 commonly traded items in groups (crystals, materia, medicine, meals, dyes and
   crafting materials), all priced in one request. Your newest favorites show beside it
   (Show all lists the rest; up to 500 are kept), and Browse lists the market board's categories.
 - Search across all 16,845 items that can be sold on the market board, by name or id, with each

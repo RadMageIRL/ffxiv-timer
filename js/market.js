@@ -36,25 +36,26 @@
   const SETTLE_MS = 300;
 
   /**
-   * Market Watch on the home: familiar materials, materia, crystals, consumables and dyes, in groups. A
-   * PROVISIONAL list (the D8 draft of 2026-11-17, ranked by gil traded a day in North America): it is not
-   * final until it is reviewed, and the page never presents it as a ranking. All 80 are asked for in one
-   * request per place.
+   * Market Watch on the home: familiar materials, materia, crystals, consumables and dyes, in groups. The
+   * reviewed list of 2026-11-17: the D8 draft (ranked by gil traded a day in North America), checked
+   * against live prices on four data centers, with Lightning Crystal in place of Ice Shard and five items
+   * that barely sell anywhere left out. The page never presents it as a ranking. All 75 are asked for in
+   * one request per place.
    */
   const WATCH = [
-    { name: 'Crystals', ids: [10, 5, 8, 13, 2, 9, 11, 3] },
+    { name: 'Crystals', ids: [10, 5, 8, 13, 2, 9, 11, 12] },
     { name: 'Materia', ids: [41767, 41780, 41766, 41778, 41762, 41758, 41763, 41771, 41776, 41764, 41772, 41765] },
     { name: 'Catalysts', ids: [21800, 10335, 7621, 33916] },
-    { name: 'Medicine', ids: [49234, 49238, 49235, 49237, 47701, 45995, 44162, 45999] },
+    { name: 'Medicine', ids: [49234, 49238, 49235, 49237, 47701] },
     { name: 'Meals', ids: [49240, 49244, 46253, 49239, 49243, 46254, 49245, 44842] },
     { name: 'Dyes', ids: [13115, 13114, 52256, 13708, 52255, 52254, 13116, 13117] },
-    { name: 'Metal', ids: [50972, 49214, 45975, 49783] },
+    { name: 'Metal', ids: [50972, 49214, 45975] },
     { name: 'Lumber', ids: [45974, 45968, 49213, 44137] },
     { name: 'Cloth', ids: [49217, 45978, 45988, 44150] },
     { name: 'Leather', ids: [49226, 50971, 49216, 45987] },
     { name: 'Stone', ids: [49208, 49215, 45969, 49209] },
     { name: 'Reagents', ids: [49228, 46246, 46252, 49227, 49224, 50973, 45985, 49225] },
-    { name: 'Ingredients', ids: [49229, 49231, 44171, 45990] },
+    { name: 'Ingredients', ids: [49229, 49231, 44171] },
   ];
   const watchIds = (cat) => WATCH.flatMap((g) => g.ids).filter((id) => cat.byId.has(id));
   const favHome = (favs) => favs.slice(-FAV_HOME).reverse();

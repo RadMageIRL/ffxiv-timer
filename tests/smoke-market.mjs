@@ -128,7 +128,7 @@ try {
     assert.deepEqual(priceCalls(), []);
     await click(page, '#mk-ask-go');
     await page.waitFor(WATCH_PRICED);
-    assert.deepEqual(priceCalls(), ['aggregated Crystal 80'], 'Market Watch and favorites in one request');
+    assert.deepEqual(priceCalls(), ['aggregated Crystal 75'], 'Market Watch and favorites in one request');
     assert.equal((await saved(page)).scope, 'dc:crystal');
     assert.equal(await page.eval("document.getElementById('mk-ask').hidden"), true);
     assert.equal(await page.eval('document.activeElement.id'), 'mk-find', 'on to the search');
@@ -334,7 +334,7 @@ try {
     await page.waitFor(WATCH_PRICED);
     prices.hold();
     await find(page, 'ingot');
-    // The search's own request (40 to 50 ids; Market Watch's had 80) is on its way and held.
+    // The search's own request (40 to 50 ids; Market Watch's had 75) is on its way and held.
     await until(() => prices.calls.some((c) => c.kind === 'aggregated' && c.ids.length >= 40 && c.ids.length <= 50));
     // A new sort cancels the request on its way and asks again for the same items at once.
     await select(page, 'mk-sort', 'name');

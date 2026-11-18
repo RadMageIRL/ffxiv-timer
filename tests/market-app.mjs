@@ -411,11 +411,14 @@ test('market: a price sort says what it covers: all matches, or only those whose
   assert.equal(Market.scopeText({ ...base, sort: 'level-desc' }), 'Sorted by item level, highest first.');
 });
 
-test('market: Market Watch is the reviewed draft (80 items in 13 groups), all on the board, one request a place even with 8 favorites', () => {
+test('market: Market Watch is the approved list (75 items in 13 groups), all on the board, one request a place even with 8 favorites', () => {
   const ids = Market.watchIds(CAT);
-  assert.equal(ids.length, 80);
-  assert.equal(new Set(ids).size, 80);
-  assert.equal(Market.WATCH.length, 13);
+  assert.equal(ids.length, 75);
+  assert.equal(new Set(ids).size, 75);
+  assert.deepEqual(Market.WATCH.map((g) => `${g.name} ${g.ids.length}`), ['Crystals 8', 'Materia 12', 'Catalysts 4', 'Medicine 5', 'Meals 8', 'Dyes 8', 'Metal 3', 'Lumber 4', 'Cloth 4', 'Leather 4', 'Stone 4', 'Reagents 8', 'Ingredients 3']);
+  // The review of 2026-11-17: Lightning Crystal for Ice Shard; out: Cassava, Runaway Metal, the Grade 2 and Grade 3 gemdraughts.
+  assert.deepEqual([12, 3, 45990, 49783, 44162, 45995, 45999].map((id) => ids.includes(id)), [true, false, false, false, false, false, false]);
+  assert.equal(Market.WATCH[0].ids.map((id) => CAT.names[idx(id)]).filter((n) => / Crystal$/.test(n)).length, 6, 'all six crystals');
   assert.ok(ids.length + Market.FAV_HOME <= MAX_IDS);
   assert.deepEqual(Market.favHome([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]), [10, 9, 8, 7, 6, 5, 4, 3]);
 });
