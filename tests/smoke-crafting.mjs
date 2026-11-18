@@ -76,14 +76,19 @@ const noOverflow = (page) => page.eval('document.documentElement.scrollWidth <= 
 
 // An aggregated result: each side [lowest listing, 4-day average sale, sold a day] (0 or null leaves it out), the
 // board seen `ageMin` minutes before the page clock, on Cactuar (79).
-function agg(nq, hq = null, ageMin = 30) {
+function agg(nq, hq = null, ageMin = 30, world = 79) {
   const at = NOW - ageMin * 60000;
   const both = (v) => ({ dc: v, region: v });
   const side = (s) => (s ? {
-    minListing: s[0] ? both({ price: s[0], worldId: 79 }) : {}, recentPurchase: s[1] ? both({ price: s[1], timestamp: at, worldId: 79 }) : {},
+    minListing: s[0] ? both({ price: s[0], worldId: world }) : {}, recentPurchase: s[1] ? both({ price: s[1], timestamp: at, worldId: world }) : {},
     averageSalePrice: s[1] ? both({ price: s[1] }) : {}, dailySaleVelocity: s[2] !== null && s[2] !== undefined ? both({ quantity: s[2] }) : {},
   } : { minListing: {}, recentPurchase: {}, averageSalePrice: {}, dailySaleVelocity: {} });
-  return { nq: side(nq), hq: side(hq), worldUploadTimes: [{ worldId: 79, timestamp: at }] };
+  return { nq: side(nq), hq: side(hq), worldUploadTimes: [{ worldId: world, timestamp: at }] };
+}
+// Heavy Crowsbeak Hammer and everything under it priced the way real answers can look at their widest: prices in the
+// millions, on Midgardsormr (Aether's longest world name).
+function priceHammerWide() {
+  for (const id of Calc.priceIds(CATALOG, 2347, () => true)) prices.set(id, agg([CATALOG.craftable(id) ? 1234567 : 98765, 1100000, 3], [2345678, 2100000, 2], 30, 65));
 }
 // Bronze Rivets and everything under it, priced so the cheapest plan crafts the ingot: 2 Copper Ore (10) + 1 Tin Ore
 // (15) + 1 Fire Shard (3) = 38, against 120 bought; with the rivets' own Fire Shard, 41 for one.
@@ -484,15 +489,40 @@ try {
   });
 
   for (const theme of ['dark', 'light']) {
-    await test(`phones in the ${theme} theme: 320, 360 and 390 px, Crafting home and two recipes, no sideways scroll, no table scrolling inside its frame`, async () => {
-      prices.reset(); priceRivets();
+    // With a wide font pinned (Linux's DejaVu Sans, or Verdana; as the timers' narrow-phone test does) and Heavy
+    // Crowsbeak Hammer at its widest (99 of them, prices in the millions, a long world name): in v0.12.0's first CI run
+    // its plans and shopping list ran 25 and 14 px past their frames at 320 px.
+    await test(`phones in the ${theme} theme: 320, 360 and 390 px with a wide font, Crafting home and two recipes, no sideways scroll, no table scrolling inside its frame`, async () => {
+      prices.reset(); priceRivets(); priceHammerWide();
+      const WIDE_FONT = 'body { font-family: "DejaVu Sans", Verdana, sans-serif !important; }';
       for (const width of [320, 360, 390]) {
         for (const hash of ['#market/craft', `#market/craft/${RIVETS}`, '#market/craft/2347']) {
           const page = await fresh(hash, { ...AETHER, theme }, { width, height: 800, mobile: true });
           await page.waitFor(hash === '#market/craft' ? `${CRAFT_READY} && !!document.querySelector('#cr-watch-body .mk-row')` : ITEM_READY);
+          await page.eval(`document.head.append(Object.assign(document.createElement('style'), { textContent: ${JSON.stringify(WIDE_FONT)} }))`);
+          if (hash === '#market/craft/2347') {
+            await change(page, '#cr-qty', '99');
+            await page.waitFor("XivCrafting.current.debug().item.quantity === 99");
+            assert.match(await text(page, '.cr-shop tbody'), /Midgardsormr/, 'the long world name is in the list');
+            assert.match(await text(page, '.cr-plans tbody'), /\d{3},\d{3},\d{3} gil/, 'totals in the hundreds of millions');
+          }
+          await sleep(100);
           assert.ok(await noOverflow(page), `${width} px ${hash}`);
           // The plans and the shopping list fit: nothing of them is cut off behind a sideways scroll.
-          assert.deepEqual(await page.eval("[...document.querySelectorAll('#mk-craft-view .table-wrap')].map(w => w.scrollWidth - w.clientWidth).filter(d => d > 1)"), [], `${width} px ${hash}: a table scrolls sideways`);
+          const frames = await page.eval("[...document.querySelectorAll('#mk-craft-view .table-wrap')].map(w => [w.querySelector('table').className, w.scrollWidth - w.clientWidth])");
+          assert.deepEqual(frames.filter(([, d]) => d > 1), [], `${width} px ${hash}: a table scrolls sideways`);
+          if (hash !== '#market/craft') {
+            assert.deepEqual(frames.map(([c]) => c.replace('mk-table ', '')), ['cr-plans', 'cr-shop'], 'both tables checked');
+            // At 360 px and below the plans' Each and the list's Where make room; their figures stay on the page.
+            const cols = await page.eval("[...document.querySelectorAll('.cr-plans thead th, .cr-shop thead th')].map(h => h.textContent + (h.getClientRects().length ? '' : ' (hidden)')).join(', ')");
+            assert.equal(cols, width <= 360 ? 'Plan, You pay, Materials worth, Each (hidden), Have, Material, Qty, Each, Where (hidden), You pay' : 'Plan, You pay, Materials worth, Each, Have, Material, Qty, Each, Where, You pay', `${width} px columns`);
+          }
+          if (hash === '#market/craft/2347') {
+            // 99 of them: the price of one is in Materials worth when Each is hidden, and every world is in the tree.
+            const each = await page.eval("[...document.querySelectorAll('.cr-plans tbody tr')].map(r => [...r.querySelectorAll('.cr-each-inline')].filter(n => n.getClientRects().length).map(n => n.textContent).join(''))");
+            assert.ok(width <= 360 ? each.every((t) => / each$/.test(t)) : each.every((t) => t === ''), `${width} px: ${JSON.stringify(each)}`);
+            assert.match(await text(page, '.cr-tree'), /at Midgardsormr/);
+          }
           if (shots && width === 390) await page.screenshot(join(shots, `phone-${theme}-${hash === '#market/craft' ? 'home' : 'recipe'}.png`), true);
           await page.close(); open.splice(open.indexOf(page), 1);
         }

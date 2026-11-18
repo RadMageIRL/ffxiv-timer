@@ -366,12 +366,13 @@
         el('div', { class: 'panel-head' }, el('h3', { id: 'cr-plan-title' }, `${v.quantity} ${nameOf(id)}: buy or craft`),
           el('p', { class: 'hint' }, 'You pay leaves out what you mark as owned or gathered; materials worth counts it at its market price.')),
         el('div', { class: 'table-wrap' }, el('table', { class: 'mk-table cr-plans' },
-          el('thead', null, el('tr', null, el('th', { scope: 'col' }, 'Plan'), el('th', { scope: 'col', class: 'num' }, 'You pay'), el('th', { scope: 'col', class: 'num' }, 'Materials worth'), el('th', { scope: 'col', class: 'num' }, 'Each'))),
+          el('thead', null, el('tr', null, el('th', { scope: 'col' }, 'Plan'), el('th', { scope: 'col', class: 'num' }, 'You pay'), el('th', { scope: 'col', class: 'num' }, 'Materials worth'), el('th', { scope: 'col', class: 'num cr-each' }, 'Each'))),
           el('tbody', null, x.strategies.map((p) => el('tr', { class: p.key === (v.force.size ? 'yours' : 'cheapest') ? 'is-current' : null, 'data-plan': p.key },
             el('th', { scope: 'row' }, p.label, p.key === (v.force.size ? 'yours' : 'cheapest') ? el('span', { class: 'badge tag' }, 'shown below') : null),
             el('td', { class: 'num' }, money(p.cash, p.cashKnown, p.missing)),
-            el('td', { class: 'num' }, money(p.value, p.valueKnown, p.missing)),
-            el('td', { class: 'num' }, p.value === null ? api.none('unknown') : gil(p.value / v.quantity)))))))));
+            // On a narrow phone the Each column is hidden (css/crafting.css) and the price of one shows here instead.
+            el('td', { class: 'num' }, money(p.value, p.valueKnown, p.missing), v.quantity > 1 && p.value !== null ? el('span', { class: 'cr-each-inline mk-where' }, figure(`${gil(p.value / v.quantity)} each`)) : null),
+            el('td', { class: 'num cr-each' }, p.value === null ? api.none('unknown') : figure(gil(p.value / v.quantity))))))))));
       kids.push(profitBlock(id, x, s, t));
       kids.push(el('section', { class: 'panel', 'aria-labelledby': 'cr-tree-title' },
         el('div', { class: 'panel-head' }, el('h3', { id: 'cr-tree-title' }, 'What it takes'),
@@ -381,10 +382,13 @@
       box.replaceChildren(...kids);
     }
     function money(full, known, missing) {
-      if (full !== null) return gil(full);
+      if (full !== null) return figure(gil(full));
       if (!missing) return api.none('unknown');
-      return el('span', null, known ? `at least ${gil(known)}` : api.none('unknown'), el('span', { class: 'mk-where' }, ` ${plural(missing, 'price', 'prices')} missing`));
+      return el('span', null, known ? figure(`at least ${gil(known)}`) : api.none('unknown'), el('span', { class: 'mk-where' }, ` ${plural(missing, 'price', 'prices')} missing`));
     }
+    // A figure in the plans and the shopping list may break only after a thousands comma (<wbr> adds no character), so
+    // a total in the hundreds of millions still fits a cell on a 320 px phone.
+    const figure = (text) => String(text).split(',').flatMap((part, i, all) => (i < all.length - 1 ? [`${part},`, el('wbr')] : [part]));
     function priceLine(ids, s, t) {
       if (!s) return el('span');
       const loading = ids.filter((id) => api.pending(id, s)).length, failedN = ids.filter((id) => api.failure(id, s) && !api.entry(id, s)).length, until = api.pausedUntil();
@@ -500,17 +504,18 @@
           el('p', { class: 'hint' }, 'What the plan above has you buy or gather, added up across every branch. Tick what you already have or will gather yourself: it leaves You pay, not Materials worth.')),
         el('div', { class: 'table-wrap' }, el('table', { class: 'mk-table cr-shop', 'aria-labelledby': 'cr-list-title' },
           el('thead', null, el('tr', null, el('th', { scope: 'col' }, 'Have'), el('th', { scope: 'col' }, 'Material'), el('th', { scope: 'col', class: 'num' }, 'Qty'),
-            el('th', { scope: 'col', class: 'num' }, 'Each'), el('th', { scope: 'col' }, 'Where'), el('th', { scope: 'col', class: 'num' }, 'You pay'))),
+            el('th', { scope: 'col', class: 'num' }, 'Each'), el('th', { scope: 'col', class: 'cr-where' }, 'Where'), el('th', { scope: 'col', class: 'num' }, 'You pay'))),
           el('tbody', null, rows.map((l) => el('tr', { 'data-id': String(l.item) },
             el('td', null, el('input', { type: 'checkbox', checked: l.owned ? true : null, 'data-cown': String(l.item), 'data-ckey': `own:${l.item}`, 'aria-label': `I have or will gather ${nameOf(l.item)}` })),
             el('th', { scope: 'row' }, nameOf(l.item), l.craftable ? el('span', { class: 'badge tag' }, 'could be crafted') : null),
-            el('td', { class: 'num' }, l.quantity.toLocaleString('en-US')),
-            el('td', { class: 'num' }, l.unit ? `${gil(l.unit.price)}${canBeHq(l.item) ? ` ${l.unit.quality.toUpperCase()}` : ''}` : api.none(WHY[l.why] || 'no price')),
-            el('td', null, where(l.unit)),
-            el('td', { class: 'num' }, l.owned ? api.none('owned') : l.cash === null ? api.none('unknown') : gil(l.cash))))),
+            el('td', { class: 'num' }, figure(l.quantity.toLocaleString('en-US'))),
+            el('td', { class: 'num' }, l.unit ? figure(`${gil(l.unit.price)}${canBeHq(l.item) ? ` ${l.unit.quality.toUpperCase()}` : ''}`) : api.none(WHY[l.why] || 'no price')),
+            // Where is hidden on a narrow phone (css/crafting.css); the world of each listing is in the tree above.
+            el('td', { class: 'cr-where' }, where(l.unit)),
+            el('td', { class: 'num' }, l.owned ? api.none('owned') : l.cash === null ? api.none('unknown') : figure(gil(l.cash)))))),
           el('tfoot', null,
-            el('tr', null, el('th', { scope: 'row', colspan: '5' }, 'You pay'), el('td', { class: 'num' }, money(x.plan.cash.missing ? null : x.plan.cash.total, x.plan.cash.total, x.plan.cash.missing))),
-            el('tr', null, el('th', { scope: 'row', colspan: '5' }, 'Materials worth'), el('td', { class: 'num' }, money(x.plan.value.missing ? null : x.plan.value.total, x.plan.value.total, x.plan.value.missing)))))),
+            el('tr', null, el('th', { scope: 'row', colspan: '4' }, 'You pay'), el('td', { class: 'cr-where' }), el('td', { class: 'num' }, money(x.plan.cash.missing ? null : x.plan.cash.total, x.plan.cash.total, x.plan.cash.missing))),
+            el('tr', null, el('th', { scope: 'row', colspan: '4' }, 'Materials worth'), el('td', { class: 'cr-where' }), el('td', { class: 'num' }, money(x.plan.value.missing ? null : x.plan.value.total, x.plan.value.total, x.plan.value.missing)))))),
         surplus.length ? el('p', { class: 'hint' }, `Left over from whole crafts: ${surplus.map((p) => `${p.quantity} ${nameOf(p.item)}`).join(', ')}.`) : null,
         el('p', { class: 'mk-actions' }, el('button', { type: 'button', class: 'ghost small', 'data-ccopy': '', 'data-ckey': 'copy' }, 'Copy the list'), ' ',
           el('span', { class: 'hint', id: 'cr-copy-status', role: 'status' }, st.status)));

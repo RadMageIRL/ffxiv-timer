@@ -33,6 +33,8 @@
 .cr-plans th, .cr-plans td { white-space: normal; }
 .cr-plans tr.is-current th, .cr-plans tr.is-current td { background: var(--gold-wash); }
 .cr-plans .badge { margin-left: 8px; }
+/* The price of one inside Materials worth: only on a narrow phone, where the Each column is hidden. */
+.cr-each-inline { display: none; }
 .mk-stats.cr-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 10px; }
 .cr-est, .cr-warn { margin: 8px 0 0; font-size: 14px; }
 .cr-warn li { color: var(--muted); }
@@ -77,8 +79,15 @@
   .cr-info { grid-column: 1 / -1; padding-left: 32px; }
   .cr-tree .cr-tree { margin-left: 6px; padding-left: 10px; }
 }
-@media (max-width: 360px) {
-  /* The shopping list's six columns within 320 px: closer cells, and the tag under the name. */
+@media (max-width: 640px) {
+  /* Six columns on a phone, with Aether's longest world name (Midgardsormr) in Where and any wide font: closer cells. */
   .cr-shop td, .cr-shop th { padding-left: 3px; padding-right: 3px; }
+}
+@media (max-width: 360px) {
+  /* Both tables within 320 px, whatever the font and the figures: the tag under the name, and the plans' Each and
+     the list's Where make room (the price of one moves into Materials worth; the world of each listing is in the tree
+     and in the copied list). */
   .cr-shop tbody th .badge { display: table; margin: 4px 0 0; border-radius: var(--radius-sm); }
+  .cr-plans .cr-each, .cr-shop .cr-where { display: none; }
+  .cr-each-inline { display: block; }
 }
